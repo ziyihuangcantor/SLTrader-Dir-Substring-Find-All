@@ -1,0 +1,55 @@
+﻿@using System.ComponentModel
+@using BondFire.Entities
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<!DOCTYPE html>
+<html>
+<head>  
+
+<title>SL Trader - Compliance</title>	
+
+<script>
+    $.ajaxSetup({
+        cache: false
+    });
+</script>
+
+</head>
+   <body id="ContentArea">
+    @{
+        if (SessionService.UserPreference.SLSecurityLayoutTypeId == SL_SecurityLayoutType.SIDE)
+        {
+            Html.RenderPartial("~/Areas/Compliance/Views/Home/_Main.cshtml");
+        }
+        else
+        {
+            Html.RenderPartial("~/Areas/Compliance/Views/Home/_MainTop.cshtml");
+        }
+       
+        RenderBody();
+    }
+   </body> 
+</html>
+@(Html.Kendo().Window()
+                .Name("ErrorWindow")
+                .Visible(false)
+                .Title("System Error")
+                .Content(@<text>
+                        <table>
+                        <tr>
+                        <td class="width100p">
+                        <label id="message"></label>
+                        </td>
+                        </tr>
+                        <tr>
+                        <td class="text-right">
+                        <button class="k-button" onclick="closeErrorWindow()">OK</button>
+                        </td>
+                        </tr>
+                        </table>
+                        </text>))
+
+
+

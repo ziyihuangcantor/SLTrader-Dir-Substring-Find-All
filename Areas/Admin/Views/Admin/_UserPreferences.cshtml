@@ -1,0 +1,224 @@
+﻿@using System.ComponentModel
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Globalization;
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+
+@model SL_UserPreference
+
+<script type="text/javascript">
+    function onHeaderFontSizeChange(e) {     
+        changeFontSize(this.value());        
+    }
+
+    function onHeaderFontFamilyChange(e) {
+        changeFontFamily(this.value())
+    }
+
+    function onUserPrefSubmit() {
+ 
+        var form = $("#UserPreferenceForm");
+
+        try
+        {
+            $.ajax({
+                url: "@Url.Action("UpdateProfile", "Header", new { area = "Header" })",
+                data: form.serializeArray(),                
+                type: "POST",
+                success: function (e) {
+                    $("#UserPrefStatusLabel").text("User settings updated.");                    
+                    $('#LocalHeaderDetailWindow').data("kendoWindow").close();
+                },
+                error: function (e) {                  
+                    $("#UserPrefStatusLabel").text("User settings update failed.");
+                }
+            });
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onCancel(e) {
+
+    }   
+</script>
+
+<style>
+    #UserPreference {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+        #UserPreference th,
+        #UserPreference td {
+            min-height: 50px;
+            padding: 5px 0px 0px 5px;
+        }
+
+    #UserPreferenceDiv {
+        width: 100%;
+    }
+</style>
+
+<div id="UserPreferenceDiv">
+    @using (Html.BeginForm("", "", FormMethod.Post, new { id = "UserPreferenceForm" }))
+    {
+        <table id="UserPreference">
+            <tr>
+                <td>@LabelHelper.Text("DefaultFirm")</td>
+                <td colspan="2">
+               @if (Model.DefaultFirm == null)
+               {
+                     @(Html.Kendo().DropDownListFor(x => Model.DefaultFirm)
+                        .DataTextField("Custodian")
+                        .DataValueField("CompanyId")
+                        .OptionLabel("Empty List")
+                        .Animation(true)
+                        .AutoBind(true)
+                        .DataSource(dataSource => dataSource
+                        .Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" }))))
+               }
+               else
+               {    
+                    @(Html.Kendo().DropDownListFor(x => Model.DefaultFirm)
+                        .DataTextField("Custodian")
+                        .DataValueField("CompanyId")
+                        .OptionLabel("Empty List")
+                        .Animation(true)
+                        .AutoBind(true)
+                        .DataSource(dataSource => dataSource
+                        .Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                        .Value(Model.DefaultFirm.ToString()))
+               }
+                </td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Text("DefautltApplication")</td>
+                <td colspan="2">
+                    @(Html.Kendo().DropDownListFor(x => Model.Application)
+                          .BindTo(SessionSecurityService.LoadApplications())
+                          .Value(EnumExtensions.GetEnumSelectListItem(Model.Application).Value.ToString()))</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Text("DefaultStyle")</td>
+                <td colspan="2">
+                    @(Html.Kendo().DropDownListFor(x => Model.Customcss)
+                    .BindTo(new List<string>() {
+                            "black",
+                            "blueopal",
+                            "bootstrap",
+                            "default",
+                            "fiori",
+                            "flat",
+                            "highcontrast",
+                            "material",
+                            "materialblack",
+                            "metro",
+                            "metroblack",
+                            "moonlight",
+                            "nova",
+                            "office365",
+                            "uniform",
+                            "silver",
+                            "default-v2",
+                            "bootstrap-v4"
+                    })
+                    .Events(e => e.Change("ThemeBuilderChange"))
+                    .Value(Model.Customcss))
+                </td>
+                </tr>
+            <tr>
+                <td>@LabelHelper.Text("DefaultFont")</td>
+                <td colspan="2">
+                    @(Html.Kendo().DropDownListFor(x => Model.FontFamily)
+                    .BindTo(new List<string>() {
+                    "Impact",
+                    "Palatino Linotype",
+                    "Tahoma",
+                    "Calibri Light",
+                    "Century Gothic",
+                    "Lucida Sans Unicode",
+                    "Arial Black",
+                    "Times New Roman",
+                    "Arial Narrow",
+                    "Verdana",
+                    "Copperplate",
+                    "Lucida Console",
+                    "Gill Sans",
+                    "Trebuchet MS",
+                    "Courier New",
+                    "Arial",
+                    "Georgia"})
+                    .Events(e => e.Change("onHeaderFontFamilyChange"))
+                    .Value(Model.FontFamily))
+                </td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Text("DefaultFontSize")</td>
+                <td colspan="2">
+                   @(Html.Kendo().NumericTextBoxFor(x => Model.FontSize).HtmlAttributes(new { ID = "DefaultFontSizeNumericTextBox" }).Max(36).Min(8).Value(Model.FontSize).Spinners(true).Events(ev => ev.Change("onHeaderFontSizeChange")))
+                </td>
+            </tr>      
+            <tr style="display:none">
+                <td>@LabelHelper.Text("ScratchPadLayoutType")</td>
+                <td colspan="2" align="center" valign="middle">
+                    @(Html.Kendo().DropDownListFor( x => Model.SLTradeLayoutTypeId )
+                    .BindTo( EnumExtensions.GetEnumSelectList<SL_TradeLayoutType>())
+                    .Value(EnumExtensions.GetEnumSelectListItem(Model.SLTradeLayoutTypeId).Value.ToString()))
+                </td>
+            </tr> 
+            <tr>
+                <td>@LabelHelper.Text("ShowMatchingIssues")</td>
+                <td colspan="2"  valign="middle">
+                    @(Html.Kendo().CheckBoxFor(x => Model.ShowMatchingIssues))
+                </td>
+            </tr>   
+            <tr>
+                <td>@LabelHelper.Text("UserType")</td>
+                <td colspan="2" align="center" valign="middle">
+                    @(Html.Kendo().DropDownListFor(x => Model.UserTypeId)
+                    .Enable(true)
+                    .BindTo(EnumExtensions.GetEnumSelectList<SL_UserType>())
+                    .Value(EnumExtensions.GetEnumSelectListItem(Model.UserTypeId).Value.ToString()))
+                </td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Text("SecurityLayoutType")</td>
+                <td colspan="2" align="center" valign="middle">
+                    @(Html.Kendo().DropDownListFor(x => Model.SLSecurityLayoutTypeId)
+                    .Enable(true)
+                    .BindTo(EnumExtensions.GetEnumSelectList<SL_SecurityLayoutType>())
+                    .Value(EnumExtensions.GetEnumSelectListItem(Model.SLSecurityLayoutTypeId).Value.ToString()))
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2"> 
+                    <p style="word-wrap:break-word;width:200px" >**This setting will only take effect after logging <BR />and out and back in to the system.</p>
+                </td>
+            </tr>                  
+                <tr>
+                    <td colspan="2">
+                        <label id="UserPrefStatusLabel" class="label-status"></label>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" align="right">                        
+                        @Html.Kendo().Button().Name("PostUserchangeButton").Events(ev => ev.Click("onUserPrefSubmit")).Content(@LabelHelper.Text("PostUserChange"))
+                    </td>
+                </tr>
+</table>
+ 
+        @Html.HiddenFor(x => Model.UserId);
+        @Html.HiddenFor(x => Model.SLUserPreference);
+        @Html.HiddenFor(x => Model.Application);
+        @Html.HiddenFor(x => Model.Thumbnail);
+        @Html.HiddenFor(x => Model.DefaultFirm);
+        @Html.HiddenFor(x => Model.Customcss);
+        @Html.HiddenFor(x => Model.ShowOnStartUp);
+    }
+</div>

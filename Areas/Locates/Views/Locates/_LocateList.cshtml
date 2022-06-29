@@ -1,0 +1,153 @@
+﻿@using SLTrader.Tools
+@model string
+
+
+<script>
+    function onLocateClientData() {
+        var entity = '@Model';
+
+        return {
+            entityId:entity,
+        }
+    }
+
+    function ValidateLocate() {
+        var clientId = $("#LocateClientsDropdownList").data("kendoDropDownList");
+        var items = document.getElementById('LocateListTextBox');
+
+        //.val();
+        var itemsWrong = 0;
+
+        if ((clientId.value() == null) || (clientId.value() == 0)) {
+            clientId.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            clientId.wrapper.find(".k-input").css("background", "white");
+        }
+
+        if ((items.value == null) || (items.value == '')) {
+            $("#LocateListTextBox").css("background", "lightcoral");
+            itemsWrong++;
+        }
+        else {
+            $("#LocateListTextBox").css("background", "white");
+        }
+
+        return itemsWrong;
+    }
+
+    function onLocateListSubmit() {
+
+        $('#LocateListButton').data("kendoButton").enable(true);
+
+        var clientId = $("#LocateClientsDropdownList").data("kendoDropDownList").value();
+        var items = document.getElementById('LocateListTextBox').value;
+        var tradeXref = document.getElementById('LocateTradeXrefTextBox').value;
+        var clientComment = document.getElementById('LocateClientCommentTextBox').value;
+
+ 
+        if (ValidateLocate() == 0) {
+            $('#LocateListStatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+            if ((clientId != null) && (clientId != '@LabelHelper.Text("OptionLabel")')) {
+                $.ajax({
+                    url: '/Locates/Locates/UploadLocateList',
+                    data: JSON.stringify({
+                        entityId: '@Model',
+                        clientId: clientId,
+                        tradeXref: tradeXref,
+                        clientComment: clientComment,
+                        locateList: items,
+                    }),
+                    contentType: 'application/json;',
+                    type: "POST",
+                    success: function (e) {
+                        $('#LocateListStatusLabel').html('');
+                        $("#LocateListStatusLabel").text(e.Message);
+
+                        var bodyText = "";
+                        var errorCount = 0;
+
+                        $.each(e.RejectedItems, function (i, obj) {
+                            bodyText += obj.SecurityNumber + " " + obj.Quantity + "\r\n";
+                            errorCount++;
+                        });
+
+                        if (errorCount > 0) {
+                            $("#LocateListStatusLabel").text(e.Message + ". Please review unprocessed items above.");
+                        }
+
+
+                        if (errorCount == 0) {
+                            $('#LocalDetailWindow').data("kendoWindow").close();
+                        }
+
+                        $('#LocateListButton').data("kendoButton").enable(true);
+                        $("#LocateListTextBox").val(bodyText);
+                    },
+                    error: function (e) {
+                        $('#LocateListStatusLabel').html('<i class="fa fa-times"></i> Error Processing - invalid format!');
+                    }
+                });
+            }
+            else {
+                $("#LocateListStatusLabel").text("Please select a client id.");
+            }
+        }
+        else {
+            $("#LocateListStatusLabel").text("Values missing highlighted in red.");
+        }
+    }
+</script>
+
+
+        <table id="LocateListTable" >
+            <tr>
+                <td>
+                    @LabelHelper.Label("LocateClientId")
+                    @(Html.Kendo().DropDownList()
+                          .Name("LocateClientsDropdownList")
+                          .HtmlAttributes(new {@class = "Toolbar-Cell"})
+                          .Animation(true)
+                          .DataTextField("Client")
+                          .DataValueField("Client")
+                          .OptionLabel(LabelHelper.Text("OptionLabel"))
+                          .AutoBind(true)
+                          .DataSource(dataSource => dataSource
+                              .Read(read => read
+                                  .Action("LoadLocateClientDropdown", "Locates", new {area = "Locates"}).Data("onLocateClientData")))
+                          .SelectedIndex(int.Parse(DataSystemValues.LoadSystemValue("LocateClientIdDefault", "0"))))
+                </td>
+                <td>
+                    @LabelHelper.Label("TradeXref")                    
+                    @Html.Kendo().TextBox().Name("LocateTradeXrefTextBox").HtmlAttributes(new { @class = "width100p" }).Value((string.IsNullOrWhiteSpace(SessionService.User.EMail) ? "" : SessionService.User.EMail.ToString()))
+                </td>
+            </tr>   
+            <tr>
+                <td colspan="2">
+                    @LabelHelper.Label("ClientComment")                    
+                    @Html.Kendo().TextBox().Name("LocateClientCommentTextBox").HtmlAttributes( new { @class = "width100p" })
+
+                </td>
+            </tr>
+            <tr>          
+                <td colspan="2">
+                    @Html.Kendo().TextArea().Name("LocateListTextBox").HtmlAttributes(new { style = "height:300px;width:400px;" })
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">@LabelHelper.Label("Status")</td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <label id="LocateListStatusLabel"></label>   
+                    </td>
+                </tr><tr>
+                <td align="right" colspan="2">                 
+                    @Html.Kendo().Button().Name("LocateListButton").Content(LabelHelper.Text("LocateListSubmit")).Events(e => e.Click("onLocateListSubmit"))
+                </td>
+            </tr>
+        </table> 
+

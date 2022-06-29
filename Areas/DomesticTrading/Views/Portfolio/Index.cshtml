@@ -1,0 +1,89 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Tools
+<script type="text/javascript">
+    function additionalData() {
+
+        var entity = $("#PortfolioDropdownList").data("kendoDropDownList").value();
+
+        return {           
+            entityId: entity,
+        }
+    }
+
+    function onChange() {
+        $('#PortfolioGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#PortfolioDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#PortfolioGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    };
+</script>
+
+<div class="toolbar">
+<table class="toolbar">
+<tr>       
+<td>                       
+@LabelHelper.Label("Entity")
+</td>
+<td>
+@(Html.Kendo().DropDownList()
+.Name("PortfolioDropdownList")
+.HtmlAttributes(new { @class = "width90" }) 
+.DataTextField("Custodian")
+.DataValueField("CompanyId")
+.OptionLabel(LabelHelper.Text("OptionLabel"))
+.AutoBind(true)
+.Events(events => events.Change("onChange").DataBound("onDefaultLoad"))
+.DataSource(dataSource => dataSource
+.Read(read => read
+.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+.SelectedIndex(0))
+</td>                                                
+</tr>
+</table>               
+</div> 
+<hr class="hr-white">
+<div id="PortfolioMaintenaceContent" class="grid-div">
+@(Html.Kendo().Grid<SL_Portfolio>()
+.Name("PortfolioGrid")
+.HtmlAttributes(new { @class = "grid" })
+.Columns(cols =>
+    {
+        cols.Bound(x => x.SLPortfolio).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.Name).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.PcFilter).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ExcludeAccounts).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.IsActive).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Command(x => x.Custom("Details")).Width(80);
+    })
+    .DataSource(ds => ds.Ajax()
+        .ServerOperation(false)
+        .Read(read => read.Action("LoadPortfolio", "Portfolio", new { area = "DomesticTrading" }).Data("additionalData"))
+        .Update(update => update.Action("AddPortfolio", "Portfolio", new { area = "DomesticTrading" }))))
+</div>

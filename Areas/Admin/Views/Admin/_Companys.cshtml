@@ -1,0 +1,219 @@
+﻿@using SLTrader.Tools
+<script>
+
+    function onParentCompanyRefresh() {
+        $('#ParentCompanyGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onCompanyRefresh() {
+        $('#CompanyGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onParentCompanyChange(e) {
+        $('#CompanyGrid').data('kendoGrid').dataSource.read();        
+    }
+
+    function onAdditionalParentChange() {
+        var entityGrid = $("#ParentCompanyGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var companyId = selectedItem["CompanyId"];
+       
+        return {
+            parentCompany: companyId,
+        }
+    }
+
+    function onParentCompanyEdit() {
+        var entityGrid = $("#ParentCompanyGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var companyId = selectedItem["CompanyId"];
+        var parentCompany = selectedItem["ParentCompany"];
+
+
+        HelperPartialAdminWindow(
+           JSON.stringify({ companyId: companyId, parentCompanyId: parentCompany }),
+           "Edit Parent Company",
+           525,
+           325,
+           "/Admin/Admin/LoadCompanyByCompanyId");
+    }
+
+    function onParentCompanyAdd() {    
+        HelperPartialAdminWindow(
+           JSON.stringify({ companyId: null }),
+           "New Parent Company",
+           100,
+           100,
+           "/Admin/Admin/LoadCompanyByNewCompany");
+    }
+
+    function onCompanyEdit() {
+        var entityGrid = $("#CompanyGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var companyId = selectedItem["CompanyId"];
+        var parentCompany = selectedItem["ParentCompany"];
+       
+        HelperPartialAdminWindow(
+           JSON.stringify({ companyId: companyId, parentCompanyId: parentCompany }),
+           "Edit Company",
+           100,
+           100,
+           "/Admin/Admin/LoadCompanyByCompanyId");
+    }
+
+    function onCompanyAdd() {
+        var entityGrid = $("#ParentCompanyGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var companyId = selectedItem["CompanyId"];
+
+        HelperPartialAdminWindow(
+           JSON.stringify({ companyId: companyId }),
+           "Add Company",
+           525,
+           325,
+           "/Admin/Admin/LoadCompanyByNewCompany");
+    }
+  
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+    });
+</script>
+
+@*<style scoped>
+    #CompanyDiv {
+        width:100%;
+        height:100%;
+        border-radius:5px;
+        align-content:center;
+    }
+
+    #ParentCompanyGrid {
+        width:100%;
+        height:250px;
+    }
+
+    #CompanyGrid {
+        width: 100%;
+        height: 175px;
+    }
+</style>*@
+
+ <div style="margin:10px;" id="CompanyDiv">
+<table>
+<tr>
+    <td>
+        <div>
+            @(Html.Kendo().Grid<Company>()
+            .Name("ParentCompanyGrid")
+            .HtmlAttributes(new {@style = "30%" })
+            .ToolBar(parentToolbar =>
+            {
+            parentToolbar.Template(@<text>
+                                        <table>
+                                            <tr>
+                                                <td>@LabelHelper.Label("ParentCompanyLabel")</td>
+                                                <td>@Html.Kendo().Button().Name("AddParentCompanyCommand").Content("Add Parent Company").Events(events => events.Click("onParentCompanyAdd"))
+                                                    @Html.Kendo().Button().Name("AddParentCompanyRefreshCommand").Content("Refresh").Events(events => events.Click("onParentCompanyRefresh"))</td>
+                                            </tr>
+                                        </table>
+                                       </text>);
+            })
+            .Scrollable(scroll => scroll.Enabled(true))
+            .Selectable(select => select.Mode(GridSelectionMode.Single).Enabled(true))
+            .Columns(columns =>
+                    {
+                        columns.Bound(x => x.CompanyId);
+                        columns.Bound(x => x.ParentCompany);
+                        columns.Bound(x => x.LEINumber);
+                        columns.Bound(x => x.Name);
+                        columns.Bound(x => x.Country);
+                        columns.Bound(x => x.Custodian);
+                        columns.Bound(x => x.State);
+                        columns.Bound(x => x.Zip);
+                        columns.Bound(x => x.Country);
+                        columns.Bound(x => x.IsHoldingCompany).ClientTemplate("<input onclick='checkboxClicked(this)' type='checkbox' value='#= IsHoldingCompany #' " + "# if (IsHoldingCompany) { #" + "checked='checked'" + "# } #" + "/>");
+                        columns.Bound(x => x.IsEntity);
+                        columns.Bound(x => x.IsActive).ClientTemplate("<input onclick='checkboxClicked(this)' type='checkbox' value='#= IsActive #' " + "# if (IsActive) { #" + "checked='checked'" + "# } #" + "/>");
+                        columns.Command(x => x.Custom("Edit Company").Click("onParentCompanyEdit"));
+                    })
+            .Events(events => events.Change("onParentCompanyChange"))
+            .DataSource(dataSource => dataSource.Ajax()
+                .Model(model =>
+                {
+                    model.Id(x => x.CompanyId);
+                    model.Field(x => x.CompanyId).Editable(false);
+                    model.Field(x => x.ParentCompany).Editable(false);
+                    model.Field(x => x.LEINumber).Editable(false);
+                    model.Field(x => x.Name).Editable(false);
+                    model.Field(x => x.Country).Editable(false);
+                    model.Field(x => x.Custodian).Editable(false);
+                    model.Field(x => x.State).Editable(false);
+                    model.Field(x => x.Zip).Editable(false);
+                    model.Field(x => x.Country).Editable(false);
+                    model.Field(x => x.IsHoldingCompany).Editable(false);
+                    model.Field(x => x.IsEntity).Editable(false);
+                    model.Field(x => x.IsActive).Editable(false);
+                })
+                .ServerOperation(false)
+                .Read("LoadParentCompany", "Admin", new { area = "Admin" })))
+            </div>
+     </td>
+</tr>
+ <tr>
+    <td>
+         <div>
+        @(Html.Kendo().Grid<Company>()
+        .Name("CompanyGrid")
+          .Scrollable(scroll => scroll.Enabled(true))
+          .HtmlAttributes(new { @style = "70%" })
+        .Selectable(select => select.Mode(GridSelectionMode.Single).Enabled(true))
+        .AutoBind(false)
+         .ToolBar(companyToolbar =>
+         {
+         companyToolbar.Template(@<text>
+                                                   <table>
+                                            <tr>
+                                                <td>@LabelHelper.Label("Company")</td>
+                                                <td>@Html.Kendo().Button().Name("AddCompanyCommand").Content("Add Company").Events(events => events.Click("onCompanyAdd"))
+                                                    @Html.Kendo().Button().Name("AddCompanyRefreshCommand").Content("Refresh").Events(events => events.Click("onCompanyRefresh"))</td>
+                                            </tr>
+                                        </table>
+                                          </text>);
+            })
+        .Columns(columns =>
+                    {
+                        columns.Bound(x => x.CompanyId);
+                        columns.Bound(x => x.ParentCompany);
+                        columns.Bound(x => x.Name);
+                        columns.Bound(x => x.Country);
+                        columns.Bound(x => x.Custodian);
+                        columns.Bound(x => x.State);
+                        columns.Bound(x => x.Zip);
+                        columns.Bound(x => x.Country);
+                        columns.Bound(x => x.LEINumber);
+                        columns.Bound(x => x.IsHoldingCompany).ClientTemplate("<input onclick='checkboxClicked(this)' type='checkbox' value='#= IsHoldingCompany #' " + "# if (IsHoldingCompany) { #" + "checked='checked'" + "# } #" + "/>").Width(30);
+                        columns.Bound(x => x.IsEntity);
+                        columns.Bound(x => x.IsActive).ClientTemplate("<input onclick='checkboxClicked(this)' type='checkbox' value='#= IsActive #' " + "# if (IsActive) { #" + "checked='checked'" + "# } #" + "/>").Width(30);
+                        columns.Command(x => x.Custom("Edit Company").Click("onCompanyEdit"));
+                    })
+        .DataSource(dataSource => dataSource.Ajax()
+            .Read(read => read.Action("LoadCompany", "Admin", new { area = "Admin" }).Data("onAdditionalParentChange"))))
+             </div>
+        </td>
+</tr>
+</table>
+</div>
+

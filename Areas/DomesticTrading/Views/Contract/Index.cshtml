@@ -1,0 +1,1102 @@
+﻿@using System.ComponentModel
+@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+    var _originalContractSummaryGrid = null;
+    var _originalContractGrid = null;
+    
+    $.connection.hub.reconnected(function () {
+        try {
+            var summaryType = $("#ContarctSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+            if (summaryType == '@DetailTypeEnum.Summary') {
+                var grid = $("#ContractSummaryDetails").data("kendoGrid").dataSource;
+                
+                grid.read();
+            }
+            else {
+                var grid = $("#ContractDetails").data("kendoGrid").dataSource;
+
+                grid.read();
+            }
+        } catch (e) { }
+    });
+
+    $('#SharedLabelCheckBox').on('change', function () {
+        var summaryType = $("#ContarctSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@DetailTypeEnum.Summary') {
+            RefreshGrid("#ContractSummaryDetails");
+        }
+        else {
+            RefreshGrid("#ContractDetails");
+        }
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalContractSummaryGrid = $('#ContractSummaryDetails').data('kendoGrid').getOptions();
+            _originalContractGrid = $('#ContractDetails').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#ContractSummaryDetails");
+            LoadGridLayout("#ContractDetails");
+        }, 5);
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("ContractSummaryButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#ContractSummaryDetails", "ContractSummaryDetails", contractSummarySelectAll);
+                clientEvent1.setText(data1);
+            });
+        });
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("ContractButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#ContractDetails", "ContractDetails", contractSelectAll);
+                clientEvent2.setText(data2);
+            });
+        });
+    });
+
+    function onContractSummaryDetailGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ContractSummaryDetails");
+        }, 5);
+    }
+
+    function onContractDetailGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ContractDetails");
+        }, 5);
+    }
+
+    $(document).ready(function () {
+        $("#ContractSummaryDetails").hide();
+    });
+
+    var contractSelectAll = false;
+    var contractSummarySelectAll = false;
+
+    var _contractSelectedRows = [];
+
+
+    function BackupContractRowSelection() {
+        var grid = $("#ContractDetails").data("kendoGrid");
+
+        var rows = grid.select();
+
+        rows.each(function (index, row) {
+            var selectedItem = grid.dataItem(row);
+            _contractSelectedRows.push(selectedItem);
+        });
+    }
+
+    function RestoreContractRowSelection() {
+        if (_contractSelectedRows.length != 0) {
+            for (var i = 0; i < _contractSelectedRows.length; i++) {
+                var curr_id = _contractSelectedRows[i].uid;
+
+                $('#ContractDetails').data("kendoGrid").tbody.find("tr[data-uid='" + curr_id + "']").addClass("k-state-selected");
+            }
+        }
+    }
+
+    function onContractSummaryCheckData(e) {
+        CheckGridData('#ContractSummaryDetails');
+    }
+
+    function onContractCheckData(e) {
+        CheckGridData('#ContractDetails');
+
+        RestoreContractRowSelection();
+    }
+
+    function onContractRequestStart() {
+        traderHubProxy.off('updateContract');
+    }
+
+    function onContractRequestEnd() {
+        traderHubProxy.on('updateContract', function (update) {
+            updateContractRow(update);
+        });
+    }
+
+    function updateContractRow(trade) {
+        try {
+            var entity = $("#ContractDropdownList").data("kendoDropDownList").value();
+
+            var datepicker = $("#ContractCalander").data("kendoDatePicker");
+            var effectiveDateControl = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+            $.each(trade, function (i, obj) {
+                if (obj.EntityId == entity) {
+                    if ($("#ContractDetails").length) {
+                        var data = $("#ContractDetails").data("kendoGrid").dataSource;
+
+                        var dateTimeId = kendo.parseDate(obj['DateTimeId']);
+                        obj['DateTimeId'] = dateTimeId;
+
+                        var settleDate = kendo.parseDate(obj['SecuritySettleDate']);
+                        obj['SecuritySettleDate'] = settleDate;
+
+                        var valueDate = kendo.parseDate(obj['CashSettleDate']);
+                        obj['CashSettleDate'] = valueDate;
+
+                        var termDate = kendo.parseDate(obj['TermDate']);
+                        obj['TermDate'] = termDate;
+
+                        data.pushUpdate(obj);
+                    }
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+            traderHubProxy.off('updateContract');
+        }
+    }
+
+    function additionalContractData() {
+
+        var datepicker = $("#ContractCalander").data("kendoDatePicker");
+        var effectiveDate = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#ContractDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: effectiveDate,
+            entityId: entity,
+        }
+    }
+
+    function additionalContractSummaryData() {
+        var datepicker = $("#ContractCalander").data("kendoDatePicker");
+        var effectiveDate = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#ContractDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: effectiveDate,
+            entityId: entity,
+        }
+    }
+
+    function onContractError(e) {
+        LogError(e.message);
+    }
+
+    function onContractSummaryError(e) {
+        LogError(e.message);
+    }
+
+    function onReturnContractSelected(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Book Returns',
+                1100,
+                450,
+                '@Url.Action("Load_ReturnByContract", "ContractRelated", new { area = "DomesticTrading" })'
+            );
+        }
+    }
+
+    function onApplyFee(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Apply Fee',
+                1100,
+                450,
+                '@Url.Action("Load_ContractByFee", "ContractRelated", new {area="DomesticTrading" })'
+            );
+        }
+    }
+
+    function addContractToLcor(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify({ items: dataItems }),
+                'Add items to LCOR',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoBorrowContractProjectionPartial'
+            );
+        }
+    }
+
+    function onBorrowCallbackContractSelected(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Borrow Callback',
+                1100,
+                450,
+                '/DomesticTrading/Boxcalculation/Load_BorrowCallback'
+            );
+        }
+    }
+
+    function onProfitIdContractSelected(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'PC Change',
+                1100,
+                450,
+               '@Url.Action("Load_ProfitCenterByContract", "ContractRelated", new {area="DomesticTrading" })'
+            );
+        }
+    }
+
+    function onRecallContractSelected(e) {
+
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Book Recalls',
+                1100,
+                450,
+                '@Url.Action("Load_RecallByContract", "ContractRelated", new {area="DomesticTrading" })'
+            );
+        }
+    }
+
+    function onUpdateContractSelected(e) {
+
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Update Contracts',
+                1100,
+                450,
+               '@Url.Action("Load_ContractUpdate", "ContractRelated", new {area="DomesticTrading" })'
+            );
+        }
+    }
+
+    function onRateChangeContractSelected(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#ContractDetails').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Rate Change Contracts',
+                1200,
+                450,
+               '@Url.Action("Load_RateChangeByContract", "ContractRelated", new {area="DomesticTrading" })'
+            );
+        }
+    }
+
+    function onContractRowChange(e) {
+        _contractSelectedRows = [];
+
+        try {
+            var entityGrid = $("#ContractDetails").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+            var contractNumber = selectedItem["ContractNumber"];
+            var contraEntity = selectedItem["ContraEntity"];
+            var tradeType = selectedItem["TradeType"];
+
+            SidePanelUpdateByContract(effectiveDate, entityId, issueId, securityNumber, contraEntity, contractNumber, tradeType);
+
+
+            if (selectedItem["TradeType"] == '@Convert.ToInt32(TradeType.StockBorrow)') {
+                EnableContextMenuItem("#ContractContextMenu", "Return", true);
+                EnableContextMenuItem("#ContractContextMenu", "Recall", false);
+            }
+            else if (selectedItem["TradeType"] == '@Convert.ToInt32(TradeType.StockLoan)') {
+                EnableContextMenuItem("#ContractContextMenu", "Return", false);
+                EnableContextMenuItem("#ContractContextMenu", "Recall", true);
+            }
+        }
+        catch (e) {
+            LogError(e.message);
+            console.log(e.message);
+        }
+
+        BackupContractRowSelection();
+    }
+
+    function onContractSummaryRowChange(e) {
+
+        var tab = $("#MainTabStrip").data("kendoTabStrip").select();
+
+        if (tab.text() == 'Contract Summary') {
+            var entityGrid = $("#ContractSummaryDetails").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var datepicker = $("#ContractCalander").data("kendoDatePicker");
+
+            var entityId = $("#ContractDropdownList").data("kendoDropDownList").value();
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+            var effectiveDate = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+            UpdateIssue(entityId, securityNumber);
+            UpdateBox(effectiveDate, entityId, issueId);
+            UpdateTrading(entityId, issueId);
+            UpdateSharedView(entityId, securityNumber);
+
+            BackupContractRowSelection();
+        }
+        else {
+            console.log("Contract Summary not in focus");
+        }
+    }
+
+
+
+    function onContractDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#ContractDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    var summaryType = $("#ContarctSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+                    if (summaryType == '@DetailTypeEnum.Summary') {
+                        $('#ContractSummaryDetails').data("kendoGrid").dataSource.read();
+                    } else {
+                        $('#ContractDetails').data("kendoGrid").dataSource.read();
+                    }
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        } catch (e) {
+            LogError(e.message);
+        }
+    };
+
+    function onContractSelectAll() {
+        try {
+            var contractGrid = $("#ContractDetails").data("kendoGrid");
+            contractGrid.select(contractGrid.tbody.find(">tr"));
+
+            contractSelectAll = true;
+        } catch (e) {
+            LogError(e.message);
+        }
+    }
+
+    function onContractSummarySelectAll() {
+        try {
+            var contractGrid = $("#ContractSummaryDetails").data("kendoGrid");
+            contractGrid.select(contractGrid.tbody.find(">tr"));
+
+            contractSummarySelectAll = true;
+        } catch (e) {
+            LogError(e.message);
+        }
+    }
+
+    function onContractSummaryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#ContractSummaryDetails");
+                break;
+
+        case 'Unsort':
+            onContractUnsortGrid("#ContractSummaryDetails");
+            break;
+
+            case "Reset Filter":
+                $("#ContractSecuritySearchTextBox").val("");
+                ResetFilter("#ContractSummaryDetails");
+                break;
+
+        case "Reset Grid":
+            ResetUserLayout("#ContractSummaryDetails");
+            $('#ContractSummaryDetails').data('kendoGrid').setOptions(_originalContractSummaryGrid);
+            break;
+
+        case 'Select All':
+            onContractSummarySelectAll();
+            break;
+
+        case 'Export To Excel':
+            exportToContractSummaryExcel();
+            break;
+        }
+    }
+
+    function onContractContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Apply Fee':
+                onApplyFee(true);
+                break;
+
+        case 'Return':
+            onReturnContractSelected(true);
+            break;
+
+        case 'Recall':
+            onRecallContractSelected(true);
+            break;
+
+        case 'Rate Change':
+            onRateChangeContractSelected(true);
+            break;
+
+        case 'PC Chg':
+            onProfitIdContractSelected(true);
+            break;
+
+        case 'Activity':
+            onActivityContractSelected(true);
+            break;
+
+        case 'Deltas':
+            toggleContractColumns();
+            break;
+
+            case 'Callback':
+                onBorrowCallbackContractSelected(true);
+                break;
+
+            case 'Update':
+                onUpdateContractSelected(true);
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#ContractDetails");
+                break;
+
+
+        case 'Unsort':
+            onContractUnsortGrid("#ContractDetails");
+            break;
+
+        case "Reset Grid":
+            ResetUserLayout("#ContractDetails");
+            $('#ContractDetails').data('kendoGrid').setOptions(_originalContractGrid);
+            $('#ContractDetails').data("kendoGrid").dataSource.read();
+            break;
+
+            case "Reset Filter":
+                $("#ContractSecuritySearchTextBox").val("");
+                ResetFilter("#ContractDetails");
+                break;
+
+        case 'Select All':
+            onContractSelectAll();
+            break;
+
+        case 'Export To Excel':
+            exportToContractExcel();
+            break;
+        }
+    }
+
+    var hiddenColumns = false;
+
+    function onContractUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onContractChange() {
+        var summaryType = $("#ContarctSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@DetailTypeEnum.Summary') {
+            $("#ContractSummaryDetails").data("kendoGrid").dataSource.read();
+        }
+        else {
+            $("#ContractDetails").data("kendoGrid").dataSource.read();
+        }
+    }
+
+    function exportToContractExcel() {
+        KendoGridToCSVConvertor("#ContractDetails", 'ContractDetails', contractSelectAll);
+    }
+
+    function exportToContractSummaryExcel() {
+        KendoGridToCSVConvertor("#ContractSummaryDetails", 'ContractSummaryDetails', contractSummarySelectAll);
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#ContractDetails");
+    });
+
+    function toggleContractColumns() {
+        var entityGrid = $("#ContractDetails").data("kendoGrid");
+
+        if (hiddenColumns) {
+            entityGrid.hideColumn("QuantityDelta");
+            entityGrid.hideColumn("AmountDelta");
+
+            entityGrid.showColumn("CurrencyCode");
+            entityGrid.showColumn("SecuritySettleDate");
+            entityGrid.showColumn("QuantityOnRecall");
+
+            hiddenColumns = false;
+
+        } else {
+            entityGrid.showColumn("QuantityDelta");
+            entityGrid.showColumn("AmountDelta");
+
+            entityGrid.hideColumn("CurrencyCode");
+            entityGrid.hideColumn("SecuritySettleDate");
+            entityGrid.hideColumn("QuantityOnRecall");
+
+            hiddenColumns = true;
+        }
+    }
+
+    function onContractSummaryDetailChange() {
+        var summaryType = $("#ContarctSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@DetailTypeEnum.Summary') {
+            $('#ContractFilterDropdownList').data("kendoDropDownList").enable(false);
+            $("#ContractSecuritySearchTextBox").val("");
+            $("#ContractDetails").data("kendoGrid").dataSource.filter({});
+            $("#ContractDetails").hide();
+            $("#ContractSummaryDetails").show();
+            RefreshGrid("#ContractSummaryDetails");
+            $("#ContractSummaryDetails").data("kendoGrid").dataSource.read();
+        }
+        else {
+            $('#ContractFilterDropdownList').data("kendoDropDownList").enable(true);
+            $("#ContractSecuritySearchTextBox").val("");
+            $("#ContractSummaryDetails").data("kendoGrid").dataSource.filter({});
+            $("#ContractSummaryDetails").hide();
+            $("#ContractDetails").show();
+            RefreshGrid("#ContractDetails");
+            $("#ContractDetails").data("kendoGrid").dataSource.read();
+        }
+    }
+
+    function onContractSearchChange(e) {
+        e.preventDefault();
+
+        try {
+            var summaryType = $("#ContarctSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+            if (summaryType == '@DetailTypeEnum.Summary') {
+                var grid = $("#ContractSummaryDetails").data("kendoGrid").dataSource;
+            }
+            else
+            {
+                var grid = $("#ContractDetails").data("kendoGrid").dataSource;
+            }
+
+            var cusipTextBox = document.getElementById("ContractSecuritySearchTextBox").value;
+
+            QuickColumnFilter(grid, 'Ticker', cusipTextBox);
+
+            if (grid.view().length == 0) {
+                QuickColumnFilter(grid, 'Ticker', '');
+                QuickColumnFilter(grid, 'SecurityNumber', cusipTextBox);
+            }
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onContractQuickFilterDataBound() {
+        $("#ContractFilterDropdownList").data("kendoDropDownList").text('@LabelHelper.Text("OptionLabel")');
+    }
+
+    function onContractFilterLoad() {
+        var entity = $("#ContractDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value(),
+            gridName: 'ContractDetails'
+        }
+    }
+
+    function onContractFilterChange() {
+        try {
+            var grid = $("#ContractDetails").data("kendoGrid");
+            var entityId = $("#ContractDropdownList").data("kendoDropDownList").value();;
+            var filterDropDown = $('#ContractFilterDropdownList').data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/BoxCalculation/QuickFilterLookup',
+                type: 'POST',
+                data: JSON.stringify({
+                    entityId: entityId,
+                    gridName: 'ContractDetails',
+                    filterName: filterDropDown
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+
+                    if (valid != null) {
+                        $("#ContractSecuritySearchTextBox").val("");
+
+                        var filter = { logic: "and", filters: [] };
+
+                        for (i = 0; i < valid.length; i++) {
+                            var quickFilter = valid[i];
+                            var ops = null;
+
+                            if (quickFilter.OperatorId == 1) {
+                                ops = '@SL_Operator.gte';
+                            }
+                            else if (quickFilter.OperatorId == 2) {
+                                ops = '@SL_Operator.gt';
+                            }
+                            else if (quickFilter.OperatorId == 3) {
+                                ops = '@SL_Operator.lt';
+                            }
+                            else if (quickFilter.OperatorId == 4) {
+                                ops = '@SL_Operator.lte';
+                            }
+                            else if (quickFilter.OperatorId == 5) {
+                                ops = '@SL_Operator.eq';
+                            }
+                            else if (quickFilter.OperatorId == 6) {
+                                ops = '@SL_Operator.neq';
+                            }
+
+                            filter.filters.push({ field: quickFilter.Field, operator: ops, value: quickFilter.Value });
+                        }
+
+                        grid.dataSource.filter(filter);
+                    }
+                    else {
+                        grid.dataSource.filter({});
+                    }
+                },
+                error: function (valid) {
+                    grid.dataSource.filter({});
+                }
+            })
+        }
+        catch (e) {
+            LogError(e.message);
+        }
+    }
+</script>
+
+<style>
+    #ContractToolBar.k-widget .k-multiselect input {
+        display: none;
+    }
+</style>
+@(
+ Html.Kendo().ToolBar()
+    .Name("ContractToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar"})
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("ContractCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class="width90" })
+            .Events(events => events.Change("onContractChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+    .Name("ContractDropdownList")
+    .HtmlAttributes(new { @class = "width90" })
+    .Animation(true)
+    .DataTextField("Custodian")
+    .DataValueField("CompanyId")
+    .OptionLabel("Empty List")
+    .AutoBind(true)
+    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+    .Events(events => events.Change("onContractChange").DataBound("onContractDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+    .DataSource(dataSource => dataSource
+    .Read(read => read
+    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+    .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("SummaryDetail").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownListFor(m => m)
+            .Name("ContarctSummaryDetailDropdownList")
+            .HtmlAttributes(new {@class = "width100", data_value_primitive = true})      
+            .Events(events => events.Change("onContractSummaryDetailChange"))     
+            .BindTo(Enum.GetNames(typeof (DetailTypeEnum)).AsEnumerable())
+            .Value(DetailTypeEnum.Detail.ToString()).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("QuickFilter").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("ContractFilterDropdownList")
+                    .HtmlAttributes(new { @class = "width90" })
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .Value(LabelHelper.Text("OptionLabel"))
+                    .AutoBind(false)
+                    .Events(e => e.Change("onContractFilterChange").DataBound("onContractQuickFilterDataBound"))
+                    .DataSource(dataSource => dataSource
+                    .Events(events => events.Error("onContractError"))
+                    .Read(read => read.Action("LoadFilters", "BoxCalculation", new { area = "DomesticTrading" }).Data("onContractFilterLoad")))
+                    .ToHtmlString());
+
+         items.Add().Template(
+            "<table><tr><td>" +
+            LabelHelper.LabelFor("TickerSearch", "ContractSecuritySearchTextBox").ToHtmlString() + "</td><td>" +
+            Html.Kendo().AutoComplete().Name("ContractSecuritySearchTextBox").HtmlAttributes(new { @class = "width90" }).Events(eve => eve.Filtering("onContractSearchChange")).Suggest(true).ToHtmlString() + "</td></tr></table>"
+            ).HtmlAttributes(new { @style = "float:right;margin-top:3px;" });     
+    
+    }))
+ 
+<hr class="hr-white">
+
+<div id="ContractContent" class="grid-div">
+
+    @(Html.Kendo().Grid<SL_ContractExtendedProjection>()
+          .Name("ContractDetails")
+          .HtmlAttributes(new { @class = "grid" })
+          .Sortable(sort =>
+          {
+              sort.AllowUnsort(true);
+              sort.Enabled(true);
+              sort.SortMode(GridSortMode.MultipleColumn);
+          })
+          .Scrollable(scrollable => scrollable.Virtual(true).Enabled(true))
+          .Filterable()
+          .Navigatable()
+          .NoRecords()                    
+          .AutoBind(false)
+          .ColumnMenu(menu =>
+          {
+              menu.Columns(true);
+              menu.Filterable(true);
+              menu.Sortable(true);
+          })
+          .Events(events =>
+          {
+              events.Change("onContractRowChange");
+              events.DataBound("onContractCheckData");
+              events.ColumnHide("onContractDetailGridLayoutChange");
+              events.ColumnShow("onContractDetailGridLayoutChange");
+              events.ColumnResize("onContractDetailGridLayoutChange");
+              events.ColumnReorder("onContractDetailGridLayoutChange");
+          })
+          .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+          .Reorderable(reorder => reorder.Columns(true))
+          .Columns(columns =>
+          {              
+              columns.Bound(x => x.EffectiveDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SLContract).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound( x => x.ExecutingSystem ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+              columns.Bound(x => x.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound( x => x.Isin ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+              columns.Bound( x => x.Sedol ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+              columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RecordDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+              columns.Bound(x => x.MktPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "", "").Hidden();
+              columns.Bound(x => x.IssueId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.QuantityDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDeltaDirection(QuantityDelta)#", "").Hidden(true);
+              columns.Bound(x => x.QuantityFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(QuantityFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.QuantityStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(QuantityStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "");
+              columns.Bound(x => x.QuantityOnRecallStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+              columns.Bound(x => x.AmountFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(AmountFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.AmountDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDeltaDirection(AmountDelta)#", "").Hidden(true);
+              columns.Bound(x => x.Amount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(Amount)#", "");
+              columns.Bound(x => x.AmountStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(AmountStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.DepositoryStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.CollateralFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ProfitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, true, "#=GetRateDirection(RebateRate)#", "");
+              columns.Bound(x => x.RebateRateId).Hidden(true);
+              columns.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "");
+              columns.Bound(x => x.MarkParameterId).Hidden(true);
+              columns.Bound(x => x.ValueDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SettlementDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound( x => x.TermDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" );
+              columns.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.CashLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound( x => x.IncomeTracked ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox'   #= (IncomeTracked) ? checked ='checked' : '' #/>", "" );
+              columns.Bound( x => x.DividendRate ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.Margin, false, "#=GetRateDirection(DividendRate)#", "" );
+              columns.Bound( x => x.CashLoc ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+              columns.Bound(x => x.ActivityItemCount).GetColumnFormat(ColumnTypeEnum.Position, false, "# if (ActivityItemCount > 0) { #<i class='fa fa-bars color-green'></i># }# ", "").Title("").HtmlAttributes(new { title = "Actions - #= ActivityItemCount # " }).Filterable(false);
+              columns.Bound(X => X.ContractFlag).GetColumnFormat(ColumnTypeEnum.String, false, "# if (ContractFlag == 'Pending') { #<i class='fa  fa-info-circle color-blue'></i># } else if (ContractFlag == 'Success') { #<i class='fa  fa-exclamation-circle color-green ' ></i># } else if (ContractFlag != ''){ #<i class='fa  fa-exclamation-triangle color-red'></i># } #", "").Title("").HtmlAttributes(new { title = "Status - #= ContractFlag # " }).Filterable(false);
+              columns.Bound(x => x.IncomeAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(IncomeAmount)#", "");
+              columns.Bound(x => x.Spread).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetRateDirection(Spread)#", "");
+              columns.Bound( x => x.Comment ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+              columns.Bound( x => x.FeeFundRate ).GetColumnFormat( ColumnTypeEnum.String, false, "#=GetRateDirection(FeeFundRate)#", "" );
+              columns.Bound( x => x.FeeType ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+              columns.Bound( x => x.FeeOffset ).GetColumnFormat( ColumnTypeEnum.String, false, "#=GetRateNullableDirection(FeeOffset)#", "" );
+              columns.Bound( x => x.FeeRate ).GetColumnFormat( ColumnTypeEnum.String, false, "#=GetRateDirection(FeeRate)#", "" );
+              columns.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+          })
+          .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+          .Pageable(page =>
+          {
+              page.PageSizes(false);
+              page.Enabled(true);
+              page.Numeric(false);
+              page.PreviousNext(false);
+              page.Info(false);
+          })
+          .DataSource(dataSource => dataSource
+              .Ajax()
+              .PageSize(100)
+              .ServerOperation(false)
+              .Read(read => read.Action("Read_ContractExtendedSummary", "Contract", new { area = "DomesticTrading" }).Data("additionalContractData"))
+              .Events(events => events.Error("onContractError"))
+              .Model(model => model.Id(x => x.SLContract))
+              .Sort(sort => sort.Add(x => x.TradeType).Order(ListSortDirection.Descending))
+              .Events(events =>
+              {
+                  events.RequestStart("onContractRequestStart");
+                  events.RequestEnd("onContractRequestEnd");
+              })
+              .Aggregates(s =>
+              {
+                  s.Add(x => x.QuantityFullSettled).Sum();
+                  s.Add(x => x.QuantityDelta).Sum();
+                  s.Add(x => x.Quantity).Sum();
+                  s.Add(x => x.QuantityStartOfDay).Sum();
+                  s.Add(x => x.AmountFullSettled).Sum();
+                  s.Add(x => x.AmountDelta).Sum();
+                  s.Add(x => x.Amount).Sum();
+                  s.Add(x => x.AmountStartOfDay).Sum();
+                  s.Add(x => x.IncomeAmount).Sum();
+                  s.Add(x => x.RebateRate).Average();
+              })))
+
+    @(Html.Kendo().Grid<SL_ContractSummaryByEntityAndSecurityProjection>()
+        .Name("ContractSummaryDetails")
+        .HtmlAttributes(new { @class = "grid"})           
+        .Sortable(sort =>
+               {
+                   sort.AllowUnsort(true);
+                   sort.Enabled(true);
+                   sort.SortMode(GridSortMode.MultipleColumn);
+               })
+        .Scrollable(scrollable => scrollable.Virtual(true).Enabled(true))
+        .Filterable()
+        .Navigatable()
+        .NoRecords()
+        .ColumnMenu(menu =>
+        {
+            menu.Columns(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+        })
+        .Reorderable(reorder => reorder.Columns(true))
+        .Events(events =>
+        {    
+            events.Change("onContractSummaryRowChange");
+            events.DataBound("onContractSummaryCheckData");
+            events.ColumnHide("onContractSummaryDetailGridLayoutChange");
+            events.ColumnShow("onContractSummaryDetailGridLayoutChange");
+            events.ColumnResize("onContractSummaryDetailGridLayoutChange");
+            events.ColumnReorder("onContractSummaryDetailGridLayoutChange");
+        })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.IssueId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.MktPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantity)#", "");
+            columns.Bound(x => x.BorrowRecallQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowRecallQuantity)#", "");
+            columns.Bound(x => x.BorrowAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowAmount)#", "");
+            columns.Bound(x => x.BorrowAvgWghtRate).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(BorrowAvgWghtRate)#", "");
+            columns.Bound(x => x.BorrowIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowIncome)#", "");
+            columns.Bound(x => x.LoanQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantity)#", "");
+            columns.Bound(x => x.LoanRecallQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanRecallQuantity)#", "");
+            columns.Bound(x => x.LoanAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanAmount)#", "");
+            columns.Bound(x => x.LoanAvgWghtRate).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(LoanAvgWghtRate)#", "");
+            columns.Bound(x => x.LoanIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanIncome)#", "");
+            columns.Bound(x => x.TotalIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalIncome)#", "");
+        })
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Pageable(page =>
+        {
+            page.PageSizes(false);
+            page.Enabled(true);
+            page.Numeric(false);
+            page.PreviousNext(false);
+            page.Info(false);
+        })
+        .DataSource(dataSource => dataSource
+        .Ajax()
+        .PageSize(100)
+        .ServerOperation(false)
+        .Read(read => read.Action("Read_ContractExtendedSummaryBySecurity", "Contract", new { area = "DomesticTrading" }).Data("additionalContractSummaryData"))
+        .Events(events => events.Error("onContractSummaryError"))               
+        .Aggregates(s =>
+            {
+                s.Add(x => x.BorrowQuantity).Sum();
+                s.Add(x => x.BorrowAmount).Sum();
+                s.Add(x => x.BorrowIncome).Sum();
+                s.Add(x => x.BorrowRecallQuantity).Sum();
+
+                s.Add(x => x.LoanQuantity).Sum();
+                s.Add(x => x.LoanAmount).Sum();
+                s.Add(x => x.LoanIncome).Sum();
+                s.Add(x => x.LoanRecallQuantity).Sum();
+
+                s.Add(x => x.TotalIncome).Sum(); 
+            })))
+
+    @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#ContractDetails").Filter("td[title]")
+ </div>
+
+@(Html.Kendo().ContextMenu()
+.Name( "ContractContextMenu" )
+    .Target( "#ContractDetails" )
+.Events( events => events.Select( "onContractContextMenuSelect" ) )
+.Items( items =>
+{
+    items.Add().Text( "Apply Fee" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLFundingRate ) );
+    items.Add().Text( "Return" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "Recall" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "Rate Change" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "PC Chg" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "Activity" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "Deltas" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "Callback" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Text( "Update" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContract ) );
+    items.Add().Separator( true );
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text( "Unsort" ).Enabled( true );
+    items.Add().Text( "Reset Filter" ).Enabled( true );
+    items.Add().Text( "Reset Grid" ).Enabled( true );
+    items.Add().Text( "Select All" ).Enabled( true );
+    items.Add().Separator( true );
+    items.Add().Text( "Copy" ).Enabled( true ).HtmlAttributes( new { ID = "ContractButton" } );
+    items.Add().Text( "Export To Excel" ).Enabled( true );
+} ))
+
+@(
+ Html.Kendo().ContextMenu()
+.Name("ContractSummaryContextMenu")
+        .Target("#ContractSummaryDetails")
+.Events(events => events.Select("onContractSummaryContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text("Unsort").Enabled(true);
+    items.Add().Text("Reset Filter").Enabled(true);
+    items.Add().Text("Reset Grid").Enabled(true);
+    items.Add().Text("Select All").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "ContractSummaryButton" });
+    items.Add().Text("Export To Excel").Enabled(true);
+}))
+
+ 

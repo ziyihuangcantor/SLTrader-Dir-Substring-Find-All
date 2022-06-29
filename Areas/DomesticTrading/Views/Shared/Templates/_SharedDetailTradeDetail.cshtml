@@ -1,0 +1,196 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model  PartialViewModel
+<style scoped>
+    #SharedTradeDetailButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+
+<script type="text/javascript">
+    var _originalSharedTradeDetailGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSharedTradeDetailGrid = $('#SharedDetailTradeDetailGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#SharedDetailTradeDetailGrid");
+
+            $(".k-grid-toolbar", "#SharedDetailTradeDetailGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+            $('#SharedDetailTradeDetailGrid').data('kendoGrid').dataSource.read();
+        }, 3);
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("SharedTradeDetailButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#SharedDetailTradeDetailGrid", "SharedDetailTradeDetailGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    function onSharedTradeDetailLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedDetailTradeDetailGrid");
+        }, 5);
+    }
+
+    function onSharedTradeDetailCheckData() {
+        CheckGridData('#SharedDetailTradeDetailGrid');
+    }
+
+    function onSharedTradeDetailAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            issueId: '@Model.IssueId'
+        };
+    }
+
+    function onSharedTradeDetailContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#SharedDetailTradeDetailGrid");
+                break;
+
+            case 'Unsort':
+                onSharedTradeDetailUnsortGrid("#SharedDetailTradeDetailGrid");
+                break;
+
+            case 'Select All':
+                onSharedTradeDetailSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedDetailTradeDetailGrid");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedDetailTradeDetailGrid");
+                $('#SharedDetailTradeDetailGrid').data('kendoGrid').setOptions(_originalSharedTradeDetailGrid);
+                $(".k-grid-toolbar", "#SharedDetailTradeDetailGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedDetailTradeDetailGrid').data('kendoGrid').dataSource.read();
+                break;
+
+            case 'Export To Excel':
+                exportToSharedTradeDetailExcel();
+                break;
+        }
+    }
+
+    function onSharedTradeDetailSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedDetailTradeDetailGrid").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedTradeDetailUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedTradeDetailExcel() {
+        KendoGridToCSVConvertor("#SharedDetailTradeDetailGrid", 'SharedDetailTradeDetailGrid');
+    }
+</script>
+
+
+<div id="SharedDetailTradeDetailDiv" class="grid-div">
+
+    @(
+ Html.Kendo().Grid<SL_TradeDetailExtendedProjection>()
+    .Name("SharedDetailTradeDetailGrid")
+    .Navigatable()
+    .Scrollable()
+    .Sortable()
+    .AutoBind(false)
+         .ToolBar(t =>
+         {
+             t.Template("<label></label>");
+         })
+                .Editable(x => x.Enabled(false))
+                .HtmlAttributes(new { @class = "grid" })
+                .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                .Filterable()
+                .Events(events =>
+                {
+                    events.DataBound("onSharedTradeDetailCheckData");
+                    events.ColumnHide("onSharedTradeDetailLayoutChange");
+                    events.ColumnShow("onSharedTradeDetailLayoutChange");
+                    events.ColumnResize("onSharedTradeDetailLayoutChange");
+                    events.ColumnReorder("onSharedTradeDetailLayoutChange");
+                })
+                .Resizable(resize => resize.Columns(true))
+                .ColumnMenu(columnMenu =>
+                {
+                    columnMenu.Columns(true);
+                    columnMenu.Sortable(true);
+                    columnMenu.Filterable(true);
+                    columnMenu.ComponentType( "modern" );
+                } )
+                .Reorderable(reorder =>
+                {
+                    reorder.Columns(true);
+                })
+                .NoRecords()
+                .Navigatable()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.FirmId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ShortName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.AccountCategory).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.AccountType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.RecordType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.BuySellCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "");
+        cols.Bound(x => x.TradeDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.SettleDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    })
+    .DataSource(ds =>
+    {
+        ds.Ajax()
+            .ServerOperation(false)
+            .Read(read =>
+            {
+                read.Action("Read_TradeDetailByIssue", "Main", new { area = "DomesticTrading" }).Data("onSharedTradeDetailAdditionalData");
+            })
+            .Aggregates(agg =>
+            {
+                agg.Add(x => x.Quantity).Sum();
+            });
+
+    }))
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("SharedTradeDetailContextMenu")
+            .Target("#SharedDetailTradeDetailGrid")
+        .Events(events => events.Select("onSharedTradeDetailContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedTradeDetailButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

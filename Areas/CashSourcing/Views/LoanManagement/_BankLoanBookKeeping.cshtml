@@ -1,0 +1,91 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+@model IEnumerable<SL_BankLoanBookKeeping>
+
+<script>
+    function onBookKeepingCreateData() {
+        var entityGrid = $("#BankLoanGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var entityId = selectedItem["EntityId"]
+        var bankLoanId = selectedItem["SLBankLoan"];
+
+        return {
+            entityId: entityId,
+            bankLoanId: bankLoanId
+        }
+    }
+
+</script>
+<div id="BankLoanBookKeepingDiv" class="grid-div" style="max-width:700px">
+    @(Html.Kendo().Grid( Model )
+       .Name( "BankLoanBookKeepingGrid" )
+       .HtmlAttributes( new { @class = "grid" } )
+       .Selectable( select =>
+       {
+           select.Enabled( true );
+           select.Type( GridSelectionType.Row );
+           select.Mode( GridSelectionMode.Multiple );
+       } )
+       .ToolBar( toolbar =>
+       {
+           toolbar.Create();
+       } )
+       .Editable( x =>
+       {
+           x.Enabled( SessionSecurityService.IsEditable( ManagerTask.ViewSLBankLoan ) );
+           x.DisplayDeleteConfirmation( false );
+           x.Mode( GridEditMode.InLine );
+       } )
+       .Columns( cols =>
+       {
+           cols.Bound( x => x.SLBankLoanBookKeeping ).Hidden( true );
+           cols.Bound( x => x.BankLoanId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+           cols.Bound( x => x.FirmId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+           cols.Bound( x => x.BankLoanActionType ).GetColumnFormat( ColumnTypeEnum.String, false, "", "_BankLoanActionTypeDropdown" );
+           cols.Bound( x => x.AccountNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+           cols.Bound( x => x.FromLocation ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+           cols.Bound( x => x.ToLocation ).GetColumnFormat( ColumnTypeEnum.Position, false, "", "" );
+           cols.Command( x =>
+           {
+               x.Edit();
+               x.Destroy();
+           } );
+       } )
+       .Resizable( resize => resize.Columns( true ) )
+       .Scrollable( scroll =>
+       {
+           scroll.Enabled( true );
+           scroll.Virtual( true );
+       } )
+       .DataSource( ds =>
+       {
+           ds.Ajax()
+           .ServerOperation( false )
+           .Create( update =>
+           {
+               update.Action( "AddBookkeeping", "BankLoan", new { area = "CashSourcing" } ).Data( "onBookKeepingCreateData" );
+           } )
+           .Update( update =>
+           {
+               update.Action( "UpdateBookkeeping", "BankLoan", new { area = "CashSourcing" } );
+           } )
+           .Destroy( destroy =>
+           {
+               destroy.Action( "DeleteBookkeeping", "BankLoan", new { area = "CashSourcing" } );
+           } )
+           .Model( model =>
+           {
+               model.Id( x => x.SLBankLoanBookKeeping );
+               model.Field( x => x.FirmId ).Editable( true );
+               model.Field( x => x.BankLoanActionType ).Editable( true );
+               model.Field( x => x.AccountNumber ).Editable( true ).DefaultValue( "" );
+               model.Field( x => x.FromLocation ).Editable( true );
+               model.Field( x => x.ToLocation ).Editable( true );
+           } );
+       } ))
+
+</div>

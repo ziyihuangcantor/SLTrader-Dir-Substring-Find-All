@@ -1,0 +1,74 @@
+﻿@using SLTrader.Tools
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+@model Company
+
+<script  type="text/javascript">
+    function onUploadError(e) {
+        DisplayControllerByStringError("Error", e.message);
+    }
+
+    function onDictionaryApply(e) {
+        $("#DictionaryApplyButton").data("kendoButton").enable(false);
+        $("#DictionaryCancelButton").data("kendoButton").enable(false);
+
+        $.ajax({
+            url: '@Url.Action( "DictionaryFileProcess", "Admin", new { area = "Admin" } )',
+            type: 'POST',
+            contentType: 'application/json;',            
+            success: function (valid) {
+                DisplayControllerByStringError("Info", valid.message);
+
+                $("#DictionaryApplyButton").data("kendoButton").enable(true);
+                $("#DictionaryCancelButton").data("kendoButton").enable(true);
+            },
+            error: function (valid) {
+                DisplayControllerByStringError("Error", valid.Message);
+
+                $("#DictionaryCancelButton").data("kendoButton").enable(true);
+                $("#DictionaryApplyButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+    function onDictionaryCancel(e) {
+        $("#DictionaryApplyButton").data("kendoButton").enable(false);
+        $("#DictionaryCancelButton").data("kendoButton").enable(false);
+
+        $.ajax({
+            url: '@Url.Action("DictionaryFileClear","Admin", new { area = "Admin" })',
+            type: 'POST',
+            contentType: 'application/json;',            
+            success: function (valid) {               
+                $("#DictionaryApplyButton").data("kendoButton").enable(true);
+                $("#DictionaryCancelButton").data("kendoButton").enable(true);
+            },
+            error: function (valid) {
+                DisplayControllerByStringError("Error", valid.Message);
+
+                $("#DictionaryCancelButton").data("kendoButton").enable(true);
+                $("#DictionaryApplyButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+</script>
+<div class="div-admin-shared">
+    @(Html.Kendo().Upload()
+            .Name( "DictionaryFiles" )
+            .Events( e => e.Error( "onUploadError" ) )
+            .Async( a => a
+                        .Save( "SaveDictionaryFile", "Admin", new { area = "Admin" } )
+                .AutoUpload( true ))
+    )
+
+    <table>
+        <tr>
+            <td>
+                @Html.Kendo().Button().Name( "DictionaryApplyButton" ).Enable( true ).Events(e => e.Click("onDictionaryApply")).Content("Apply")
+            </td>
+            <td>
+                @Html.Kendo().Button().Name( "DictionaryCancelButton" ).Enable( false ).Events( e => e.Click( "onDictionaryCancel" ) ).Content("Cancel")
+            </td>
+        </tr>
+    </table>
+</div>

@@ -1,0 +1,200 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Enums
+
+
+<style scoped>
+    .label {
+        padding-left:5px;
+    }
+
+    #InformationInventoryButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script>
+   
+    var _originalIssueInformationInventoryGrid = null;
+    var _IssueInformationInventoryGridSelectAll = false;
+
+ 
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalIssueInformationInventoryGrid = $('#IssueInformationInventoryGrid').data('kendoGrid').getOptions();
+ 
+            LoadGridLayout("#IssueInformationInventoryGrid");
+           
+            var labelInventory = '@LabelHelper.Text("Inventory")';
+ 
+            $(".k-grid-toolbar", "#IssueInformationInventoryGrid").append("<label>" + labelInventory + "</label>");
+
+            RefreshGrid("#IssueInformationInventoryGrid");
+        }, 5);
+
+        var clientInformationInventoryButton = new ZeroClipboard(document.getElementById("InformationInventoryButton"));
+
+        clientInformationInventoryButton.on("ready", function (readyEvent) {
+            clientInformationInventoryButton.on("copy", function (event) {
+                var data = KendoGridToText("#IssueInformationInventoryGrid", "IssueInformationInventoryGrid", false);
+                clientInformationInventoryButton.setText(data);
+            });
+        });
+    });
+
+ 
+    function onInventoryData() {
+        var datepicker = $("#InformationCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#InformationDropdownList").data("kendoDropDownList").value();
+        var criteria = document.getElementById('IssueInformationSecuritySearchTextBox').value;
+
+
+        return {
+            effectiveDate: value,
+            entityId: entityId,
+            criteria: criteria
+        }
+    }
+
+ 
+    function onIssueInformationInventoryGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#IssueInformationInventoryGrid");
+        }, 5);
+    }
+
+  
+    function onIssueInformationInventoryGridContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#IssueInformationInventoryGrid");
+                break;
+
+            case 'Unsort':
+                onIssueInformationUnsortGrid("#IssueInformationInventoryGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#IssueInformationInventoryGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#IssueInformationInventoryGrid");
+                $('#IssueInformationInventoryGrid').data('kendoGrid').setOptions(_originalIssueInformationInventoryGrid);
+                $('#IssueInformationInventoryGrid').data("kendoGrid").dataSource.read();
+
+                $(".k-grid-toolbar", "#IssueInformationInventoryGrid").append("<label>" + '@LabelHelper.Text("Inventory")' + "</label>");
+                break;
+
+            case 'Select All':
+                onIssueInformationSelectAll("#IssueInformationInventoryGrid", _IssueInformationInventoryGridSelectAll);
+                break;
+
+            case 'Export To Excel':
+                onIssueInformationExcel("#IssueInformationInventoryGrid", "IssueInformationInventoryGrid", _IssueInformationInventoryGridSelectAll);
+                break;
+        }
+    }
+
+ 
+ 
+    function onIssueInformationInventoryGridRowChange()
+    {
+        _IssueInformationInventoryGridSelectAll = false;
+    }
+
+    function onIssueInformationSelectAll(e, selectAll) {
+        try {
+            var contractGrid = $(e).data("kendoGrid");
+            contractGrid.select(contractGrid.tbody.find(">tr"));
+
+            selectAll = true;
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onIssueInformationExcel(grid, title, selectAll) {
+        KendoGridToCSVConvertor(grid, title, selectAll);
+    }
+
+    function onIssueInformationInventoryCheckData(e) {
+
+    }
+
+
+</script>
+<div class="height100p width100p">
+    @(Html.Kendo().Grid<BondFire.Entities.Projections.SL_InventoryProjection>()
+           .Name("IssueInformationInventoryGrid")
+           .HtmlAttributes(new { @class = "grid" })
+           .Filterable()
+           .Scrollable()
+             .Navigatable()
+           .AutoBind(false)
+                       .ToolBar(t =>
+                       {
+                           t.Template("<label></label>");
+                       })
+                .Events(events =>
+                {
+                    events.ColumnHide("onIssueInformationInventoryGridLayoutChange");
+                    events.ColumnShow("onIssueInformationInventoryGridLayoutChange");
+                    events.ColumnResize("onIssueInformationInventoryGridLayoutChange");
+                    events.ColumnReorder("onIssueInformationInventoryGridLayoutChange");
+                })
+                .NoRecords()
+           .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+           .Events(events =>
+           {
+               events.DataBound("onIssueInformationInventoryCheckData");
+           })
+                      .ColumnMenu(menu =>
+                      {
+                          menu.Columns(true);
+                          menu.Filterable(true);
+                          menu.Sortable(true);
+                          menu.ComponentType( "modern" );
+                      } )
+           .Columns(cols =>
+           {
+               cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+               cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+               cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "");
+               cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "");
+
+           })
+           .DataSource(ds =>
+           {
+               ds.Ajax()
+                   .ServerOperation(false)
+                   .Aggregates(agg =>
+                   {
+                       agg.Add(x => x.Quantity).Sum();
+                   })
+                   .Sort(sort =>
+                   {
+                       sort.Add(x => x.EffectiveDate).Descending();
+                   })
+                   .Read(read => read.Action("LoadInventoryByIssue", "Inventory", new { area = "Locates" }).Data("onInventoryData"));
+           }))
+</div>
+    @(
+ Html.Kendo().ContextMenu()
+    .Name("IssueInformationInventoryGridContextMenu")
+            .Target("#IssueInformationInventoryGrid")
+    .Events(events => events.Select("onIssueInformationInventoryGridContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text("Unsort").Enabled(true);
+    items.Add().Text("Reset Filter").Enabled(true);
+    items.Add().Text("Reset Grid").Enabled(true);
+    items.Add().Text("Select All").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "InformationInventoryButton" });
+    items.Add().Text("Export To Excel").Enabled(true);
+}))
+

@@ -1,0 +1,119 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+@using SLTrader.Models.ContractRelatedModels
+
+@model SL_RecallExtendedProjection
+
+<style scoped>
+    #PedningRecallDiv td .k-checkbox-label {        
+        vertical-align: middle;        
+        top: -10px;
+    }
+</style>
+
+<script>
+    function getFormData($form) {
+        var unindexed_array = $form.serializeArray();
+        var indexed_array = {};
+
+        $.map(unindexed_array, function (n, i) {
+            indexed_array[n['name']] = n['value'];
+        });
+
+        return indexed_array;
+    }
+
+    function onProcessSingleRecall() {
+        var form = $("#my-form");
+        var formJSON = getFormData(form);
+
+        $.ajax({
+            url: "@Url.Action("Update_PendingRecall", "Recall", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify(formJSON),
+            success: function (valid) {
+                $('#LocalDetailWindow').data("kendoWindow").close();
+            },
+            error: function (valid) {
+                $('#RecallStatusLabel').text(valid.Message);
+            }
+        });
+    }
+</script>
+
+
+@using (Html.BeginForm("Action", "ControllerName", FormMethod.Post, new { id = "my-form" }))
+{
+        <table id="PedningRecallDiv">
+                <tr>
+                    <td>@LabelHelper.Label("ContraEntity")</td>
+                    <td>@Html.Kendo().TextBoxFor(x => x.ContraEntity).HtmlAttributes(new { @readonly = "readonly" })</td>
+                </tr>
+                <tr>
+                    <td>@LabelHelper.Label("SecurityNumber")</td>
+                    <td>@Html.Kendo().TextBoxFor(x => x.SecurityNumber).HtmlAttributes(new { @readonly = "readonly", style = "width:75px;" }) @Html.Kendo().TextBoxFor(x => x.Ticker).HtmlAttributes(new { @readonly = "readonly", style = "width:60px;" })</td>
+                </tr>
+                <tr>
+                    <td>@LabelHelper.Label("QuantityRecalled")</td>
+                    <td>@Html.Kendo().NumericTextBoxFor(x => x.QuantityRecalled).HtmlAttributes(new {style = "width:75px;" }).Spinners(false)</td>
+                </tr>
+                <tr>
+                    <td>@LabelHelper.Label("IsPendingRecall")</td>
+                    <td>@Html.Kendo().CheckBoxFor(x => x.IsPendingRecall).HtmlAttributes(new { @readonly = "readonly", style = "width:75px;" }).Enable(false)</td>
+                </tr>
+                <tr>
+                    <td>@LabelHelper.Label("RecallReason")</td>
+                    <td>@Html.Kendo().DropDownListFor(x => x.RecallReason).HtmlAttributes(new { style = "width:75px;" }).BindTo(EnumExtensions.GetEnumSelectList<SL_RecallReason>())</td>
+                </tr><tr>
+                    <td>@LabelHelper.Label("RecallFlag")</td>
+                    <td>@Html.Kendo().DropDownListFor(x => x.RecallFlag).HtmlAttributes(new { style = "width:75px;" }).BindTo(EnumExtensions.GetEnumSelectList<SL_RecallIndicator>())</td>
+                </tr>
+                <tr>
+                    <td>@LabelHelper.Label("RecallDate")</td>
+                    <td>@Html.Kendo().DatePickerFor(x => x.RecallDate).HtmlAttributes(new { style = "width:75px;" })</td>
+                </tr>
+                <tr>
+                    <td>@LabelHelper.Label("BuyInDate")</td>
+                    <td>@Html.Kendo().DatePickerFor(x => x.BuyInDate).HtmlAttributes(new { style = "width:75px;" })</td>
+                </tr>
+                <tr>
+                    <td colspan="4"><label id="RecallStatusLabel"></label></td>
+                </tr>
+                <tr>
+                    <td colspan="4" align="right">
+                        <a href="#" onclick="onProcessSingleRecall()" class="k-button">@LabelHelper.Text("SendSingleRecall")</a>
+                    </td>
+                </tr>            
+        </table>
+
+        @Html.HiddenFor(x => x.ActionCount)
+        @Html.HiddenFor(x => x.BrokerFailToDeliverPositionSettled)
+        @Html.HiddenFor(x => x.CnsFailToDeliverPositionSettled)
+        @Html.HiddenFor(x => x.Comment)
+        @Html.HiddenFor(x => x.ContractNumber)
+        @Html.HiddenFor(x => x.ContractPosition)
+        @Html.HiddenFor(x => x.ContraEntity)
+        @Html.HiddenFor(x => x.DepositorySettled)
+        @Html.HiddenFor(x => x.DvpFailToDeliverPositionSettled)
+        @Html.HiddenFor(x => x.EffectiveDate)
+        @Html.HiddenFor(x => x.EntityId)
+        @Html.HiddenFor(x => x.ExecutingSystem)
+        @Html.HiddenFor(x => x.IsPendingRecall)
+        @Html.HiddenFor(x => x.IssueId)
+        @Html.HiddenFor(x => x.Price)
+        @Html.HiddenFor(x => x.QuantityRemaining)
+        @Html.HiddenFor(x => x.QuantityReturned)
+        @Html.HiddenFor(x => x.RebateRate)
+        @Html.HiddenFor(x => x.RecallNumber)        
+        @Html.HiddenFor(x => x.SecurityNumber)
+        @Html.HiddenFor(x => x.SeqNumber)
+        @Html.HiddenFor(x => x.SLRecall)
+        @Html.HiddenFor(x => x.Status)
+        @Html.HiddenFor(x => x.Ticker)
+        @Html.HiddenFor(x => x.TradeType)
+}

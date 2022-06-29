@@ -1,0 +1,133 @@
+﻿@using SLTrader.Tools
+<script type="text/javascript">
+    function onSubmit() {
+        var value = document.getElementById("SearchCiteria").value;
+        var entity = $("#BoxDropdownList").data("kendoDropDownList");
+
+        try
+        {
+            $.ajax({
+                url: "@Url.Action("Read_IssueSearch","Issue")",
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({ criteria: value }),
+                success: function (valid) {
+                    $("#IssueBlock").html(valid);
+                }
+            })
+        }
+        catch (e) {
+            alert(e);
+        }
+
+        try
+        {
+            $.ajax({
+                url: "@Url.Action("Read_BoxCalculationSearch","BoxCalculation")",
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    entityId: entity.value(),
+                    criteria: value
+                }),
+                success: function (valid) {
+                    $("#BoxCalculationBlock").html(valid);
+                }
+            })
+        }
+        catch (e) {
+            alert(e);
+        }
+    }
+
+    function onHistory() {
+      
+    }
+
+
+    function onChange() {
+           }
+</script>
+<div id="panelbarDiv">
+<table class="lookupPanel">
+<tr>        
+<td>
+@Html.Label("Securtiy", new  {@class="k-label" })
+</td>
+<td class="nomargin">
+@Html.TextBox("SearchCiteria", "", new  {@class="k-textbox" })
+</td>
+<td class="nomargin">
+<button id="get" class="k-button" onclick="onSubmit()"><i class="fa fa-search"></i></button>
+</td>  
+<td>
+</td>        
+</tr>
+<tr>
+<td>                       
+@LabelHelper.Label("Entity")
+</td>
+<td>
+@(Html.Kendo().DropDownList()
+.Name("SecMasterDropdownList")
+.HtmlAttributes(new { @class="Toolbar-Cell" })
+.DataTextField("Custodian")
+.DataValueField("CompanyId")
+.OptionLabel("Empty List")
+.AutoBind(true)    
+.Events(events => events.Change("onChange"))
+.SelectedIndex(1)
+.DataSource(dataSource => dataSource
+.Read(read => read
+.Action("Read_EntityDropdown", "Monitor"))))
+</td>
+</tr>
+</table>
+@(Html.Kendo().PanelBar()
+        .Name("tPanelBarNavFolder")
+        .ExpandMode(PanelBarExpandMode.Single)
+        .HtmlAttributes(new { style = "width:100%" })
+        .Animation(animation => animation.Expand(e => e.SlideIn(SlideDirection.Down).Duration(4)))
+        .Items(panelbar =>
+        {
+            panelbar.Add().Text("Security Information")
+                .Expanded(true)
+                .Content(@<text> @Html.Partial("~/Areas/Monitor/Views/Issue/index.cshtml")</text>);
+            
+            panelbar.Add().Text("Box Calculation")
+                .Expanded(false)
+                .Content(@<text> @Html.Partial("~/Areas/Monitor/Views/BoxCalculation/_BoxCalculation.cshtml") </text>);
+        })
+)
+</div>
+
+<style scoped>
+    #SecurityBlock {
+        background:#363940;
+        height:100%;
+        color:#fff;
+        width:100%;
+        font-size:xx-small;
+        padding:0px;
+           border-spacing:1px;
+   }
+
+    #panelbarDiv {
+        background:#363940;
+        height:100%;
+        color:#fff;
+        width:100%;
+        font-size:xx-small;
+        padding:0px;
+        margin: 0px;
+        border-spacing:1px;
+        margin-top: 0px;
+        padding-top:0px;
+    }
+
+    #lookupPanel {
+        margin: 0px;
+        padding: 0px;
+        border-spacing:1px;
+    }
+</style>

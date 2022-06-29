@@ -1,0 +1,187 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Helpers.SessionHelper;
+
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+
+
+@*<style scoped>
+    #RoleDiv {
+        height:100%;
+        width:100%;
+    }
+</style>*@
+<script>
+    function onUserRoleType() {
+        HelperPartialAdminWindow(
+          null,
+          "Add User Role Type",
+          525,
+          325,
+          "/Admin/Admin/LoadUserRoleTypeAdd");
+    }
+
+    function onRoleRowChange() {
+        var entityGrid = $("#RoleGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        $("#RoleSelectedLabel").text("Role Selected : " + selectedItem["Description"]);
+
+        $("#ManagerTaskGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onRoleRemove() {
+        var roleGrid = $("#RoleGrid").data("kendoGrid");
+        var userRoleTypeIdSelectedItem = roleGrid.dataItem(roleGrid.select());
+        var userRoleTypeId = userRoleTypeIdSelectedItem["UserRoleTypeId"];
+
+        $.ajax({
+            url: '/Admin/Admin/RemoveRole',
+            data: JSON.stringify({
+                userRoleTypeId: userRoleTypeId
+            }),
+            contentType: 'application/json;',
+            type: "POST",
+            success: function () {
+                DisplayControllerByStringError("", "Role removed");
+            },
+            error: function () {
+                DisplayControllerByStringError("", "Role removal failed");
+            }
+        });
+
+        $('#RoleGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onManagerTask() {
+        var entityGrid = $("#RoleGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var userRole = selectedItem["UserRoleTypeId"];
+
+        return {
+            roleId: userRole
+        }
+    }
+
+    function onAddManagerTask() {
+        var task = $("#AvailableManagerTaskDropdown").data("kendoDropDownList").value();
+        var entityGrid = $("#RoleGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var userRole = selectedItem["UserRoleTypeId"];
+
+        $.ajax({
+            url: '/Admin/Admin/AddTaskToUserRoleType',
+            data: JSON.stringify({ userRoleTypeId: userRole, managerTask: task, }),
+            contentType: 'application/json;',
+            type: "POST",
+            async: false,
+            success: function () {
+                DisplayControllerByStringError("", "Manager task assigned");
+            },
+            error: function () {
+                DisplayControllerByStringError("", "Manager task failed");
+            }
+        });
+
+        $('#ManagerTaskGrid').data('kendoGrid').dataSource.read();
+    }
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+    });
+</script>
+
+<div id="RoleDiv">
+
+    @(Html.Kendo().Splitter()
+        .Name("RoleSplitter")
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(rolePanes =>
+        {
+            rolePanes.Add()
+            .Size("30%")
+            .Resizable(true)
+            .Scrollable(true)
+            .Content(
+            (Html.Kendo().Grid<UserRoleType>()
+            .Name("RoleGrid")
+            .HtmlAttributes(new { @class = "grid" })
+            .Scrollable()
+            .NoRecords()
+            .Selectable(select => select.Mode(GridSelectionMode.Single).Enabled(true))
+            .Events(events => events.Change("onRoleRowChange"))
+            .ToolBar(toolbar =>
+            {
+        toolbar.Template(@<text>
+        @Html.Kendo().Button().Name("AddUserRoleTypeButton").Content("Add Role Type").Events(e => e.Click("onUserRoleType"))
+            </text>);
+        })
+                .Columns(columns =>
+                {
+                    columns.Bound(x => x.UserRoleTypeId);
+                    columns.Bound(x => x.Description);
+
+
+                    if (SessionSecurityService.IsEditable(ManagerTask.DeleteUserRole))
+                    {
+                        columns.Command(x => x.Custom("Remove").Click("onRoleRemove"));
+                    }
+                })
+                .DataSource(dataSource => dataSource.Ajax()
+                    .Read(read => read.Action("LoadUserRoleType", "Admin", new { area = "Admin" })))).ToHtmlString());
+
+rolePanes.Add()
+.Resizable(true)
+.Scrollable(true)
+.Content(
+(Html.Kendo().Grid<ManagerModel>()
+        .Name("ManagerTaskGrid")
+        .Scrollable()
+        .NoRecords()
+        .AutoBind(false)
+        .ColumnMenu(menu =>
+        {
+            menu.Filterable(true);
+            menu.Sortable(true);
+        })
+        .Selectable()
+        .HtmlAttributes(new { @class = "grid" })
+        .ToolBar(tTemplate => {
+        tTemplate.Template(@<text>             
+        <table>
+            <tr>
+                <td width="200px"><label id="RoleSelectedLabel">Role Selected : </label>  </td>
+                <td width="100px">@LabelHelper.Label("AvailableManagerTasks")</td>
+                <td width="150px">
+                    @(Html.Kendo().DropDownList()
+                              .Name("AvailableManagerTaskDropdown")
+                              .DataTextField("Text")
+                              .DataValueField("Value")
+                              .BindTo(EnumExtensions.GetEnumSelectList<ManagerTask>()))
+                </td>
+                <td>@Html.Kendo().Button().Name("AddManagerTaskCommand").Content("Add Task").Events(events => events.Click("onAddManagerTask"))</td>
+            </tr>
+        </table>
+                </text>);
+            })
+                .Columns(cols =>
+                {                   
+                    cols.Bound(x => x.ManagerId);
+                    cols.Bound(x => x.Name);
+
+                })
+                .DataSource(dataSource => dataSource.Ajax()
+                    .Read(read => read.Action("LoadManagerTaskByRoleId", "Admin", new { area = "Admin" }).Data("onManagerTask")))).ToHtmlString());
+        }))
+</div>

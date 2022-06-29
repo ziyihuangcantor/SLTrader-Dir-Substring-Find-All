@@ -1,0 +1,354 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Tools
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+@model List<BondFire.Entities.Projections.SL_RebateBillingGroupAccountProjection>
+
+<style scoped>
+    #BulkUpdateTable {
+        border-collapse: collapse;
+        margin: 0px;
+    }
+</style>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#GroupCodeCheckBox').change(function () {
+            $("#GroupCodeDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+            $("#ApplyChangesButton").data("kendoButton").enable(true);
+        });
+        
+        $('#RebateTypeCheckbox').change(function () {
+            $("#AccountRebateTypeDropdown").data("kendoDropDownList").enable($(this).is(':checked'));
+            $("#ApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#BillingTypeCheckbox').change(function () {
+            $("#AccountBillingTypeDropdown").data("kendoDropDownList").enable($(this).is(':checked'));
+            $("#ApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#DebitMarkupCheckBox').change(function () {
+            $("#DebitMarkupTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+            $("#ApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#CreditMarkupCheckBox').change(function () {
+            $("#CreditMarkupTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+            $("#ApplyChangesButton").data("kendoButton").enable(true);
+        });
+    });
+
+    function onBulkAccountsSelectAll() {
+        try {
+            var bulkUpdateGrid = $("#AccountBulkUpdateGrid").data("kendoGrid");
+            bulkUpdateGrid.select(bulkUpdateGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onBulkAccountApplyChanges() {
+
+        $("#StatusLabel").html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+        try {
+            var creditMarkup = ($("#DebitMarkupCheckBox").is(':checked')) ? $("#DebitMarkupTextBox").data("kendoNumericTextBox").value() : null;
+            var debitMarkup = ($("#CreditMarkupCheckBox").is(':checked')) ? $("#CreditMarkupTextBox").data("kendoNumericTextBox").value() : null;
+
+            var rebateType = ($("#RebateTypeCheckbox").is(':checked')) ? $("#AccountRebateTypeDropdown").data("kendoDropDownList").value() : null;
+            var billingType = ($("#BillingTypeCheckbox").is(':checked')) ? $("#AccountBillingTypeDropdown").data("kendoDropDownList").value() : null;
+
+            var groupCode = ($("#GroupCodeCheckBox").is(':checked')) ? $("#GroupCodeDropdownList").data("kendoDropDownList").value() : null;
+            var grid = $('#AccountBulkUpdateGrid').data('kendoGrid');
+            var rows = grid.select();
+            var dataItems = [];
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            if (dataItems.length == 0) {
+                $('#StatusLabel').html('<i class="fa fa-times"></i> No items selected!');
+            }
+            else {
+                $.ajax({
+                    url: "@Url.Action("UpdateBulkAccountEditor", "Group", new {area ="RebateBilling" })",
+                    type: 'POST',
+                    contentType: 'application/json;',
+                    data: JSON.stringify({
+                        creditMarkup: creditMarkup,
+                        debitMarkup: debitMarkup,
+                        rebateType: rebateType,
+                        billingType: billingType,
+                        groupCode:groupCode,
+                        list: dataItems
+                    }),
+                    success: function (valid) {
+                        for (var i = 0; i < valid.length; i++) {
+                            var dataItem = valid[i];
+                            $("#AccountBulkUpdateGrid").data("kendoGrid").dataSource.pushUpdate(dataItem);
+                        }
+
+                        $('#StatusLabel').html('Updated ' + valid.length + ' trades.');
+                        $("#SaveTradesButton").data("kendoButton").enable(true);
+                    },
+                    error: function (valid) {
+                        $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                    }
+                })
+            }
+        }
+        catch (e) {
+            $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            console.log(e.message);
+        }
+   }
+
+    function onBulkAccountGridEdit() {
+        $("#SaveTradesButton").data("kendoButton").enable(true);
+    }
+
+    function onSaveBulkAccount() {
+        $("#StatusLabel").html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+        $("#SaveTradesButton").data("kendoButton").enable(false);
+        try {
+            var grid = $('#AccountBulkUpdateGrid').data('kendoGrid');
+            var rows = grid.select();
+            var rowCount = rows.length;
+            var dataItems = [];
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            if (dataItems.length == 0) {
+                $('#StatusLabel').html('<i class="fa fa-times"></i> No items selected!');
+            }
+            else {
+                $.ajax({
+                    url: "@Url.Action("SaveBulkAccountEditor", "Group", new { area = "RebateBilling" })",
+                    type: 'POST',
+                    contentType: 'application/json;',
+                    data: JSON.stringify({
+                        list: dataItems
+                    }),
+                    success: function (valid) {
+
+                        for (var i = 0; i < valid.length; i++) {
+                            var dataItem = valid[i];
+
+                            $("#AccountBulkUpdateGrid").data("kendoGrid").dataSource.pushDestroy(dataItem);
+                        }
+
+                        $('#StatusLabel').html("Successfully saved " + (valid.length) + " trade(s).");
+                    },
+                    error: function (valid) {
+                        $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                    }
+                })
+            }
+        }
+        catch (e) {
+            $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            console.log(e.message);
+        }
+        $("#SaveTradesButton").data("kendoButton").enable(true);
+    }
+
+    function onBulkAccountCheckData() {
+        try {
+            CheckGridData('#AccountBulkUpdateGrid');
+
+            resizeGridColumns("#AccountBulkUpdateGrid");
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+    function onBulkAccountError(e) {
+
+    }
+    function onBulkAccountSelectAll() {
+        try {
+            var bulkUpdateGrid = $("#AccountBulkUpdateGrid").data("kendoGrid");
+            bulkUpdateGrid.select(bulkUpdateGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function additionalBulkAccountData() {
+
+        return {
+            entityId: '@Model.ToList()[0].EntityId',
+        }
+    }
+</script>
+
+<table>
+    <tr>
+        <td>
+            @(Html.Kendo()
+            .Button()
+            .Enable(false)
+            .Name("ApplyChangesButton")
+            .HtmlAttributes(new { @class = "width90" })
+            .Events(e => e.Click("onBulkAccountApplyChanges"))
+            .Content(@<text>
+                <i class="fa fa-repeat"></i>&nbsp;Apply Options
+            </text>))
+        </td>
+        <td>
+            @(Html.Kendo()
+            .Button()
+            .Enable(true)
+            .Name("SaveTradesButton")
+            .HtmlAttributes(new { @class = "width90" })
+                            .Events(e => e.Click("onSaveBulkAccount"))
+            .Content(@<text>
+                        <i class="icon-check color-green"></i>&nbsp;Save Accounts
+            </text>))
+        </td>
+        <td>
+            @(Html.Kendo()
+                                .Button()
+                                        .Enable(true)
+                                .Name("BulkUpdatesSelectAllButton")
+                                .HtmlAttributes(new { @class = "width90" })
+                                        .Events(e => e.Click("onBulkAccountSelectAll"))
+                                .Content(@<text>
+                                            <i class="icon-check color-green" ></i>&nbsp;Select All
+                                </text>))
+        </td>
+    </tr>
+</table>
+<table id="BulkUpdateTable">
+    <tr>
+        <td>
+            @Html.CheckBox("GroupCodeCheckBox")
+        </td>
+        <td>
+            @LabelHelper.Label("GroupCode")
+        </td>
+        <td>
+            @(Html.Kendo().DropDownList()
+                        .Name("GroupCodeDropdownList")
+                        .DataTextField("GroupCode")
+                        .DataValueField("SLRebateBillingGroup")
+                        .Enable(false)
+                        .DataSource(source =>
+                        {
+                            source.Read(read =>
+                            {
+                                read.Action("Read_GroupsDropdown", "Group", new { area = "RebateBilling" }).Data("additionalBulkAccountData");
+                            });
+                        })
+                                .HtmlAttributes(new { ID = "GroupCodeDropdownList" })
+                        .Filter("startswith"))
+        </td>
+        <td>
+            @Html.CheckBox("DebitMarkupCheckBox")
+        </td>
+        <td>
+            @LabelHelper.Label("DebitMarkup")
+        </td>
+        <td>
+            @Html.Kendo().NumericTextBox().Name("DebitMarkupTextBox").Spinners(false).Value(0).Enable(false).Decimals(3).Format("000.000")
+        </td>
+        <td>
+            @Html.CheckBox("CreditMarkupCheckBox")
+        </td>
+        <td>
+            @LabelHelper.Label("CreditMarkup")
+        </td>
+        <td>
+            @Html.Kendo().NumericTextBox().Name("CreditMarkupTextBox").Spinners(false).Value(0).Enable(false).Decimals(3).Format("000.000")
+        </td>
+        </tr><tr>
+        <td>
+            @Html.CheckBox("RebateTypeCheckbox")
+        </td>
+        <td>
+            @LabelHelper.Label("RebateType")
+        </td>
+        <td>
+            @(Html.Kendo().DropDownList()
+                  .Name("AccountRebateTypeDropdown")
+                  .Enable(false)
+                  .DataValueField("Value")
+                  .DataTextField("Text")
+                  .HtmlAttributes(new { @class = "width120" })
+                  .BindTo(EnumExtensions.GetEnumSelectList<SL_RebateType>()))
+        </td>
+        <td>
+            @Html.CheckBox("BillingTypeCheckbox")
+        </td>
+        <td>
+            @LabelHelper.Label("BillingType")
+        </td>
+        <td>
+            @(Html.Kendo().DropDownList()
+                  .Name("AccountBillingTypeDropdown")
+                  .Enable(false)
+                  .DataValueField("Value")
+                  .DataTextField("Text")
+                  .HtmlAttributes(new { @class = "width120" })
+                  .BindTo(EnumExtensions.GetEnumSelectList<SL_RebateBillingType>()))
+        </td>
+    <td></td>
+                 <td></td>
+                 <td></td>
+                 <td></td>
+                 <td></td>
+                 <td></td>
+    </tr>
+</table>
+<div id="BulkAccountContent" class="grid-div">
+    @(Html.Kendo().Grid(Model)
+        .Name("AccountBulkUpdateGrid")
+                        .HtmlAttributes(new { @class = "grid" })
+                .Sortable()
+                .Scrollable(scrollable => scrollable.Virtual(true))
+                .Filterable()
+                .Navigatable()
+                .Editable(edit =>
+                {
+                    edit.Mode(GridEditMode.InCell);
+                })
+                        .Events(events => events.DataBound("onBulkAccountCheckData").Edit("onBulkAccountGridEdit"))
+        .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLRebateBillingGroupAccount).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.RebateBillingGroup).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.RebateBillingGroupCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountEmailAddress).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountRebateType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_GroupAccountRebateTypeDropdown");
+            columns.Bound(x => x.AccountBillingType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_GroupAccountBillingTypeDropdown");
+            columns.Bound(x => x.AccountCreditMarkup).GetColumnFormat(ColumnTypeEnum.Margin, false, "", "");
+            columns.Bound(x => x.AccountDebitMarkup).GetColumnFormat(ColumnTypeEnum.Margin, false, "", "");
+            columns.Command(x => x.Destroy());
+
+        })
+        .DataSource(dataSource => dataSource
+        .Ajax()      
+        .ServerOperation(false)
+        .Update(update => update.Action("UpdateBulkAccount", "Group", new { area = "RebateBilling" }))
+        .AutoSync(true)
+            .Model(model =>
+                {
+                    model.Id(x => x.SLRebateBillingGroupAccount);
+                    model.Field(x => x.EntityId).Editable(false);
+                    model.Field(x => x.AccountNumber).Editable(false);                  
+                })                        
+            .Events(events => events
+                    .Error("onBulkAccountError"))))
+</div>
+<label id="StatusLabel" style="color: white;"></label>

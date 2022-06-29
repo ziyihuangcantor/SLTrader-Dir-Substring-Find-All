@@ -1,0 +1,136 @@
+﻿@using SLTrader.Tools
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+@model Company
+
+<script  type="text/javascript">
+    function onCompanySubmit() {
+        var form = $("#CompanyForm");
+
+        $.ajax({
+            url: '/Admin/Admin/UpdateCompany',
+            data: form.serializeArray(),
+            type: "POST",
+            success: function () {
+                $("#CompnayStatusLabel").text("Compnay values updated.");
+            },
+            error: function () {
+                $("#CompnayStatusLabel").text("Compnay value update failed.");
+            }
+        });
+    }
+
+    function onCancel() {
+
+    }
+</script>
+<div class="div-admin-shared">
+@using (Html.BeginForm("", "", FormMethod.Post, new { id = "CompanyForm" }))
+{
+<table>
+    <tr>
+        <td>@LabelHelper.Label("ShortName")</td>
+        @if(!Model.CompanyId.Equals(-1))
+        {
+            <td colspan="3">@Html.TextBoxFor(x => x.ShortName, new { @class = "k-textbox width100p", @readonly = "readonly" })</td>
+        }
+        else
+        {
+             <td colspan="3">@Html.TextBoxFor(x => x.ShortName, new { @class = "k-textbox width100p" })</td>
+        }
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("Name")</td>
+        @if(!Model.CompanyId.Equals(-1))
+        {
+            <td colspan="3">@Html.TextBoxFor(x => x.Name, new { @class = "k-textbox width100p", @readonly = "readonly" })</td>
+        }
+        else
+        {
+             <td colspan="3">@Html.TextBoxFor(x => x.Name, new { @class = "k-textbox width100p" })</td>
+        }
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("ParentCompany")</td>
+        <td>@Html.TextBoxFor(x => x.ParentCompany, new {@class="k-textbox", @readonly = "readonly" })</td>
+        <td>@LabelHelper.Label("CompanyId")</td>
+        <td>@Html.TextBoxFor(x => x.CompanyId, new {@class="k-textbox", @readonly = "readonly" })</td>
+    </tr>
+     <tr>
+        <td>@LabelHelper.Label("Address1")</td>
+        <td>@Html.TextBoxFor(x => x.Address1,  new {@class="k-textbox"})</td>
+        <td>@LabelHelper.Label("Address2")</td>
+        <td>@Html.TextBoxFor(x => x.Address2, new {@class="k-textbox"})</td>
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("Address3")</td>
+        <td>@Html.TextBoxFor(x => x.Address3, new {@class="k-textbox"})</td>
+        <td>@LabelHelper.Label("Address4")</td>
+        <td>@Html.TextBoxFor(x => x.Address4, new {@class="k-textbox"})</td>
+    </tr>   
+    <tr>
+        <td>@LabelHelper.Label("PhoneNum1")</td>
+        <td>@Html.TextBoxFor(x => x.PhoneNum1, new {@class="k-textbox", type="tel" })</td>
+        <td>@LabelHelper.Label("PhoneNum2")</td>
+        <td>@Html.TextBoxFor(x => x.PhoneNum2, new {@class="k-textbox", type="tel" })</td>
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("FAXNum1")</td>
+        <td>@Html.TextBoxFor(x => x.FAXNum1, new {@class="k-textbox", type="tel" })</td>
+        <td>@LabelHelper.Label("FAXNum2")</td>
+        <td>@Html.TextBoxFor(x => x.FAXNum2, new {@class="k-textbox", type="tel" })</td>
+    </tr>
+      <tr>
+        <td>@LabelHelper.Label("EMail")</td>
+        <td>@Html.TextBoxFor(x => x.EMail, new {@class="k-textbox", type="email" })</td>
+        <td>@LabelHelper.Label("EMail")</td>
+        <td>@Html.TextBoxFor(x => x.LEINumber, new { @class = "k-textbox" })</td>
+    </tr>
+       <tr>
+        <td>@LabelHelper.Label("BOXLOCATION")</td>
+        <td>@Html.TextBoxFor(x => x.BoxLocation, new {@class="k-textbox"})</td>
+        <td>@LabelHelper.Label("Custodian")</td>
+        <td>@Html.TextBoxFor(x => x.Custodian, new {@class="k-textbox"})</td>        
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("PasswordExpirationDays")</td>
+        <td>@Html.Kendo().NumericTextBoxFor(x => x.PasswordExpirationDays).Name("PasswordExpirationDays").Spinners(false)</td>
+        <td>@LabelHelper.Label("PasswordMinLength")</td>
+        <td>@Html.Kendo().NumericTextBoxFor(x => x.PasswordExpirationDays).Name("PasswordMinLength").Spinners(false)</td>        
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("Zip")</td>
+        <td>@Html.TextBoxFor(x => x.Zip, new {@class="k-textbox"})</td>
+        <td>@LabelHelper.Label("Country")</td>
+        <td>@Html.Kendo().DropDownListFor(x => x.Country).BindTo(EnumExtensions.GetEnumSelectList<Country>())</td> 
+    </tr>
+      <tr>
+        <td>@LabelHelper.Label("City")</td>
+        <td>@Html.TextBoxFor(x => x.City, new {@class="k-textbox"})</td>
+        <td>@LabelHelper.Label("State")</td>
+        <td>@Html.TextBoxFor(x => x.State, new {@class="k-textbox"})</td>        
+    </tr>
+     <tr>
+        <td>@LabelHelper.Label("IsHoldingCompany")</td>
+        <td>@Html.CheckBoxFor(x => x.IsHoldingCompany)</td>
+        <td>@LabelHelper.Label("IsEntity")</td>
+        <td>@Html.CheckBoxFor(x => x.IsEntity)</td>
+    </tr>
+     <tr>        
+        <td>@LabelHelper.Label("IsActive")</td>
+        <td>@Html.CheckBoxFor(x => x.IsActive)</td>
+        <td>@LabelHelper.Label("ExecutionSystemType")</td>
+        <td>@Html.Kendo().DropDownListFor(x => x.DefaultExecutionSystem).BindTo(EnumExtensions.GetEnumSelectList<SL_ExecutionSystemType>())</td>
+    </tr>
+    <tr>
+       <td colspan="4">
+           <label id="CompnayStatusLabel"></label>
+        </td>
+    </tr>
+    <tr>
+       <td colspan="4">
+            <a href="#" onclick="onCompanySubmit()" class="k-button">@LabelHelper.Text("PostTradeChange")</a>
+        </td>
+    </tr>
+</table>
+}
+</div>

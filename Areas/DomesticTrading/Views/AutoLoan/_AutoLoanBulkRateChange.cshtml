@@ -1,0 +1,81 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Models
+
+@model AutoLoanBulkRateChangeModel
+
+<script type="text/javascript">      
+    $('#AutoLoanBulkRateIdTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoLoanBulkRateTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+    
+
+    $('#AutoLoanBulkRateTextBox').change(function () {
+        $("#PostAutoLoanBulkRate").data("kendoButton").enable(true);
+    });
+
+    $('#AutoLoanBulkRateIdTextBox').change(function () {
+        $("#PostAutoLoanBulkRate").data("kendoButton").enable(true);
+    });
+
+    function onAutoLoanBulkRatePost() {
+
+        $("#AutoLoanBulkRateStatusLabel").html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+        $("#PostAutoLoanBulkRate").data("kendoButton").enable(false);
+
+        var rebateRate = $("#AutoLoanBulkRateTextBox").data("kendoNumericTextBox").value();
+        var rebateRateId = document.getElementById("AutoLoanBulkRateIdTextBox").value;
+
+        try {
+
+            $.ajax({
+                url: '@Url.Action( "BulkRateChangeAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    entityId: '@Model.EntityId',
+                    contraEntityId: '@Model.ContraEntityId',
+                    rebateRate: rebateRate,
+                    rebateRateId : rebateRateId
+                }),
+                success: function (valid) {
+                   
+                    $('#AutoLoanBulkRateStatusLabel').html('Updated ' + valid + ' auto loan(s).');
+                    $("#PostAutoLoanBulkRate").data("kendoButton").enable(true);
+                },
+                error: function (valid) {
+                    $('#AutoLoanBulkRateStatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                }
+            });
+        }
+        catch (e) {
+            $('#AutoLoanBulkRateStatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+        }
+    }
+
+</script>
+<div id="AutoLoanDefaultOptionsDiv" class="table-form">
+    <table>
+        <tr>
+            <td>@LabelHelper.Text("AutoLoanBulkRate")</td>
+            <td>@Html.Kendo().NumericTextBox().Name( "AutoLoanBulkRateTextBox" ).Format( "#,##0.000" )</td>
+            <td>@LabelHelper.Text( "AutoLoanBulkRateId" )</td>
+            <td>@Html.TextBox( "AutoLoanBulkRateIdTextBox", "", new { @class = "k-textbox", @style = "width:30px", @maxlength = "1" } )</td>
+        </tr>
+        <tr>   
+            <td colspan="4">
+                <label id="AutoLoanBulkRateStatusLabel" class="label-status"></label>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" align="right">
+                @Html.Kendo().Button().Name( "PostAutoLoanBulkRate" ).Enable( false ).Content( LabelHelper.Text( "PostAutoLoanBulkRate" ) ).Events( e => e.Click( "onAutoLoanBulkRatePost" ) )
+            </td>
+        </tr>
+    </table>
+</div>

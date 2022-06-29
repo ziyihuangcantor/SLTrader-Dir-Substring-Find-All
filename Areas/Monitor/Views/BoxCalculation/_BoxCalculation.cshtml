@@ -1,0 +1,143 @@
+﻿@using SLTrader.Tools
+@model BondFire.Entities.Projections.SL_BoxCalculationExtendedProjection
+
+
+<div id="BoxCalculationBlock" align="center">
+    <hr class="hr-white" />
+    <table>
+        <tr>
+            <td></td>
+            <td>@LabelHelper.Label("Actual")</td>
+            <td></td>
+            <td>@LabelHelper.Label("Forcast")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("NetPosition")</td>
+            <td>@Html.DisplayFor(model => model.NetPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.NetPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("Excess")</td>
+            <td>@Html.DisplayFor(model => model.ExcessPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.ExcessPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("RetailLong")</td>
+            <td>@Html.DisplayFor(model => model.CustomerLongPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.CustomerLongPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("InstLong")</td>
+            <td>@Html.DisplayFor(model => model.FirmLongPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.FirmLongPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("RetailShort")</td>
+            <td>@Html.DisplayFor(model => model.CustomerShortPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.CustomerShortPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("InstShort")</td>
+            <td>@Html.DisplayFor(model => model.FirmShortPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.FirmShortPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("RetailPlgSettled")</td>
+            <td>@Html.DisplayFor(model => model.CustomerBankLoanPositionSettled, "Decimal")</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("InstPlgSettled")</td>
+            <td>@Html.DisplayFor(model => model.FirmBankLoanPositionSettled, "Decimal")</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("OtherPlgSettled")</td>
+            <td>@Html.DisplayFor(model => model.OtherBankLoanPositionSettled, "Decimal")</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("StockLoanSettled")</td>
+            <td>@Html.DisplayFor(model => model.StockLoanPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.StockLoanPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("StockBorrowSettled")</td>
+            <td>@Html.DisplayFor(model => model.StockBorrowPositionSettled, "Decimal")</td>
+            <td></td>
+            <td>@Html.DisplayFor(model => model.StockBorrowPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("CnsFTD")</td>
+            <td>@Html.DisplayFor(model => model.CnsFailToDeliverPositionSettled, "Decimal")</td>
+            <td>@Html.DisplayFor(model => model.CnsFailToDeliverPositionSettledDayCount, "Int32")</td>
+            <td>@Html.DisplayFor(model => model.CnsFailToDeliverPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("DvpFTD")</td>
+            <td>@Html.DisplayFor(model => model.DvpFailToDeliverPositionSettled, "Decimal")</td>
+            <td>@Html.DisplayFor(model => model.DvpFailToDeliverPositionSettledDayCount, "Int32")</td>
+            <td>@Html.DisplayFor(model => model.DvpFailToDeliverPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("BrokerFTD")</td>
+            <td>@Html.DisplayFor(model => model.BrokerFailToDeliverPositionSettled, "Decimal")</td>
+            <td>@Html.DisplayFor(model => model.BrokerFailToDeliverPositionSettledDayCount, "Int32")</td>
+            <td>@Html.DisplayFor(model => model.BrokerFailToDeliverPositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("CnsFTR")</td>
+            <td>@Html.DisplayFor(model => model.CnsFailToRecievePositionSettled, "Decimal")</td>
+            <td>@Html.DisplayFor(model => model.CnsFailToRecievePositionSettledDayCount, "Int32")</td>
+            <td>@Html.DisplayFor(model => model.CnsFailToRecievePositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("DvpFTR")</td>
+            <td>@Html.DisplayFor(model => model.DvpFailToRecievePositionSettled, "Decimal")</td>
+            <td>@Html.DisplayFor(model => model.DvpFailToRecievePositionSettledDayCount, "Int32")</td>
+            <td>@Html.DisplayFor(model => model.DvpFailToRecievePositionTraded, "Decimal")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("BrokerFTR")</td>
+            <td>@Html.DisplayFor(model => model.BrokerFailToRecievePositionSettled, "Decimal")</td>
+            <td>@Html.DisplayFor(model => model.BrokerFailToRecievePositionSettledDayCount, "Int32")</td>
+            <td>@Html.DisplayFor(model => model.BrokerFailToRecievePositionTraded, "Decimal")</td>
+        </tr>
+    </table>
+</div>
+
+
+<style scoped>
+    .number-width {
+        width: 60px;
+        text-align:right;
+        margin-right:5px;        
+        background:transparent;
+        border:0px;
+    }
+
+    .number-daycount {
+        width: 20px;
+        text-align:right;
+        margin-right:5px;        
+        border:0px;
+        background:transparent;
+    }
+
+    #BoxCalculationBlock {
+        width:100px;
+        text-align:right;
+        padding-right:10px;
+        font-size:x-small;
+    }
+</style>

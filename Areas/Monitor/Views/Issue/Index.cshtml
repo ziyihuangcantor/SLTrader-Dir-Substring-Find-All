@@ -1,0 +1,93 @@
+﻿@using SLTrader.Tools
+@model SLTrader.Models.SecurityPanelModel
+
+<script type="text/javascript">
+    function onSubmit() {
+        var value = document.getElementById("SearchCiteria").value;
+
+        UpdateIssue(value);
+    }
+
+    function onSubmitEasy() {
+    }
+
+    function onSubmitRegSHO() {
+    }
+
+    function onSubmitPremium() {
+    }
+
+    function onSubmitPenalty() {
+    }
+
+    function onSubmitUnlendable() {
+    }
+</script>
+
+<div id="IssueBlock" align="center">
+<table>
+    <tr>
+        <td colspan="4">@Html.Kendo().AutoCompleteFor(m => m.Issue.Description_1).HtmlAttributes(new {@readonly="readonly", @class="width100p"}) </td>                
+    </tr>
+    <tr>        
+        <td>
+            <span>
+                @LabelHelper.Label("Cusip")
+                @Html.Kendo().AutoCompleteFor(m => m.Issue.Cusip).HtmlAttributes(new {@readonly="readonly"}) 
+            </span>
+         </td>       
+        <td>
+            <span>
+                @LabelHelper.Label("Ticker")   
+                @Html.Kendo().AutoCompleteFor(m => m.Issue.Ticker).HtmlAttributes(new {@readonly="readonly"})     
+            </span>
+        </td>  
+    </tr>    
+    <tr>        
+        <td>
+            <span>
+            @LabelHelper.Label("ClosingPrice")
+            @Html.Kendo().NumericTextBoxFor(m => m.Issue.CallPrice).Format("#,##0.00").HtmlAttributes(new {@readonly="readonly"})
+            </span>
+        </td>
+        <td>
+            <span>
+            @LabelHelper.Label("ClosingPriceDate")
+            @Html.Kendo().DatePickerFor(m => m.Issue.DatedDate).Format("yyyy-MM-dd").HtmlAttributes(new {@readonly="readonly"})
+            </span>
+        </td>
+    </tr>
+    <tr>        
+    </tr>
+    <tr>
+        <td >
+            <span>
+            @LabelHelper.Label("RecordDate")
+            @Html.Kendo().DatePickerFor(m => m.Issue.DateTimeId).Format("yyyy-MM-dd").HtmlAttributes(new {@readonly="readonly"})
+            </span>                    
+         </td>
+        <td></td>
+    </tr>
+</table>
+<hr class="hr-white">
+<table>
+    <tr>
+        <td>@LabelHelper.Label("Easy")</td>
+        <td>@Html.CheckBoxFor(x => x.IssueList.Easy)</td>
+        <td>@LabelHelper.Label("RegSHO")</td>
+        <td>@Html.CheckBoxFor(x => x.IssueList.RegSHO)</td>            
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("Premium")</td>
+        <td>@Html.CheckBoxFor(x => x.IssueList.Premium)</td>            
+        <td>@LabelHelper.Label("Threshold")</td>
+        <td>@Html.CheckBoxFor(x => x.IssueList.Threshold)</td>
+    </tr>
+    <tr>
+        <td>@LabelHelper.Label("Unlendable")</td>
+        <td>@Html.CheckBoxFor(x => x.IssueList.Lendable)</td>
+        <td></td>
+        <td></td>
+    </tr>
+</table>
+</div>

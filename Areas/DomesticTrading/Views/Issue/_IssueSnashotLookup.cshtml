@@ -1,0 +1,458 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Enums
+@using BondFire.Entities.Projections;
+
+<style scoped>
+
+    #IssueSnapshotToolBar.k-widget .k-multiselect input {
+        display: none;
+    }
+</style>
+<script>
+    function onIssueSnapshotDefaultLoad(e) {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreferenceMultiple',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $("#IssueSnapshotDropdownList").data("kendoMultiSelect");
+
+                    dropdownList.value(userPreference);
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    $("#IssueSnapshotToolBar").bind("keypress", function (e) {
+        if (e.keyCode == 13) {
+            onIssueSnapshotLookupIssueLookup();
+        }
+    });
+
+
+    function onIssueSnapshotLookupIssueLookup  (e) {
+
+        try {
+            $("#IssueSnapshotLookupButton").data("kendoButton").enable(false);
+            $('#IssueSnapshotStatusLabel').html('<i class="fa fa-spinner fa-spin"></i> loading security...');
+            var issueSnapshotEntity = $("#IssueSnapshotDropdownList").data("kendoMultiSelect").value();
+            var effectiveDate = $("#IssueSnapshotCalander").data("kendoDatePicker").value();
+
+            var securityCriteria = $("#IssueSnapshotSecuritySearchTextBox").val();
+            var dayCount = $("#IssueSnapshotDayCountSearchTextBox").val();
+
+            $("#IssueSnapshotIntradayLendingGrid").data("kendoGrid").dataSource.data([]);   
+            $('#IssueSnapshotAvailabilityChart').data("kendoChart").dataSource.data([]);
+            $("#IssueSnapshotBoxCalculationGrid").data("kendoGrid").dataSource.data([]);
+            $("#IssueSnapshotContractGrid").data("kendoGrid").dataSource.data([]);
+            //public JsonResult LoadIssueSnapshotLookup(DateTime effectiveDate, List < string > entityIdList, string criteria, int dayCount)
+
+            $.ajax({
+                url: '/DomesticTrading/Issue/LoadIssueSnapshotLookup',
+                type: 'POST',
+                data: JSON.stringify({
+                    effectiveDate: effectiveDate,
+                    entityIdList: issueSnapshotEntity,
+                    criteria: securityCriteria,
+                    dayCount: 3
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+
+                    $.each(valid[0].issueContractLookupList, function (i, obj) {
+                        try {
+                            try {
+                                var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                                obj['EffectiveDate'] = effectiveDate;
+                            }
+                            catch (error1) {
+                                console.log(error1.message);
+                            }
+                        }
+                        catch (e) { }
+                    });
+
+
+                    $("#IssueSnapshotContractGrid").data("kendoGrid").dataSource.data(valid[0].issueContractLookupList);
+
+
+
+
+                    $.each(valid[0].issueBoxCalcLookupList, function (i, obj) {
+                        try {
+                            try {
+                                var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                                obj['EffectiveDate'] = effectiveDate;
+                            }
+                            catch (error1) {
+                                console.log(error1.message);
+                            }
+                        }
+                        catch (e) { }
+                    });
+
+                    $("#IssueSnapshotBoxCalculationGrid").data("kendoGrid").dataSource.data(valid[0].issueBoxCalcLookupList);
+
+                    $.each(valid[0].issueInventoryLookupList, function (i, obj) {
+                        try {
+                            try {
+                                var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                                obj['EffectiveDate'] = effectiveDate;
+                            }
+                            catch (error1) {
+                                console.log(error1.message);
+                            }
+                        }
+                        catch (e) { }
+                    });
+
+                    console.log(valid[0].issueInventoryLookupChartList);
+                    $('#IssueSnapshotAvailabilityChart').data("kendoChart").dataSource.data(valid[0].issueInventoryLookupChartList);
+
+
+                    $.each(valid[0].issueIntradayLendingLookupList, function (i, obj) {
+                        try {
+                            try {
+                                var tradingDate = kendo.parseDate(obj['TradingDate']);
+                                obj['TradingDate'] = tradingDate;
+                            }
+                            catch (error1) {
+                                console.log(error1.message);
+                            }
+                        }
+                        catch (e) { }
+                    });
+
+
+                    $("#IssueSnapshotIntradayLendingGrid").data("kendoGrid").dataSource.data(valid[0].issueIntradayLendingLookupList);  
+
+                    $("#IssueSnapshotLookupButton").data("kendoButton").enable(true);
+                    $('#IssueSnapshotStatusLabel').html('');
+                },
+                error: function (valid) {
+                    $("#IssueSnapshotLookupButton").data("kendoButton").enable(true);
+                    $('#IssueSnapshotStatusLabel').html('Security not found!');
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function issueRefresh() {
+        try {
+            var datepicker = $("#InformationCalander").data("kendoDatePicker");
+            var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+            var entityId = $("#InformationDropdownList").data("kendoDropDownList").value();
+            var criteria = document.getElementById('IssueInformationSecuritySearchTextBox').value;
+
+
+            SidePanelUpdate(value, entityId, criteria, criteria);
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+</script>
+
+@(Html.Kendo().ToolBar()
+        .Name("IssueSnapshotToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("IssueSnapshotCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "width90" }).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().MultiSelect()
+           .Name("IssueSnapshotDropdownList")
+           .HtmlAttributes(new { @class = "minwidth50" })
+           .AutoClose(false)
+           .TagMode(TagMode.Multiple)
+           .ClearButton(true)
+           .AutoWidth(true)
+           .Enable(true)
+           .Placeholder("No records selected")
+           .AutoBind(true)
+           .ItemTemplate("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                            "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                            "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+            .Events(e =>
+            {
+                e.DataBound("onIssueSnapshotDefaultLoad");               
+            })
+            .DataTextField("Custodian")
+            .DataValueField("CompanyId")
+            .DataSource(ds =>
+            {
+                ds.Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" }));
+            }).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("InfoTickerSearch").ToHtmlString());
+        items.Add().Template(Html.TextBox("IssueSnapshotSecuritySearchTextBox", "", new { @class = "k-textbox width90" }).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("IssueSnapshotLookupButton").Content(LabelHelper.Text("IssueLookup")).Events(ev => ev.Click("onIssueSnapshotLookupIssueLookup")).ToHtmlString());
+        items.Add().Template("<label id= 'IssueSnapshotStatusLabel'></label>");
+    }))
+<hr class="hr-white">
+<div id="InformationSummaryContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("IssueSnapshotSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        {
+            panes.Add()
+                .Collapsible(false)
+                .Size("70%")
+                .Scrollable(false)
+                .Content(@<text>
+
+                    @(Html.Kendo().Splitter()
+        .Name("IssueSnapshotTopSplitter")
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes =>
+        {
+            childPanes.Add()
+                 .Scrollable(false)
+                 .HtmlAttributes(new { ID = "IssuePane1Sizeable" })
+                 .Size("80%")
+               .Content(Html.Kendo().Chart<SL_InventoryProjection>()
+                .Name("IssueSnapshotAvailabilityChart")
+                .HtmlAttributes(new { @class = "grid" })
+                .Title("Availability")
+                .Legend(legend => legend
+                .Visible(false)
+                )
+                .Series(series =>
+                {
+                    series.Pie(model => model.Quantity, model => model.Source, null)
+                             .Labels(labels => labels
+                    .Template("#= category #: \n #= value#")
+                    .Background("transparent")
+                    .Visible(true)
+                    )
+                    .StartAngle(150);
+                })
+                .Tooltip(tooltip => tooltip
+                .Visible(true)
+                .Shared(true)
+                .Format("{0:N0}")
+                ).ToHtmlString());
+
+            childPanes.Add()
+                .Scrollable(false)
+                .Content(Html.Kendo().Splitter()
+        .Name("IssueSnapshotSplitter1")
+        .Orientation(SplitterOrientation.Vertical)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes1 =>
+        {
+            childPanes1.Add()
+                 .Scrollable(false)
+               .Content((Html.Kendo().Grid<SL_BoxCalculationExtendedProjection>()
+            .Name("IssueSnapshotBoxCalculationGrid")
+            .Sortable(sort =>
+            {
+                sort.AllowUnsort(true);
+                sort.Enabled(true);
+                sort.SortMode(GridSortMode.MultipleColumn);
+            })
+            .Filterable()
+            .Scrollable()
+               .ToolBar(tbar =>
+               {
+                   tbar.Template("<label>Box Info</label>");
+               })
+            .HtmlAttributes(new { @class = "grid" })
+            .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+            .Navigatable()
+            .NoRecords()
+            .Columns(cols =>
+            {
+                cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.ShortDate, false, "", "");
+                cols.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.DepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(DepositorySettled)#", "");
+                cols.Bound(x => x.ExcessPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(ExcessPositionSettled)#", "");
+            })
+            .ColumnMenu( menu =>
+            {
+                menu.Columns( false );
+                menu.Filterable( true );
+                menu.Sortable( false );
+                menu.ComponentType( "modern" );
+            } )
+            .DataSource(ds =>
+            {
+                ds.Ajax()
+                .Sort(x =>
+                {
+                    x.Add(q => q.EffectiveDate).Descending();
+                })
+                .ServerOperation(false);
+            })).ToHtmlString());
+
+            childPanes1.Add()
+                .Scrollable(false)
+                .Content(Html.Kendo().Grid<SL_IntradayLending>()
+    .Name("IssueSnapshotIntradayLendingGrid")
+    .Sortable(sort =>
+    {
+        sort.AllowUnsort(true);
+        sort.Enabled(true);
+        sort.SortMode(GridSortMode.MultipleColumn);
+    })
+    .ToolBar(tbar =>
+    {
+        tbar.Template("<label>ASTEC Rates</label>");
+    })
+    .Filterable()
+    .Scrollable()
+    .HtmlAttributes(new { @class = "grid" })
+    .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+    .Navigatable()
+    .NoRecords()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.TradingDate).GetColumnFormat(ColumnTypeEnum.ShortDate, false, "", "");
+        cols.Bound(x => x.ContractType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.CollateralType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.CollateralCurrencyId).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+        cols.Bound(x => x.LoanRateMin).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(LoanRateMin)#", "");
+        cols.Bound(x => x.LoanRateMax).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(LoanRateMax)#", "");
+        cols.Bound(x => x.LoanRateAvg).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(LoanRateAvg)#", "");
+    })
+    .ColumnMenu( menu =>
+    {
+        menu.Columns( false );
+        menu.Filterable( true );
+        menu.Sortable( false );
+        menu.ComponentType( "modern" );
+    } )
+    .DataSource(ds =>
+    {
+        ds.Ajax()
+        .Sort(x =>
+        {
+            x.Add(q => q.TradingDate).Descending();
+        })
+        .ServerOperation(false);
+    }).ToHtmlString());
+        }).ToHtmlString());
+        }))
+                </text>);
+
+
+panes.Add()
+        .Collapsible(false)
+        .Size("20%")
+        .Scrollable(false)
+        .Content(@<text>
+            @(Html.Kendo().Splitter()
+        .Name("IssueBottomSnapshotSplitter")
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes =>
+        {
+            childPanes.Add()
+                 .Scrollable(false)
+                 .Size("60%")
+               .Content(Html.Kendo().Grid<SL_ContractExtendedProjection>()
+          .Name("IssueSnapshotContractGrid")
+             .Navigatable()
+            .Scrollable()
+            .Sortable()
+            .AutoBind(true)
+              .ToolBar(tbar =>
+              {
+                  tbar.Template("<label>Contracts</label>");
+              })
+            .Editable(x => x.Enabled(false))
+            .HtmlAttributes(new { @class = "grid" })
+            .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+            .Filterable()
+            .NoRecords()
+            .Resizable(resize => resize.Columns(true))
+            .ColumnMenu(columnMenu =>
+            {
+                columnMenu.Columns(true);
+                columnMenu.Sortable(true);
+                columnMenu.Filterable(true);
+                columnMenu.ComponentType( "modern" );
+            } )
+            .Reorderable(reorder =>
+            {
+                reorder.Columns(true);
+            })
+            .Navigatable()
+          .Columns(columns =>
+          {
+              columns.Bound(x => x.EffectiveDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SLContract).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RecordDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+              columns.Bound(x => x.MktPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "", "").Hidden();
+              columns.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "");
+              columns.Bound(x => x.Amount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(Amount)#", "");
+              columns.Bound(x => x.CollateralFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ProfitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, true, "#=GetRateDirection(RebateRate)#", "");
+              columns.Bound(x => x.RebateRateId).Hidden(true);
+              columns.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "");
+              columns.Bound(x => x.MarkParameterId).Hidden(true);
+              columns.Bound(x => x.BookRebateRateIntraday).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BookRebateRateIntraday)#", "");
+              columns.Bound(x => x.BookRebateRateEndOfDay).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BookRebateRateEndOfDay)#", "");
+              columns.Bound(x => x.DividendRate).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.CashLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.IncomeAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(IncomeAmount)#", "");
+              columns.Bound(x => x.Spread).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetRateDirection(Spread)#", "");
+          })
+          .DataSource(dataSource => dataSource.Ajax()
+              .Aggregates(s =>
+              {
+                  s.Add(x => x.QuantityFullSettled).Sum();
+                  s.Add(x => x.QuantityDelta).Sum();
+                  s.Add(x => x.Quantity).Sum();
+                  s.Add(x => x.QuantityStartOfDay).Sum();
+                  s.Add(x => x.AmountFullSettled).Sum();
+                  s.Add(x => x.AmountDelta).Sum();
+                  s.Add(x => x.Amount).Sum();
+                  s.Add(x => x.AmountStartOfDay).Sum();
+                  s.Add(x => x.IncomeAmount).Sum();
+                  s.Add(x => x.ExcessNetExposureAmount).Sum();
+                  s.Add(x => x.RebateRate).Average();
+              })).ToHtmlString());
+        }))
+        </text>);
+        }))
+</div>

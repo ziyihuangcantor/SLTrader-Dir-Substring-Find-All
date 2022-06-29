@@ -1,0 +1,343 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+@using BondFire.Entities.Projections
+
+<script type="text/javascript">
+    var _originalFPLBalanceGridSelectAll = null;
+    var _originalFPLBalanceGrid = null;
+    var _originalFPLBalanceToolBar = null;
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#FPLBalanceGrid");
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalFPLBalanceGrid = $("#FPLBalanceGrid").data('kendoGrid').getOptions();
+            _originalFPLBalanceToolBar = $("#FPLBalanceGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#FPLBalanceGrid");
+
+            $("#FPLBalanceGrid .k-grid-toolbar").html(_originalFPLBalanceToolBar);
+            $("#FPLBalanceGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onFPLBalanceLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#FPLBalanceGrid");
+        }, 5);
+    }
+
+    function onFPLBalanceCheckData() {
+        CheckGridData('#FPLBalanceGrid');
+    }
+
+    function createFPLBalanceData() {
+        var entity = $("#FPLBalanceDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity,
+            entityToDisplay: entity
+        };
+    }
+
+    function additionalFPLBalanceData() {
+        var effectiveDatePicker = $("#FPLBalanceCalander").data("kendoDatePicker");
+        var effectiveDateValue = kendo.toString(effectiveDatePicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#FPLBalanceDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: effectiveDateValue,
+            entityId: entity
+        };
+    }
+
+    function onFPLBalanceEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () {
+            input.select();
+        }, 25);
+    }
+
+    function onFPLBalanceDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#FPLBalanceDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#FPLBalanceGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onFPLBalanceChange() {
+        $("#FPLBalanceGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onFPLBalanceContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#FPLBalanceGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#FPLBalanceGrid");
+                break;
+
+            case 'Select All':
+                onTradeSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                KendoGridToCSVConvertor("#FPLBalanceGrid", 'FPLBalanceGrid', _originalFPLBalanceGridSelectAll);
+                break;
+
+
+            case "Reset Grid":
+                ResetUserLayout("#FPLBalanceGrid");
+
+                $("#FPLBalanceGrid").data('kendoGrid').setOptions(_originalFPLBalanceGrid);
+                $("#FPLBalanceGrid .k-grid-toolbar").html(_originalFPLBalanceToolBar);
+                $("#FPLBalanceGrid .k-grid-toolbar").addClass("k-grid-top");
+                $('#FPLBalanceGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#FPLBalanceGrid");
+                break;
+        }
+    }
+
+    $(function () {
+        $('#FPLBalanceGrid').on('click', '.IsOptedChkbx', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#FPLBalanceGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('IsOpted', checked);
+            dataSource.sync();
+        });
+
+        $('#FPLBalanceGrid').on('click', '.AllowSendConfirmChkbx', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#FPLBalanceGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('AllowSendConfirm', checked);
+            dataSource.sync();
+        });
+    });
+
+    function onFPLendingDefaultOption() {
+        try {
+            HelperPartialWindow(
+                null,
+                'FPLending Defaults',
+                490,
+                490,
+                '/DomesticTrading/FPLending/LoadFPLendingDefaultOptionsPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+        }
+    }
+
+    function onFPLBalanceRowChange(e) {
+        _originalFPLBalanceGridSelectAll = false;
+    }
+
+    function onFPLBalanceRefresh(e) {
+        $("#FPLBalanceGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onFPLAllocation(e) {
+        try {
+            var entity = $("#FPLBalanceDropdownList").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/FPLending/ForceAllocation',
+                data: JSON.stringify({
+                    entityId: entity
+                }),
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+         
+                },
+                error: function (valid) {
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("FPLBalanceToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("FPLBalanceCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .Events(events => events.Change("onFPLBalanceChange"))
+                    .ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("FPLBalanceDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onFPLBalanceChange").DataBound("onFPLBalanceDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button().Name("FPLBalanceButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onFPLBalanceRefresh")).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button().Name("FPLForceAllocation").Content("<i class='fa fa-exclamation fa-1x'></i>").Events(ev => ev.Click("onFPLAllocation")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="FPLBalanceContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<SL_FPLendingBalanceProjection>()
+        .Name("FPLBalanceGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Scrollable(scroll =>
+        {
+            scroll.Enabled(true);
+            scroll.Virtual(true);
+        })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+        .Navigatable()
+            .Reorderable(re =>
+            {
+                re.Columns(true);
+            })
+        .ColumnMenu(menu =>
+        {
+            menu.Columns(true);
+            menu.Enabled(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+            menu.ComponentType( "modern" );
+        } )
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Pageable(pagable =>
+        {
+            pagable.Numeric(false);
+            pagable.PreviousNext(false);
+            pagable.Messages(config =>
+            {
+                config.Display("Showing {2} record(s)");
+            });
+        })
+        .Events(events =>
+        {
+            events.DataBound("onFPLBalanceCheckData");
+            events.ColumnHide("onFPLBalanceLayoutChange");
+            events.ColumnShow("onFPLBalanceLayoutChange");
+            events.ColumnResize("onFPLBalanceLayoutChange");
+            events.ColumnReorder("onFPLBalanceLayoutChange");
+            events.ColumnReorder("onFPLBalanceRowChange");
+        })
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+
+            columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "Date");
+            columns.Bound(x => x.ISIN).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.MarketQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(MarketQuantity)#", "");
+            columns.Bound(x => x.MarketAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(MarketAmount)#", "");
+
+            columns.Bound(x => x.BookedQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(BookedQuantity)#", "");
+            columns.Bound(x => x.BookedAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(BookedAmount)#", "");
+
+            columns.Bound(x => x.StockLoanBalanceQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(StockLoanBalanceQuantity)#", "");
+            columns.Bound(x => x.StockLoanBalanceAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(StockLoanBalanceAmount)#", "");
+
+            columns.Bound(x => x.SegregationQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(SegregationQuantity)#", "");
+            columns.Bound(x => x.SegregationAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(SegregationAmount)#", "");
+
+            columns.Bound(x => x.DeliveredQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(DeliveredQuantity)#", "");
+            columns.Bound(x => x.DeliveredAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(DeliveredAmount)#", "");
+
+            columns.Bound(x => x.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .ServerOperation(false)
+            .PageSize(50)
+            .Sort(sort =>
+            {
+                sort.Add(x => x.Comment).Ascending();
+            })
+            .Read(read => read.Action("Read_FPLBalances", "FPLending", new { area = "DomesticTrading" }).Data("additionalFPLBalanceData"))
+            .Model(model =>
+            {
+                model.Id(x => x.IssueId);
+            })))
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("FPLBalanceContextMenu")
+    .Target("#FPLBalanceGrid")
+    .Events(events => events.Select("onFPLBalanceContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All");
+        items.Add().Text("Export To Excel");
+    }))

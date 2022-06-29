@@ -1,0 +1,359 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+@using BondFire.Entities.Projections
+
+<script type="text/javascript">
+    var _originalFPLAccountConfigGridSelectAll = false;
+    var _originalFPLAccountConfigGrid = null;
+    var _originalFPLAccountConfigToolBar = null;
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#FPLAccountConfigGrid");
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalFPLAccountConfigGrid = $("#FPLAccountConfigGrid").data('kendoGrid').getOptions();
+            _originalFPLAccountConfigToolBar = $("#FPLAccountConfigGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#FPLAccountConfigGrid");
+
+            $("#FPLAccountConfigGrid .k-grid-toolbar").html(_originalFPLAccountConfigToolBar);
+            $("#FPLAccountConfigGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onFPLAccountConfigLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#FPLAccountConfigGrid");
+        }, 5);
+    }
+
+    function onFPLAccountConfigCheckData() {
+        CheckGridData('#FPLAccountConfigGrid');
+    }
+
+    function createFPLAccountConfigData() {
+        var entity = $("#FPLAccountConfigDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity,
+            entityToDisplay: entity
+        };
+    }
+
+    function additionalFPLAccountConfigData() {
+        var entity = $("#FPLAccountConfigDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity
+        };
+    }
+
+    function onFPLAccountConfigEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () {
+            input.select();
+        }, 25);
+    }
+
+    function onFPLAccountConfigDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#FPLAccountConfigDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#FPLAccountConfigGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onFPLAccountConfigChange() {
+        $("#FPLAccountConfigGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onFPLAccountConfigSelectAll(e) {
+        try {
+            var FPLAccountConfigGrid = $("#FPLAccountConfigGrid").data("kendoGrid");
+            FPLAccountConfigGrid.select(FPLAccountConfigGrid.tbody.find(">tr"));
+
+            _originalFPLAccountConfigGridSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onFPLAccountConfigContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#FPLAccountConfigGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#FPLAccountConfigGrid");
+                break;
+
+            case 'Select All':
+                onFPLAccountConfigSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                KendoGridToCSVConvertor("#FPLAccountConfigGrid", 'FPLAccountConfigGrid', _originalFPLAccountConfigGridSelectAll);
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#FPLAccountConfigGrid");
+
+                $("#FPLAccountConfigGrid").data('kendoGrid').setOptions(_originalFPLAccountConfigGrid);
+                $("#FPLAccountConfigGrid .k-grid-toolbar").html(_originalFPLAccountConfigToolBar);
+                $("#FPLAccountConfigGrid .k-grid-toolbar").addClass("k-grid-top");
+                $('#FPLAccountConfigGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#FPLAccountConfigGrid");
+                break;
+        }
+    }
+
+    $(function () {
+        $('#FPLAccountConfigGrid').on('click', '.IsOptedChkbx', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#FPLAccountConfigGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('IsOpted', checked);
+            dataSource.sync();
+        });
+
+        $('#FPLAccountConfigGrid').on('click', '.AllowSendConfirmChkbx', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#FPLAccountConfigGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('AllowSendConfirm', checked);
+            dataSource.sync();
+        });
+
+        $('#FPLAccountConfigGrid').on('click', '.AllowIsBookInternalChkbx', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#FPLAccountConfigGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('IsBookInternal', checked);
+            dataSource.sync();
+        });
+
+        
+    });
+
+    function onFPLendingDefaultOption() {
+        try {
+            HelperPartialWindow(
+                null,
+                'FPLending Defaults',
+                490,
+                490,
+                '/DomesticTrading/FPLending/LoadFPLendingDefaultOptionsPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+        }
+    }
+
+    function onFPLAccountConfigRowChange(e) {
+        _originalFPLAccountConfigGridSelectAll = false;
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("FPLAccountConfigToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("FPLAccountConfigDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onFPLAccountConfigChange").DataBound("onFPLAccountConfigDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button()
+                    .Name("FPLendingDefaultOptionButton")
+            .Events(e => e.Click("onFPLendingDefaultOption"))
+            .Content(LabelHelper.Text("DefaultOptions")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="FPLAccountConfigContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<SL_FPLAccountConfigExtendedProjection>()
+        .Name("FPLAccountConfigGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Editable(e => e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig)).DisplayDeleteConfirmation(false))
+        .Scrollable(scroll =>
+        {
+            scroll.Enabled(true);
+            scroll.Virtual(true);
+        })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+        .Navigatable()
+        .Reorderable( re =>
+        {
+            re.Columns(true);
+        })
+        .ColumnMenu(menu =>
+        {
+            menu.Columns(true);
+            menu.Enabled(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+            menu.ComponentType( "modern" );
+        } )
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Pageable(pagable =>
+        {
+            pagable.Numeric(false);
+            pagable.PreviousNext(false);
+            pagable.Messages(config =>
+            {
+                config.Display("Showing {2} record(s)");
+            });
+        })
+        .Events(events =>
+        {
+            events.DataBound("onFPLAccountConfigCheckData");
+            events.Edit("onFPLAccountConfigEdit");
+            events.ColumnHide("onFPLAccountConfigLayoutChange");
+            events.ColumnShow("onFPLAccountConfigLayoutChange");
+            events.ColumnResize("onFPLAccountConfigLayoutChange");
+            events.ColumnReorder("onFPLAccountConfigLayoutChange");
+            events.Change("onFPLAccountConfigRowChange");
+        })
+        .ToolBar(toolbar => toolbar.Create())
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLFPLAccountConfig).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+
+            columns.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountRecordType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.Title).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.FirstName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.LastName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.ShortName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.DebitBalance).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.AccrualGroupId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.EmailAddress).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.CustodianToDisplay).GetColumnFormat(ColumnTypeEnum.String, false, "", "_ContraRateSwingEntityAutoComplete");
+            columns.Bound(x => x.IsOpted).GetColumnFormat(ColumnTypeEnum.String, false, "<input class='IsOptedChkbx' type='checkbox' #=(IsOpted) ? checked='checked' : '' # />", "");
+            columns.Bound(x => x.AllowSendConfirm).GetColumnFormat(ColumnTypeEnum.String, false, "<input class='AllowSendConfirmChkbx' type='checkbox' #=(AllowSendConfirm) ? checked='checked' : '' # />", "");
+            columns.Bound(x => x.PercentLend).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.PercentMark).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.PercentPaid).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.PercentBroker).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.AccrualPayout).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.LastAccrualPayout).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.BookingContra).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.IsBookInternal).GetColumnFormat(ColumnTypeEnum.String, false, "<input class='AllowIsBookInternalChkbx' type='checkbox' #=(IsBookInternal) ? checked='checked' : '' # />", "");
+
+            columns.Command(x =>
+            {
+                x.Edit();
+                x.Destroy();
+            });
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .ServerOperation(false)
+            .PageSize(50)
+            .Read(read => read.Action("Read_FPLAccountConfig", "FPLending", new { area = "DomesticTrading" }).Data("additionalFPLAccountConfigData"))
+            .Update(update => update.Action("Update_FPLAccountConfig", "FPLending", new { area = "DomesticTrading" }))
+            .Create(create => create.Action("Create_FPLAccountConfig", "FPLending", new { area = "DomesticTrading" }).Data("additionalFPLAccountConfigData"))
+            .Destroy(destroy => destroy.Action("Delete_FPLAccountConfig", "FPLending", new { area = "DomesticTrading" }))
+            .Model(model =>
+            {
+                model.Id(x => x.SLFPLAccountConfig);
+                model.Field(x => x.EntityId).Editable(false);
+                model.Field(x => x.AccountNumber).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.AccountRecordType).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.AccountType).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+
+                model.Field(x => x.Title).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.FirstName).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.LastName).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.ShortName).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+
+                model.Field(x => x.AccrualGroupId).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.EmailAddress).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.CustodianToDisplay).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.IsOpted).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.AllowSendConfirm).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.PercentBroker).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.PercentLend).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.PercentMark).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.PercentPaid).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.AccrualPayout).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.Comment).Editable(SessionSecurityService.IsEditable(ManagerTask.EditSLFPLAccountConfig));
+                model.Field(x => x.LastAccrualPayout).Editable(false);
+            }))
+    )
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("FPLAccountConfigContextMenu")
+    .Target("#FPLAccountConfigGrid")
+    .Events(events => events.Select("onFPLAccountConfigContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All");
+        items.Add().Text("Export To Excel");
+    }))

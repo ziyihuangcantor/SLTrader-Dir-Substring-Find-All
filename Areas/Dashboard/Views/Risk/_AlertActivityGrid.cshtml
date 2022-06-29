@@ -1,0 +1,152 @@
+﻿@using SLTrader.Tools
+<script type="text/javascript">
+    var initalLoad = true;
+
+    function onCheckData() {
+        //Get the number of Columns in the grid
+        var colCount = $("#ActivityGrid").find('.k-grid-header colgroup > col').length;
+        var gridDataSource = $("#ActivityGrid").data("kendoGrid").dataSource;
+        //If There are no results place an indicator row
+        if (gridDataSource._view.length == 0) {
+            $("#ActivityGrid").find('.k-grid-content tbody')
+                .append('<tr class="kendo-data-row"><td colspan="' +
+                    colCount +
+                    '" style="text-align:center"><b>No Results Found!</b></td></tr>');
+        }
+    }
+
+    function loadData() {
+        try {
+            var startValue = new Date(window.localStorage['ActivityEffectiveDate']);
+            var entity = window.localStorage['ActivityEntity'];
+
+            if ((startValue != null) && (entity != null)) {
+                $('#PLActivityEffectiveDateCalander').data('kendoDatePicker').value(new Date(startValue));
+                $('#PLActivityDropdownList').data('kendoDropDownList').value(entity);
+            }
+        }
+        catch (err) {
+            alert('document load ' + err.message);
+        }
+    }
+
+    function saveData() {
+
+        var startdatepicker = $("#PLActivityEffectiveDateCalander").data("kendoDatePicker");
+        var startvalue = startdatepicker.value();
+
+        var entity = $("#PLActivityDropdownList").data("kendoDropDownList").value();
+
+        try {
+            window.localStorage['ActivityEffectiveDate'] = startvalue;
+            window.localStorage['ActivityEntity'] = entity;
+        }
+        catch (err) {
+            alert('additionalData ' + err.message);
+        }
+    }
+
+    function additionalData() {
+       
+        if (initalLoad) {
+            loadData();
+            initalLoad = false;
+
+            onChange();
+        }
+        var effectivedatepicker = $("#PLActivityEffectiveDateCalander").data("kendoDatePicker");
+        var effectivedatevalue = kendo.toString(effectivedatepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#PLActivityDropdownList").data("kendoDropDownList").value();
+
+        saveData();
+
+        return {
+            entity: entity,
+            effectiveDate: effectivedatevalue,
+            securitycontext: '',
+        };
+    }
+
+    function onError(e) {
+        alert(JSON.stringify(e));
+    }
+
+    function onChange() {
+        $('#ActivityGrid').data("kendoGrid").dataSource.read();
+    }
+</script> 
+
+
+<div class="k-block div-size progressbar">
+<div class="k-header k-shadow div-header-size">@LabelHelper.Text("PLActiivty")</div>
+<div class="toolbar-clear">
+<table>
+<tr>
+<td>                       
+@LabelHelper.Label("EffectiveDate")
+</td>
+<td>  
+@(Html.Kendo().DatePicker()
+.Name("PLActivityEffectiveDateCalander")                
+.Format("yyyy-MM-dd")
+.Value(DateTime.Today)
+.HtmlAttributes(new { @class="Toolbar-Cell" })
+.Events(events => events.Change("onChange")))
+</td>        
+<td>                         
+@LabelHelper.Label("Entity")
+</td>
+<td>  
+@(Html.Kendo().DropDownList()
+.Name("PLActivityDropdownList")
+.HtmlAttributes(new { @class="Toolbar-Cell" })
+.DataTextField("EntityId")
+.DataValueField("EntityId")
+.OptionLabel("Empty List")    
+.Events(events => events.Change("onChange"))
+.DataSource(dataSource => dataSource
+.Read(read => read
+.Action("GetEntitys", "Admin")))
+.SelectedIndex(0))
+</td>       
+</tr>
+</table>               
+</div>
+<div>
+    @(Html.Kendo().Grid<SL_Activity>()
+    .Name("ActivityGrid")
+    .Sortable()
+    .Scrollable()
+    .Filterable()
+    .HtmlAttributes(new {@style="height:300px;" })
+    .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+    .Navigatable()
+    .Columns(columns =>
+    {
+        columns.Bound(p => p.ActivityType).ClientTemplate(
+           "# if (ACTIVITYTYPE == 1) { #" +
+               "<i class='icon-info-sign icon-large' style='color:blue;'></i>" +
+           "# } else { #" +
+               "<i class='icon-exclamation-sign icon-large' style='color:red;'></i>" +
+           "# } #"
+           ).Width(20).Title("");
+        columns.Bound(p => p.EntityType).HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).Width(100);
+        columns.Bound(p => p.EffectiveDate).Format("{0:yyyy-MM-dd}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).Width(120).Hidden(true);
+        columns.Bound(p => p.DateTimeId).Format("{0:hh:mm:ss}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).Width(120);
+        columns.Bound(p => p.EntityId).HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).Width(100).Hidden(true);
+        columns.Bound(p => p.Activity).HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-text" });
+        columns.Bound(p => p.ContraEntity).HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).Width(100);
+        columns.Bound(p => p.ActivityFlag).HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).Width(100);
+    })
+    .DataSource(dataSource => dataSource
+            .Ajax()
+            .Read(read => read
+            .Action("GetActivity", "Risk")
+            .Data("additionalData")
+            )
+            .ServerOperation(false)
+        )
+    )
+</div>
+</div>

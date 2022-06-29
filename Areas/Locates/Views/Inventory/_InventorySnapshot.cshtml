@@ -1,0 +1,52 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model IEnumerable<SL_InventoryProjection>
+
+
+<script type="text/javascript">
+    function onInventorySnapshotCheckData() {
+        CheckGridData('#InventorySnapshotGrid');
+    }
+</script>
+
+<div id="InventorySnapshotBlock" align="center">
+    @{
+        if (Model != null)
+        {
+            Html.Kendo().Grid(Model)
+               .Name("InventorySnapshotGrid")
+               .Sortable(sort =>
+               {
+                   sort.AllowUnsort(true);
+                   sort.Enabled(true);
+                   sort.SortMode(GridSortMode.MultipleColumn);
+               })            
+               .Scrollable()
+               .NoRecords()
+               .HtmlAttributes(new { @class = "grid" })
+                   .Events(events => events.DataBound("onInventorySnapshotCheckData"))
+               .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+               .Navigatable()
+               .Columns(cols =>
+               {
+                   cols.Bound(x => x.MarkerColor).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(MarkerColor)#", "").HtmlAttributes(new { title = "#= OnColorPreviewDescription(MarkerDesceiption)#" }).Title("").Filterable(false).Hidden(SessionService.UserPreference.ShowInventoryMarker);
+                   cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.ShortDate, false, "", "").Title("Date").Width(60);                   
+                   cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                   cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+                   cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "");
+                   cols.Bound(x => x.IsSuspect).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='isIsSuspectChkbx' #= (IsSuspect) ? checked ='checked' : '' #/>", "").Hidden(true);
+               })
+               .DataSource(ds =>
+               {
+                   ds.Ajax().ServerOperation(false);
+               }).Render();
+        }
+    }
+
+    @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#InventorySnapshotGrid").Filter("td[title]")
+</div>

@@ -1,0 +1,328 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+@model IEnumerable<SL_BankLoanPositionExtendedProjection>
+
+<script>
+    $('#SharedLabelCheckBox').change(function () {
+        $("#BankLoanPositionGrid").data("kendoGrid").refresh();
+    })
+
+    var _originalBankLoanPositionGrid = null;
+
+    var _originalBankLoanPositionGridToolBar = null;
+   
+    var _bankLoanPositionSelectAll = false;
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+
+        setTimeout(function () {
+            _originalBankLoanPositionGrid = $("#BankLoanPositionGrid").data('kendoGrid').getOptions();
+        
+            _originalBankLoanPositionGridToolBar = $("#BankLoanPositionGrid .k-grid-toolbar").html();
+        
+            LoadGridLayout("#BankLoanPositionGrid");
+       
+            $("#BankLoanPositionGrid .k-grid-toolbar").html(_originalBankLoanPositionGridToolBar);
+            $("#BankLoanPositionGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+
+    function onBankLoanPositionLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#BankLoanPositionGrid");
+        }, 5);
+    }
+
+    $(function () {     
+        $("#BankLoanPositionGrid").on("click", ".k-grid-BankLoanReleaseCommand", function (e) {
+            $("#BankLoanPositionGrid").data("kendoGrid").clearSelection();
+            $(e.currentTarget).closest("tr").addClass('k-state-selected');
+            
+            onBankLoanReleaseItem();
+        });
+    });
+
+    function onBankLoaPositionCheckData(e) {
+        CheckGridData("#BankLoanPositionGrid");
+
+
+        $("#BankLoanPositionGrid tbody tr .k-grid-BankLoanReleaseCommand").each(function () {
+            var currentDataItem = $("#BankLoanPositionGrid").data("kendoGrid").dataItem($(this).closest("tr"));
+           
+            if (currentDataItem.Quantity == 0) {
+                $(this).remove();
+            }
+        })
+
+    }
+
+    function onBankLoanPositionError(e) {
+        DisplayError(e);
+    }
+
+    function onBankLoanPositionChange(e) {
+        $('#BankLoanPositionGrid').data("kendoGrid").dataSource.read();
+    }
+
+    function onBankLoanPositionContextMenuSelect(e)
+    {
+        switch ($(e.item).children(".k-link").text()) {
+            case "Release":
+                onBankLoanReleaseItem();
+                break;
+
+            case "Refresh Data":
+                onBankLoanPositionChange();
+                break;
+            case 'AutoFit Columns':
+                resizeGridColumns("#BankLoanPositionGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#BankLoanPositionGrid");
+
+                $("#BankLoanPositionGrid").data('kendoGrid').setOptions(_originalBankLoanPositionGrid);
+                $("#BankLoanPositionGrid .k-grid-toolbar").html(_originalBankLoanPositionGridToolBar);
+                $("#BankLoanPositionGrid .k-grid-toolbar").addClass("k-grid-top");
+
+                $('#BankLoanPositionGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case "Select All":
+                onBankLoanPositionSelectAll(true);
+                break;
+
+            case "Unsort":
+                UnsortGrid("#BankLoanPositionGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#BankLoanPositionGrid");
+                break;
+
+            case "Export To Excel":
+                exportToBankLoanPositionExcel();
+                break;
+        }
+    }
+
+    function exportToBankLoanPositionExcel() {
+        try {
+            KendoGridToCSVConvertor("#BankLoanPositionGrid", 'BankLoanPositionGrid', _bankLoanPositionSelectAll);
+
+            _bankLoanPositionSelectAll = false;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function onBankLoanPositionSelectAll(e) {
+        try {
+            var boxGrid = $("#BankLoanPositionGrid").data("kendoGrid");
+            boxGrid.select(boxGrid.tbody.find(">tr"));
+
+            _bankLoanPositionSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onBankLoanPositionDefaultLoad() {
+        try {
+            var UserPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    UserPreference = valid;
+
+                    var dropdownList = $('#BankLoanPositionDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == UserPreference.DefaultFirm;
+                    });
+
+                    $('#BankLoanPositionGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    UserPreference = null;
+                }
+            })
+        }
+        catch (e) { }
+    }
+
+    function onBankLoanPositionData() {
+        var datepicker = $("#BankLoanPositionCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#BankLoanPositionDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entity
+        }
+    }
+
+    function onBankLoanReleaseItem() {
+       
+            try {
+                var dataItems = [];
+
+                var grid = $('#BankLoanPositionGrid').data('kendoGrid');
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        releaseItems: dataItems
+                    }),
+                    'BankLoan Release',
+                    1100,
+                    450,
+                    '/CashSourcing/BankLoan/BankLoanReleasePartial'
+                    );
+            }
+            catch (e) {
+                console.log(e);
+            }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+        .Name("BankLoanPositionToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar" })
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("BankLoanPositionCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .Events(events => events.Change("onBankLoanPositionChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("BankLoanPositionDropdownList")
+                    .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                    .Animation(true)
+                    .DataTextField("Custodian")
+                    .DataValueField("CompanyId")
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .AutoBind(true)
+                    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                    .Events(e => e.Change("onBankLoanPositionChange").DataBound("onBankLoanPositionDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                    .DataSource(dataSource => dataSource
+                    .Read(read => read
+                   .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                    .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button().Name("BankLoanPositionRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onBankLoanPositionChange")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+<div id="BankLoanDiv" class="grid-div">
+ @(Html.Kendo().Grid(Model)
+       .Name( "BankLoanPositionGrid" )
+       .HtmlAttributes( new { @class = "grid" } )
+       .Sortable()
+       .Filterable()
+       .ColumnMenu()
+       .NoRecords()
+       .Events( events =>
+       {
+           events.DataBound( "onBankLoaPositionCheckData" );
+       } )
+       .Selectable(select =>
+       {
+           select.Enabled( true );
+           select.Type( GridSelectionType.Row );
+           select.Mode( GridSelectionMode.Multiple );
+       })
+       .Events(events => events.DataBound("onBankLoaPositionCheckData"))
+       .Columns( cols =>
+       {
+           cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+           cols.Bound(x => x.Bank).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           cols.Bound(x => x.LoanDate).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Format("{0:yyyy-MM-dd}");
+           cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           cols.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+           cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+           cols.Bound(x => x.Amount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "");
+           cols.Command(x =>
+           {
+               x.Custom( "BankLoanReleaseCommand" ).Text( "Release" );
+           }).Width(50);
+       } )
+       .Resizable(resize => resize.Columns(true))
+       .Scrollable( scroll =>
+       {
+           scroll.Enabled( true );
+           scroll.Virtual( true );
+       } )
+       .DataSource( ds =>
+       {
+           ds.Ajax()
+           .ServerOperation(false)
+           .Events(e => e.Error("onBankLoanPositionError"))
+           .Read(read => read.Action("Read_BankLoanPosition", "BankLoan", new { area = "CashSourcing" }).Data("onBankLoanPositionData"))
+           .Aggregates(agg =>
+           {
+               agg.Add(x => x.Quantity).Sum();
+               agg.Add(x => x.Amount).Sum();
+           });
+       } ))
+
+</div>
+
+@(
+ Html.Kendo().ContextMenu()
+    .Name( "BankLoanPositionContextMenu" )
+            .Target( "#BankLoanPositionGrid" )
+            .Events( events => events.Select( "onBankLoanPositionContextMenuSelect" ) )
+    .Items( items =>
+    {
+        items.Add().Text( "Release" ).Enabled( true );
+        items.Add().Separator(true);
+        items.Add().Text( "Refresh Data" ).Enabled( true );
+        items.Add().Separator(true);
+        items.Add().Text( "AutoFit Columns" );
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text( "Reset Grid" ).Enabled( true );
+        items.Add().Separator(true);
+        items.Add().Text( "Select All" ).Enabled( true );
+        items.Add().Text( "Export To Excel" ).Enabled( true );
+    } )
+)

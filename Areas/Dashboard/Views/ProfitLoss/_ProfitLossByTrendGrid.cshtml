@@ -1,0 +1,55 @@
+﻿@using BondFire.Entities.Projections
+@model System.Collections.Generic.List<BondFire.Entities.Projections.SL_ContractExtendedProjection>
+
+<script type="text/javascript">
+  function onCheckData() {
+        //Get the number of Columns in the grid
+      var colCount = $("#ProfitLossDetailsGrid").find('.k-grid-header colgroup > col').length;
+      var gridDataSource = $("#ProfitLossDetailsGrid").data("kendoGrid").dataSource;
+        //If There are no results place an indicator row
+        if (gridDataSource._view.length == 0) {
+            $("#ProfitLossDetailsGrid").find('.k-grid-content tbody')
+                .append('<tr class="kendo-data-row"><td colspan="' +
+                    colCount +
+                    '" style="text-align:center"><b>No Results Found!</b></td></tr>');
+        }
+    }
+</script>
+
+
+@(
+ Html.Kendo().Grid<SL_ContractExtendedProjection>(Model)
+     .Name("ProfitLossDetailsGrid")
+     .Columns( columns =>
+          {
+            columns.Bound(x => x.EffectiveDate).Format("{0:yyyy-MM-dd}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-text" });
+            columns.Bound(x => x.EntityId).Hidden(true);
+            columns.Bound(x => x.ContraEntity);
+            columns.Bound(x => x.ContractNumber);
+            columns.Bound(x => x.TradeType);
+            columns.Bound(x => x.SecurityNumber);
+            columns.Bound(x => x.Ticker);
+            columns.Bound(x => x.Quantity).Format("{0:#,##0}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-number" });
+            columns.Bound(x => x.Amount).Format("{0:#,##0.00}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-number" });
+            columns.Bound(x => x.CollateralFlag).Hidden(true);
+            columns.Bound(x => x.RebateRate).Format("{0:#,##0.000}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-number" });
+            columns.Bound(x => x.RebateRateId).Hidden(true);
+            columns.Bound(x => x.Mark).Format("{0:##0}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-number" });
+            columns.Bound(x => x.MarkParameterId).Hidden(true);
+            columns.Bound(x => x.CashSettleDate).Format("{0:yyyy-MM-dd}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-text" }).Hidden(true);
+            columns.Bound(x => x.SecuritySettleDate).Format("{0:yyyy-MM-dd}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-text" });
+            columns.Bound(x => x.CurrencyCode).Hidden(true);
+            columns.Bound(x => x.SecurityLoc).Hidden(true);
+            columns.Bound(x => x.CashLoc).Hidden(true);
+            columns.Bound(x => x.IncomeAmount).Format("{0:##0.000}").HeaderHtmlAttributes(new { @class = "gridcolumn-text-header" }).HtmlAttributes(new { @class = "gridcolumn-number" });
+          })
+            .Sortable()
+            .Scrollable()
+            .Selectable()
+            .Navigatable()
+            .Events(events => events.DataBound("onCheckData"))
+              .DataSource(dataSource => dataSource        
+        .Ajax()
+        .ServerOperation(false)        
+    )
+   )

@@ -1,0 +1,201 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model  PartialViewModel
+<style scoped>
+    #SharedDTCCButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script type="text/javascript">
+    var _originalSharedDTCCGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSharedDTCCGrid = $('#SharedDetailDTCCGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#SharedDetailDTCCGrid");
+
+            $(".k-grid-toolbar", "#SharedDetailDTCCGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+            $('#SharedDetailDTCCGrid').data('kendoGrid').dataSource.read();
+        }, 3);
+
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("SharedDTCCButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#SharedDetailDTCCGrid", "SharedDetailDTCCGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    function onSharedDTCCLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedDetailDTCCGrid");
+        }, 5);
+    }
+
+    function onSharedDTCCAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            issueId: '@Model.IssueId'
+        };
+    }
+
+    function onSharedDTCCContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#SharedDetailDTCCGrid");
+                break;
+
+            case 'Unsort':
+                onSharedDTCCUnsortGrid("#SharedDetailDTCCGrid");
+                break;
+
+            case 'Select All':
+                onSharedDTCCSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedDetailDTCCGrid");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedDetailDTCCGrid");
+                $('#SharedDetailDTCCGrid').data('kendoGrid').setOptions(_originalSharedDTCCGrid);
+                $(".k-grid-toolbar", "#SharedDetailDTCCGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedDetailDTCCGrid').data('kendoGrid').dataSource.read();
+                break;
+
+            case 'Export To Excel':
+                exportToSharedDTCCExcel();
+                break;
+        }
+    }
+
+    function onSharedDTCCSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedDetailDTCCGrid").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedDTCCUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedDTCCExcel() {
+        KendoGridToCSVConvertor("#SharedDetailDTCCGrid", 'SharedDetailDTCCGrid');
+    }
+</script>
+
+
+<div id="SharedDetailDTCCDiv" class="grid-div">
+
+    @(
+ Html.Kendo().Grid<SL_DTCCItemProjection>()
+    .Name("SharedDetailDTCCGrid")
+               .Navigatable()
+            .Scrollable()
+            .Sortable()
+            .AutoBind(false)
+                 .ToolBar(t =>
+                 {
+                     t.Template("<label></label>");
+                 })
+                        .Editable(x => x.Enabled(false))
+                        .HtmlAttributes(new { @class = "grid" })
+                        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                        .Filterable()
+                        .Events(events =>
+                        {
+                            events.ColumnHide("onSharedDTCCLayoutChange");
+                            events.ColumnShow("onSharedDTCCLayoutChange");
+                            events.ColumnResize("onSharedDTCCLayoutChange");
+                            events.ColumnReorder("onSharedDTCCLayoutChange");
+                        })
+                        .Resizable(resize => resize.Columns(true))
+                        .ColumnMenu(columnMenu =>
+                        {
+                            columnMenu.Columns(true);
+                            columnMenu.Sortable(true);
+                            columnMenu.Filterable(true);
+                            columnMenu.ComponentType( "modern" );
+                        } )
+                        .NoRecords()
+                        .Reorderable(reorder =>
+                        {
+                            reorder.Columns(true);
+                        })
+                        .Navigatable()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.SLDTCCItem).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+        cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.DateTime, false, "", "").Hidden(true);
+        cols.Bound(x => x.MsgTimeStamp).GetColumnFormat(ColumnTypeEnum.Time, false, "", "").Hidden(true);
+        cols.Bound(x => x.MsgType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.DeliverContra).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ReceiveContra).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Direction).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "");
+        cols.Bound(x => x.Amount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(Amount)#", "");
+        cols.Bound(x => x.SettleDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.ReasonCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.PendMadeId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Method).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Copy).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ReclaimCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Comments).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    })
+       .DataSource(ds =>
+       {
+           ds.Ajax()
+               .ServerOperation(false)
+               .Read(read =>
+               {
+                   read.Action("Read_DTCCByIssue", "Main", new { area = "DomesticTrading" }).Data("onSharedDTCCAdditionalData");
+               })
+                .Sort(sort =>
+                {
+                    sort.Add(x => x.MsgTimeStamp).Descending();
+                })
+               .Aggregates(agg =>
+               {
+                   agg.Add(x => x.Quantity).Sum();
+                   agg.Add(x => x.Amount).Sum();
+               });
+       }))
+</div>
+@(Html.Kendo().ContextMenu()
+.Name("SharedDTCCContextMenu")
+            .Target("#SharedDetailDTCCGrid")
+        .Events(events => events.Select("onSharedDTCCContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedDTCCButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

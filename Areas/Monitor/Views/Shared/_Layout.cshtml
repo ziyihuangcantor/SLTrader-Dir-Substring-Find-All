@@ -1,0 +1,30 @@
+﻿<!DOCTYPE html>
+<html>
+<head>  
+
+<title>SL Trader - Monitor</title>	
+
+<link href="@Url.Content("//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css")" rel="stylesheet" type="text/css" />
+<link href="@Url.Content("~/Styles/kendo.common.min.css")" rel="stylesheet" type="text/css" />
+<link href="@Url.Content("~/Styles/kendo.dataviz.min.css")" rel="stylesheet" type="text/css" />
+<link href="@Url.Content("~/Styles/kendo.default.min.css")" rel="stylesheet" type="text/css" />
+<link href="@Url.Content("~/Styles/kendo.menu.ex.css")" rel="stylesheet" type="text/css" />
+
+<link href="@Url.Content("~/Content/Kendo-Custom.css")" rel="stylesheet" type="text/css" />
+<link href="@Url.Content("~/Content/Site.css")" rel="stylesheet" type="text/css" />
+
+
+<script src="@Url.Content("~/Scripts/kendo/jquery.min.js")"></script>
+<script src="@Url.Content("~/Scripts/kendo/kendo.web.min.js")"></script>
+<script src="@Url.Content("~/Scripts/kendo/kendo.aspnetmvc.min.js")"></script>
+<script src="@Url.Content("~/Scripts/ex/kendo.menu.ex.js")"></script>
+          
+</head>
+   <body id="ContentArea">
+    @{
+            Html.RenderPartial("~/Areas/Monitor/Views/Home/_Main.cshtml");
+            RenderBody();
+    }
+   </body> 
+</html>
+

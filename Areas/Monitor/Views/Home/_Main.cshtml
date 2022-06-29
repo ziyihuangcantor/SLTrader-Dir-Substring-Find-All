@@ -1,0 +1,63 @@
+﻿@using BondFire.Entities
+<div id="TopBar">@{ Html.RenderPartial("~/Views/Shared/Header/_Header.cshtml", SL_Application.DepoMonitor); }</div>
+
+
+@{Html.Kendo().Splitter()
+.Name("MainSplitterVertical")
+.HtmlAttributes(new { style = "height: 85%;" })
+.Orientation(SplitterOrientation.Horizontal)
+.Panes(horizontalPanes =>
+{
+    horizontalPanes.Add()
+    .HtmlAttributes(new { id = "left-pane" })
+    .Size("280px")
+    .Collapsible(true)
+    .Resizable(true)
+    .Scrollable(false)
+    .Content(() => Html.RenderPartial("~/Areas/Monitor/Views/Shared/_SecurityMaster.cshtml"));
+
+    horizontalPanes.Add()
+    .HtmlAttributes(new { id = "center-pane" })
+    .Content(() =>
+        {
+            Html.Kendo().Splitter()
+                           .Name("horizontal")
+                           .Orientation(SplitterOrientation.Vertical)
+                           .HtmlAttributes(new { @class="height100p" })
+                           .Panes(verticalPanes =>
+                           {
+                               verticalPanes.Add()
+                                   .HtmlAttributes(new { id = "top-pane" })
+                                   .Collapsible(true)
+                                   .Size("50%")
+                                   .Scrollable(false)
+                                    .Content(() =>
+                                    {
+                                        Html.RenderPartial("~/Areas/Monitor/Views/Monitor/_Obligations.cshtml");
+                                    });
+
+                               verticalPanes.Add()
+                                   .Scrollable(false)
+                                   .Size("50%")
+                                   .HtmlAttributes(new { id = "bottom-pane" })
+                                  .Content(() =>
+                                  {
+                                      Html.RenderPartial("~/Areas/Monitor/Views/Monitor/_Monitor.cshtml", null);
+                                  });
+                           }).Render();
+        });
+}).Render();}
+
+
+
+<style scoped>
+    #BoxContentVertical {
+        background:#363940;
+        height:100%;
+        color:#fff;
+        width:100%;
+        font-size:xx-small;
+        padding:0px;
+        border-spacing:1px;
+   }
+</style>

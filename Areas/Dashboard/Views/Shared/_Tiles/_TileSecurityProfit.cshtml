@@ -1,0 +1,33 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script>
+    function onAdditionalProfitLossLoad(e) {
+        return {
+            entityId: '',
+            effectiveDate: ''
+        }
+    }    
+</script>
+@(Html.Kendo().Grid<SecurityProfitModel>()
+        .Name("TileProfitLossGrid")
+        .Columns(cols =>
+        {
+            cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.PreviousDayProfit).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.TodayProfit).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.DeltaProfit).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        })
+        .DataSource(ds =>
+        {
+            ds.Ajax()
+                .ServerOperation(false)
+                .Read(read =>
+                {
+                    read.Action("GetProfitLossBySecurityNumber", "ProfitLoss", new { area = "Dashboard" });
+                });
+        })
+)

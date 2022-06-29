@@ -1,0 +1,212 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+
+@model   IEnumerable<SL_BankLoanPositionExtendedProjection>
+
+@*<style scoped>
+    #BankLOanReleaseTable {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 700px;
+    }
+
+        #BankLOanReleaseTable th,
+        #BankLOanReleaseTable td {
+            min-height: 50px;
+            padding: 5px 0px 0px 5px;
+        }
+</style>*@
+<script>
+   
+    function onLocalError(e) {
+        console.log(e);
+    }
+    
+    function onSubmitBankLoanRelease() {
+        var releaseReason = $("#BankLoanReleaseReasonDropDownList").data("kendoDropDownList").value();
+        var moneyType = $("#BankLoanReleaseMoneyTypeDropDownList").data("kendoDropDownList").value();
+
+        var dataItems = [];
+
+        dataItems = getDataItems('#BankLoanReleaseGrid',
+               true,
+               '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+        $("#BankLoanReleaseSubmitButton").data("kendoButton").enable(false);
+        $('#BankLoanReleaseStatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + dataItems.length + ' items.');
+
+        try {
+            $.ajax({
+                url: '/CashSourcing/BankLoan/ProcessBankLoanRelease',
+                type: 'POST',
+                data: JSON.stringify({
+                    releaseReason: releaseReason,
+                    moneyType: moneyType,
+                    items: dataItems
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+
+                    $("#BankLoanReleaseGrid").data("kendoGrid").dataSource.data(valid);
+                    $("#BankLoanReleaseGrid").data("kendoGrid").refresh();
+
+                    $('#BankLoanReleaseStatusLabel').html('Processed ' + (dataItems.length - valid.length) + ' out of ' + dataItems.length + ' items.');
+                    $("#BankLoanReleaseSubmitButton").data("kendoButton").enable(true);
+
+                    if ((dataItems.length - valid.length) == dataItems.length) {
+                        $('#LocalDetailWindow').data("kendoWindow").close();
+                    }
+                },
+                error: function (valid) {
+                    $("#BankLoanReleaseSubmitButton").data("kendoButton").enable(true);
+                }
+            });
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
+    function onBankLoanReleaseSelect(e) {
+        if (($("#BankLoanReleaseMoneyTypeDropDownList").data("kendoDropDownList").text() == "@LabelHelper.Text("OptionLabel")") ||
+            ($("#BankLoanReleaseReasonDropDownList").data("kendoDropDownList").text() == "@LabelHelper.Text("OptionLabel")")) {
+            $("#BankLoanReleaseSubmitButton").data("kendoButton").enable(false);
+        }
+        else {
+            $("#BankLoanReleaseSubmitButton").data("kendoButton").enable(true);
+        }
+    }
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+    });
+</script>
+
+
+<table id="BankLOanReleaseTable" >
+<tr>
+    <tr>
+        <td align="left" width="200px">
+            @LabelHelper.Label("ReleaseMoneyType")
+        </td>
+        <td align="left">
+            @(Html.Kendo().DropDownList()
+                .Name("BankLoanReleaseMoneyTypeDropDownList")             
+                .DataValueField("Value")
+                .DataTextField("Text")
+                .OptionLabel(LabelHelper.Text("OptionLabel"))
+                        .Events( events => events.Change( "onBankLoanReleaseSelect" ) )                
+                .Template("<span class=\"k-state-default\"> #:data.Text #  #:data.Description# </span>")
+                .DataSource(ds =>
+                {
+                    ds.Events(x => x.Error("onLocalError"));
+                    ds.ServerFiltering(true);
+                    ds.Read(x => x.Action("Read_BankLoanMoneyTypeEnum", "Enum", new { area = "DomesticTrading" }));
+                }))
+        </td>
+    </tr>
+    <tr>
+        <td align="left" width="200px">
+            @LabelHelper.Label("ReleaseReason")
+        </td>
+        <td align="left">
+            @(Html.Kendo().DropDownList()
+                .Name("BankLoanReleaseReasonDropDownList")            
+                .DataValueField("Value")
+                .DataTextField("Text")
+                 .OptionLabel(LabelHelper.Text("OptionLabel"))
+                                 .Events( events => events.Change( "onBankLoanReleaseSelect" ) )     
+                .Template("<span class=\"k-state-default\"> #:data.Text #  #:data.Description# </span>")
+                .DataSource(ds =>
+                {
+                    ds.Events(x => x.Error("onLocalError"));
+                    ds.ServerFiltering(true);
+                    ds.Read(x => x.Action("Read_BankLoanReleaseReasonDropdown", "BankLoan", new { area = "CashSourcing" }));
+                }))
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2">
+            @(
+    Html.Kendo().Grid(Model)
+    .Name("BankLoanReleaseGrid")
+    .NoRecords()
+    .Editable(edit =>
+    {
+        edit.DisplayDeleteConfirmation(false);
+        edit.Enabled(true);
+        edit.Mode(GridEditMode.InLine);
+    })
+    .Scrollable(scroll =>
+    {
+        scroll.Enabled(true).Virtual(true);
+    })
+    .Selectable(select =>
+    {
+        select.Enabled(true).Mode(GridSelectionMode.Multiple);
+    })
+    .Resizable(x => x.Columns(true))
+    .Columns(columns =>
+    {
+        columns.Bound(x => x.Bank).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.BankId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.BankLoanId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.LoanDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound( x => x.EntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );  
+        columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "", "DecimalNumber");
+        columns.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "QuantityDecimalNumber");
+        columns.Bound( x => x.Amount ).GetColumnFormat( ColumnTypeEnum.Money, true, "", "" );
+        columns.Bound( x => x.MemoInfo ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );        
+        columns.Command(x =>
+        {            
+            x.Edit();
+            x.Destroy();
+        });
+    })
+    .DataSource(ds =>
+    {
+        ds.Ajax()
+        .ServerOperation(false)
+        .Model(x =>
+        {
+            x.Id(q => q.IssueId);
+            x.Field(q => q.SecurityNumber).Editable(false);
+            x.Field(q => q.Ticker).Editable(false);
+            x.Field( q => q.MemoInfo ).Editable( false );
+            x.Field(q => q.Amount).Editable(false);
+        })
+        .Aggregates(q =>
+        {
+            q.Add(x => x.Quantity).Sum();
+            q.Add(x => x.Amount).Sum();
+        })
+        .Update(update => update.Action("UpdateBankLoanReleaseModel", "BankLoan", new { area = "CashSourcing" }))
+        .Destroy(destroy => destroy.Action("DeleteBankLoanReleaseModel", "BankLoan", new { area = "CashSourcing" }));
+    }))
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" align="left">
+            <label id="BankLoanReleaseStatusLabel"></label>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" align="right">
+            @Html.Kendo().Button().Name("BankLoanReleaseSubmitButton").Content(LabelHelper.Text("BankLoanReleaseSubmit")).Events(ev => ev.Click("onSubmitBankLoanRelease")).Enable(false)
+    </td>
+  </tr>
+</table>

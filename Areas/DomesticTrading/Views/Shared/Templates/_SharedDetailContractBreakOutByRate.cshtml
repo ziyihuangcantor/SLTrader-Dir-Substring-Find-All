@@ -1,0 +1,454 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model PartialViewModel
+
+<style scoped>
+    #SharedContractBreakOutButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script type="text/javascript">
+    var _originalSharedContractBreakOutGrid = null;
+    var _sharedContractBreakOutSelectAll = false;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSharedContractBreakOutGrid = $('#SharedContractBreakOutDetails').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#SharedContractBreakOutDetails");
+
+            $(".k-grid-toolbar", "#SharedContractBreakOutDetails").append("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+        }, 5);
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("SharedContractBreakOutButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#SharedContractBreakOutDetails", "SharedContractBreakOutDetails", _sharedContractBreakOutSelectAll);
+                clientEvent2.setText(data2);
+            });
+        });
+    });
+
+    function onSharedContractBreakOutDetailGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedContractBreakOutDetails");
+        }, 5);
+    }
+
+   function onSharedContractBreakOutDataBound() {
+        CheckGridData('#SharedContractBreakOutDetails');
+    }
+
+    function onShareedContractBreakOutRowChange(e) {
+
+        try {
+            var entityGrid = $("#onShareedContractBreakOutRowChange").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            if (selectedItem["TradeType"] == '@Convert.ToInt32(TradeType.StockBorrow)') {
+                EnableContextMenuItem("#SharedContractContextMenu", "Return", true);
+                EnableContextMenuItem("#SharedContractContextMenu", "Recall", false);
+            }
+            else if (selectedItem["TradeType"] == '@Convert.ToInt32(TradeType.StockLoan)') {
+                EnableContextMenuItem("#SharedContractContextMenu", "Return", false);
+                EnableContextMenuItem("#SharedContractContextMenu", "Recall", true);
+            }
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onSharedContractBreakOutAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            issueId: '@Model.IssueId'
+        };
+    }
+
+
+    function onSharedContractBreakOutContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Return':
+                onSharedReturnContractBreakOutSelected(true);
+                break;
+
+            case 'Recall':
+                onSharedRecallContractBreakOutSelected(true);
+                break;
+
+            case 'Callback':
+                onSharedCallbackContractBreakOutSelected(true);
+                break;
+
+            case 'Rate Change':
+                onSharedRateChangeContractBreakOutSelected(true);
+                break;
+
+            case 'Profit ID Chg':
+                onSharedProfitIdContractBreakOutSelected(true);
+                break;
+
+              
+            case 'AutoFit Columns':
+                resizeGridColumns("#SharedContractBreakOutDetails");
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#SharedContractBreakOutDetails")                
+                break;
+
+            case 'Select All':
+                onSharedContractBreakOutSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedContractBreakOutDetails");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedContractBreakOutDetails");
+                $('#SharedContractBreakOutDetails').data('kendoGrid').setOptions(_originalSharedContractBreakOutGrid);
+                $(".k-grid-toolbar", "#SharedContractBreakOutDetails").append("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedContractBreakOutDetails').data('kendoGrid').dataSource.read();
+                break;
+
+            case 'Export To Excel':
+                exportToSharedContractBreakOutExcel();
+                break;
+        }
+    }
+    function onSharedContractBreakOutSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedContractBreakOutDetails").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedContractUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedContractBreakOutExcel() {
+        KendoGridToCSVConvertor("#SharedContractBreakOutDetails", 'SharedContractBreakOutDetails');
+    }
+
+
+    function onSharedReturnContractBreakOutSelected(e) {
+        if (e) {
+            var dataItems = getCSVDataItems('#SharedContractBreakOutDetails', _sharedContractBreakOutSelectAll);
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Book Returns',
+                1100,
+                450,
+                '/DomesticTrading/ContractRelated/Load_ReturnByContractBreakOutByRate'
+            );
+        }
+    }
+
+    function onSharedRateChangeContractBreakOutSelected(e) {
+        if (e) {
+            var dataItems = getCSVDataItems('#SharedContractBreakOutDetails', _sharedContractBreakOutSelectAll);
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Rate Change Contracts',
+                1200,
+                450,
+                '/DomesticTrading/ContractRelated/Load_RateChangeByContractBreakOutByRate'
+            );
+        }
+    }
+
+    function onSharedCallbackContractBreakOutSelected(e) {
+        if (e) {
+            var dataItems = getCSVDataItems('#SharedContractBreakOutDetails', _sharedContractBreakOutSelectAll);
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Callback Contracts',
+                1200,
+                450,
+                '/DomesticTrading/ContractRelated/Load_CallbackByContractBreakOutByRate'
+            );
+        }
+    }
+
+    function getSharedContractBreakOutAverageWeightedRate(tradeType) {
+        try {
+            var filters = $('#SharedContractBreakOutDetails').data("kendoGrid").dataSource.filter();
+            var view = getCSVDataItems('#SharedContractBreakOutDetails', true);
+            var rate = 0;
+
+            if (view.length > 0) {
+                try {
+                    $.ajax({
+                        url: '/DomesticTrading/ContractRelated/CalculateAverageWeightedRateByTradeType',
+                        type: 'POST',
+                        async: false,
+                        data: JSON.stringify({
+                            contractList: view,
+                            tradeType:tradeType
+                        }),
+                        contentType: 'application/json;',
+                        success: function (valid) {
+                            rate = valid;
+                        },
+                        error: function (valid) {
+                            rate = 0;
+                        }
+                    });
+
+                    return rate;
+                } catch (e) {
+                    console.log(e.message);
+                }
+            }
+        }
+        catch (e) {
+            console.log(e);
+        }
+    }
+
+    function OnColorPreviewList(e) {
+
+    }
+</script>
+
+<div id="SharedDetailContractBreakOutDiv" class="grid-div">
+    @(Html.Kendo().Grid<SL_ContractBreakOutByRateExtendedProjection>()
+          .Name("SharedContractBreakOutDetails")
+          .HtmlAttributes(new { @class = "grid" })
+          .Sortable(sort =>
+          {
+              sort.AllowUnsort(true);
+              sort.Enabled(true);
+              sort.SortMode(GridSortMode.SingleColumn);
+          })
+          .Scrollable(scrollable =>
+          {
+              scrollable.Virtual(true);
+              scrollable.Enabled(true);
+          })
+          .Navigatable()
+          .NoRecords()
+          .AutoBind(true)
+            .ToolBar(t =>
+            {
+                t.Template("<label></label>");
+            })
+          .Pageable(pagable =>
+          {
+              pagable.Numeric(false);
+              pagable.PreviousNext(false);
+              pagable.Messages(config =>
+              {
+                  config.Display("Showing {2} contract(s)");
+              });
+          })
+          .ColumnMenu(menu =>
+          {
+              menu.Columns(true);
+              menu.Sortable(true);
+              menu.ComponentType( "modern" );
+          } )
+          .Filterable(filter =>
+          {
+              filter.Extra(false);
+              filter.Mode(GridFilterMode.Menu);
+          })
+          .Events(events =>
+          {
+              events.Change("onShareedContractBreakOutRowChange");
+              events.DataBound("onSharedContractBreakOutDataBound");
+              events.ColumnHide("onSharedContractBreakOutDetailGridLayoutChange");
+              events.ColumnShow("onSharedContractBreakOutDetailGridLayoutChange");
+              events.ColumnResize("onSharedContractBreakOutDetailGridLayoutChange");
+              events.ColumnReorder("onSharedContractBreakOutDetailGridLayoutChange");
+          })
+          .Selectable(selectable =>
+          {
+              selectable.Mode(GridSelectionMode.Multiple);
+              selectable.Type(GridSelectionType.Row);
+          })
+          .Reorderable(reorder => reorder.Columns(true))
+          .Columns(columns =>
+          {
+              columns.Bound(x => x.EffectiveDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SLContract).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ExecutingSystem).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RecordDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+              columns.Bound(x => x.MktPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "", "").Hidden();
+              columns.Bound(x => x.CollateralPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "", "").Hidden();
+              columns.Bound(x => x.IssueId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RecallDueDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.DepoQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(DepoQuantity)#", "");
+              columns.Bound(x => x.DepoAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetPositionDirection(DepoAmount)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantityDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDeltaDirection(BorrowQuantityDelta)#", "").Hidden(true);
+
+              columns.Bound(x => x.BorrowQuantityCallback).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantityCallback)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantityCallbackAvailable).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantityCallbackAvailable)#", "").Hidden(true);
+
+              columns.Bound(x => x.BorrowQuantityFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantityFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantityStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantityStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantity)#", "");
+              columns.Bound(x => x.BorrowQuantityOnRecallStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(BorrowQuantityOnRecallStartOfDay)#", "");
+              columns.Bound(x => x.BorrowQuantityOnRecallOpen).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(BorrowQuantityOnRecallOpen)#", "");
+              columns.Bound(x => x.BorrowAmountFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowAmountFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowAmountDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDeltaDirection(BorrowAmountDelta)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowAmount)#", "");
+              columns.Bound(x => x.BorrowAmountStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowAmountStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowReturnQuantityPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowReturnQuantityPending)#", "");
+              columns.Bound(x => x.BorrowReturnAmountPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowReturnAmountPending)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantityDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDeltaDirection(LoanQuantityDelta)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantityFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantityFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantityStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantityStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantity)#", "");
+              columns.Bound(x => x.LoanQuantityOnRecallStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(LoanQuantityOnRecallStartOfDay)#", "");
+              columns.Bound(x => x.LoanQuantityOnRecallOpen).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(LoanQuantityOnRecallOpen)#", "");
+              columns.Bound(x => x.LoanAmountFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanAmountFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.LoanAmountDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDeltaDirection(LoanAmountDelta)#", "").Hidden(true);
+              columns.Bound(x => x.LoanAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanAmount)#", "");
+              columns.Bound(x => x.LoanAmountStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanAmountStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.LoanReturnQuantityPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanReturnQuantityPending)#", "");
+              columns.Bound(x => x.LoanReturnAmountPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanReturnAmountPending)#", "").Hidden(true);
+              columns.Bound(x => x.BookRebateRateIntraday).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BookRebateRateIntraday)#", "");
+              columns.Bound(x => x.BookRebateRateEndOfDay).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BookRebateRateEndOfDay)#", "");
+              columns.Bound(x => x.ExcessNetExposureAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(ExcessNetExposureAmount)#", "");
+              columns.Bound(x => x.DepositoryStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.CollateralFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ProfitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.BorrowRebateRate).GetColumnFormat(ColumnTypeEnum.Rate, true, "#=GetRateDirection(BorrowRebateRate)#", "").ClientFooterTemplate("#=kendo.toString(kendo.parseFloat(getSharedContractBreakOutAverageWeightedRate(51)),'0.000') #");
+              columns.Bound(x => x.BorrowRebateRateId).GetColumnFormat(ColumnTypeEnum.String, true, "", "").Hidden(true);
+              columns.Bound(x => x.LoanRebateRate).GetColumnFormat(ColumnTypeEnum.Rate, true, "#=GetRateDirection(LoanRebateRate)#", "").ClientFooterTemplate("#=kendo.toString(kendo.parseFloat(getSharedContractBreakOutAverageWeightedRate(50)),'0.000') #");
+              columns.Bound(x => x.LoanRebateRateId).GetColumnFormat(ColumnTypeEnum.Rate, true, "", "").Hidden(true);
+              columns.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "");
+              columns.Bound(x => x.MarkParameterId).Hidden(true);
+              columns.Bound(x => x.CostOfFunds).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(CostOfFunds)#", "");
+              columns.Bound(x => x.CashSettleDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SecuritySettleDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.TermDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.ExpectedEnDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.TradeDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.CashLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.IncomeTracked).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'   #= (IncomeTracked) ? checked ='checked' : '' #/>", "");
+              columns.Bound(x => x.Callable).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'   #= (Callable) ? checked ='checked' : '' #/>", "");
+              columns.Bound(x => x.DividendRate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(DividendRate)#", "");
+              columns.Bound(x => x.DividendCallable).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.CashLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ActivityItemCount).GetColumnFormat(ColumnTypeEnum.Position, false, "# if (ActivityItemCount > 0) { #<i class='fa fa-bars' style='color:green;'></i># }# ", "").Title("").HtmlAttributes(new { title = "Actions - #= ActivityItemCount # " }).Filterable(false);
+              columns.Bound(X => X.ContractFlag).GetColumnFormat(ColumnTypeEnum.String, false, "# if (ContractFlag == 'Pending') { #<i class='fa  fa-info-circle' style='color:blue;'></i># } else if (ContractFlag == 'Success') { #<i class='fa  fa-exclamation-circle' style='color:green;'></i># } else if (ContractFlag != ''){ #<i class='fa  fa-exclamation-triangle' style='color:red;'></i># } #", "").Title("").HtmlAttributes(new { title = "Status - #= ContractFlag # " }).Filterable(false);
+              columns.Bound(x => x.IncomeAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(IncomeAmount)#", "");
+              columns.Bound(x => x.Spread).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetRateDirection(Spread)#", "");
+              columns.Bound(x => x.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.CurrencyIssued).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.FeeFundRate).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateDirection(FeeFundRate)#", "");
+              columns.Bound(x => x.FeeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.FeeOffset).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateNullableDirection(FeeOffset)#", "");
+              columns.Bound(x => x.FeeRate).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateDirection(FeeRate)#", "");
+              columns.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+          })
+          .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+          .DataSource(dataSource => dataSource
+              .Ajax()
+              .ServerOperation(false)
+              .PageSize(30)
+                .Read(read =>
+                {
+                    read.Action("Read_ContractBreakOutByRateByIssue", "Main", new { area = "DomesticTrading" }).Data("onSharedContractBreakOutAdditionalData");
+                })
+              .Model(model => model.Id(x => x.SLContract))
+              .Sort(sort =>
+              {
+                  sort.Add(x => x.TradeType).Order(ListSortDirection.Descending);
+                  sort.Add(x => x.BorrowRebateRate).Order(ListSortDirection.Ascending);
+                  sort.Add(x => x.LoanRebateRate).Order(ListSortDirection.Descending);
+              })
+              .Aggregates(s =>
+              {
+                  s.Add(x => x.BorrowQuantityCallback).Sum();
+                  s.Add(x => x.BorrowQuantityCallbackAvailable).Sum();
+
+                  s.Add(x => x.BorrowQuantityFullSettled).Sum();
+                  s.Add(x => x.BorrowQuantityDelta).Sum();
+                  s.Add(x => x.BorrowQuantity).Sum();
+                  s.Add(x => x.BorrowQuantityOnRecallStartOfDay).Sum();
+                  s.Add(x => x.BorrowQuantityOnRecallOpen).Sum();
+                  s.Add(x => x.BorrowQuantityStartOfDay).Sum();
+                  s.Add(x => x.BorrowAmountFullSettled).Sum();
+                  s.Add(x => x.BorrowAmountDelta).Sum();
+                  s.Add(x => x.BorrowAmount).Sum();
+                  s.Add(x => x.BorrowAmountStartOfDay).Sum();
+                  s.Add(x => x.BorrowReturnQuantityPending).Sum();
+                  s.Add(x => x.BorrowReturnAmountPending).Sum();
+                  s.Add(x => x.LoanQuantityOnRecallStartOfDay).Sum();
+                  s.Add(x => x.LoanQuantityOnRecallOpen).Sum();
+                  s.Add(x => x.LoanQuantityFullSettled).Sum();
+                  s.Add(x => x.LoanQuantityDelta).Sum();
+                  s.Add(x => x.LoanQuantity).Sum();
+                  s.Add(x => x.LoanQuantityStartOfDay).Sum();
+                  s.Add(x => x.LoanAmountFullSettled).Sum();
+                  s.Add(x => x.LoanAmountDelta).Sum();
+                  s.Add(x => x.LoanAmount).Sum();
+                  s.Add(x => x.LoanAmountStartOfDay).Sum();
+                  s.Add(x => x.LoanReturnQuantityPending).Sum();
+                  s.Add(x => x.LoanReturnAmountPending).Sum();
+                  s.Add(x => x.IncomeAmount).Sum();
+                  s.Add(x => x.ExcessNetExposureAmount).Sum();
+              })))
+ </div>
+
+@(Html.Kendo().ContextMenu()
+    .Name("SharedContractBreakOutContextMenu")
+        .Target("#SharedContractBreakOutDetails")
+    .Events(events => events.Select("onSharedContractBreakOutContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("Rate Change");
+    items.Add().Text("Return");
+    items.Add().Text("Callback");
+    items.Add().Separator(true);
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text("Unsort").Enabled(true);
+    items.Add().Text("Reset Filter").Enabled(true);
+    items.Add().Text("Reset Grid").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("Select All").Enabled(true);
+    items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedContractButton" });
+    items.Add().Text("Export To Excel").Enabled(true);
+    
+    
+})
+)

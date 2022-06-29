@@ -1,0 +1,164 @@
+﻿@using SLTrader.Helpers.SessionHelper
+<script type="text/javascript">
+    function onSelect(e) {
+        e.preventDefault();
+
+        var item = e.item.firstChild.pathname;
+        var title = e.item.firstChild.textContent;
+
+        try
+        {
+            if (item != undefined) {
+                EnableMenuItem("#MainMenu", title, false);
+                AddTabFromMenu(item, title, title);               
+            }
+
+        }
+        catch (e) {
+            alert(e.message);
+        }
+    }
+
+    function EnableMenuItem(menu, menuItemText, isEnabled) 
+    {
+        var items = $(menu).find(".k-link:contains(" + menuItemText + ")").parent();
+
+        var menu = $(menu).data("kendoMenu");
+        menu.enable(items, isEnabled);
+    }
+   
+    function OpenWindow(url, title) {
+        var wndCredit = $("#LocalWindow").data("kendoWindow");
+
+        wndCredit.center().open();
+
+        wndCredit.refresh({
+            url: "@Url.Action("RetrievePartial", "Tab", new {Area = "DomesticTrading"})",
+            data: {
+                url: targetUrl
+            }
+        });
+    }
+
+    function AddTabFromMenu(targetUrl, title, menuItem) {
+        var tabStrip = $("#MainTabStrip").data("kendoTabStrip");
+        var tabId = title.replace(/\s/g, '').replace(':', '');
+
+        var innerText = title + "<i class='fa fa-times-circle' width='12px' height='12px' style='padding-left: 10px; border: 0px;' onclick='DeleteTab(this);'></i><span id='" + tabId + "'/>";
+        var currentTab = $("#" + tabId).closest('.k-item');
+       
+        if (currentTab.length) {
+            tabStrip.select(currentTab);
+            resizeTabs("#MainTabStrip", 40);
+            EnableMenuItem("#MainMenu", menuItem, true);
+        } else {
+            $.ajax({
+                url: "@Url.Action("RetrievePartial", "Admin", new {Area = "Admin"})",
+                data: {
+                url: targetUrl
+                },
+            success: function (result) {
+               
+                tabStrip.append({
+                    text: innerText,
+                    encoded: false,
+                    content: result,
+                });
+                
+                resizeTabs("#MainTabStrip", 40);
+
+                tabStrip.select((tabStrip.tabGroup.children("li").length - 1));
+                
+                EnableMenuItem("#MainMenu", menuItem, true);
+            },
+            error: function (e) {
+                tabStrip.append({
+                    text: innerText,
+                    encoded: false,
+                    content: e.responseText,
+                });
+
+                EnableMenuItem("#MainMenu", menuItem, true);
+            }
+        });
+    }
+    }
+
+
+    function AddTab(targetUrl, title) {
+        var tabStrip = $("#MainTabStrip").data("kendoTabStrip");
+        var tabId = title.replace(/\s/g, '').replace(':', '');
+
+        var innerText = title + "<i class='fa fa-times-circle' width='12px' height='12px' style='padding-left: 10px; border: 0px;' onclick='DeleteTab(this);'></i><span id='" + tabId + "'/>";
+        var currentTab = $("#" + tabId).closest('.k-item');
+
+        if (currentTab.length) {
+            tabStrip.select(currentTab);
+            resizeTabs("#MainTabStrip", 40);
+        } else {
+            $.ajax({
+                url: "@Url.Action("RetrievePartial", "Admin", new {Area = "Admin"})",
+                data: {
+                    url: targetUrl
+                },
+                success: function (result) {
+
+                    tabStrip.append({
+                        text: innerText,
+                        encoded: false,
+                        content: result,
+                    });
+
+                    resizeTabs("#MainTabStrip", 40);
+
+                    tabStrip.select((tabStrip.tabGroup.children("li").length - 1));
+                },
+                error: function (e) {
+                    tabStrip.append({
+                        text: innerText,
+                        encoded: false,
+                        content: e.responseText,
+                    });
+                }
+            });
+        }
+    }
+
+    function DeleteTab(imgObj) {
+        var tabStrip = $("#MainTabStrip").data("kendoTabStrip");
+
+        var deleteIndex = $(imgObj).closest("li").index();
+        tabStrip.remove(deleteIndex);
+
+        if (deleteIndex > 0) {
+            var nextTab = tabStrip.select(deleteIndex);
+
+            if (nextTab.length) {
+                tabStrip.select(deleteIndex);
+            } else {
+                tabStrip.select(deleteIndex - 1);
+            }
+        } else {
+            tabStrip.select(0);
+        }
+    }
+</script>
+@(
+ Html.Kendo().Menu()
+           .Name("MainMenu")
+           .HoverDelay(100)
+           .OpenOnClick(true)
+           .CloseOnClick(true)           
+           .Orientation(MenuOrientation.Horizontal)
+           .Events(events => events.Select("onSelect"))
+           .BindTo("DomesticTradingWebSiteMap", (item, value) =>
+           {
+               if (item.Url != null)
+               {
+                   item.Enabled = SessionSecurityService.IsViewAble(item.Text);
+               }
+           }))
+
+
+<div id="MainMenu" class="k-menu-vertical"></div>
+

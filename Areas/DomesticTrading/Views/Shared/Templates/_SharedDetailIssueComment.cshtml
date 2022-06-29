@@ -1,0 +1,192 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model PartialViewModel
+
+<style>
+    #SharedIssueCommentButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+
+<script type="text/javascript">
+    var _originalSharedIssueCommentGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSharedIssueCommentGrid = $('#SharedDetailIssueCommentGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#SharedDetailIssueCommentGrid");
+
+            $(".k-grid-toolbar", "#SharedDetailIssueCommentGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+
+            $('#SharedDetailIssueCommentGrid').data('kendoGrid').dataSource.read();
+        }, 3);
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("SharedIssueCommentButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#SharedDetailIssueCommentGrid", "SharedDetailIssueCommentGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    function onSharedIssueCommentLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedDetailIssueCommentGrid");
+        }, 5);
+    }
+
+    function onSharedIssueCommentCheckData() {
+        CheckGridData('#SharedDetailIssueCommentGrid');
+    }
+
+    function onSharedIssueCommentAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            issueId: '@Model.IssueId'
+        };
+    }
+
+    function onSharedIssueCommentContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#SharedDetailIssueCommentGrid");
+                break
+
+            case 'Unsort':
+                onSharedActivityDetailUnsortGrid("#SharedDetailIssueCommentGrid");
+                break;
+
+            case 'Select All':
+                onSharedActivityDetailSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedDetailIssueCommentGrid");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedDetailIssueCommentGrid");
+                $('#SharedDetailIssueCommentGrid').data('kendoGrid').setOptions(_originalSharedIssueCommentGrid);
+                $(".k-grid-toolbar", "#SharedDetailIssueCommentGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedDetailIssueCommentGrid').data('kendoGrid').dataSource.read();
+                break;
+
+            case 'Export To Excel':
+                exportToSharedIIssueCommentExcel();
+                break;
+        }
+    }
+
+    function onSharedActivityDetailSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedDetailIssueCommentGrid").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedActivityDetailUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedIIssueCommentExcel() {
+        KendoGridToCSVConvertor("#SharedDetailIssueCommentGrid", 'SharedDetailIssueCommentGrid');
+    }
+
+    function onSharedGridError(e) {
+        console.log(e);
+    }
+</script>
+
+
+<div class="grid-div" id="ActivityByTypeIdDiv">
+    @(Html.Kendo().Grid<SL_IssueCommentItemProjection>()
+    .Name("SharedDetailIssueCommentGrid")
+            .Navigatable()
+            .Scrollable()
+            .Sortable()
+            .AutoBind(false)
+                 .ToolBar(t =>
+                 {
+                     t.Template("<label></label>");
+                 })
+                        .Editable(x => x.Enabled(false))
+                        .HtmlAttributes(new { @class = "grid" })
+                        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                        .Filterable()
+                        .NoRecords()
+                        .Events(events =>
+                        {
+                            events.DataBound("onSharedIssueCommentCheckData");
+                            events.ColumnHide("onSharedIssueCommentLayoutChange");
+                            events.ColumnShow("onSharedIssueCommentLayoutChange");
+                            events.ColumnResize("onSharedIssueCommentLayoutChange");
+                            events.ColumnReorder("onSharedIssueCommentLayoutChange");
+                        })
+                        .Resizable(resize => resize.Columns(true))
+                        .ColumnMenu(columnMenu =>
+                        {
+                            columnMenu.Columns(true);
+                            columnMenu.Sortable(true);
+                            columnMenu.Filterable(true);
+                            columnMenu.ComponentType( "modern" );
+                        } )
+                        .Reorderable(reorder =>
+                        {
+                            reorder.Columns(true);
+                        })
+                        .Navigatable()
+                       .Columns(columns =>
+                       {
+                           columns.Bound(p => p.DateTimeId).GetColumnFormat(ColumnTypeEnum.DateTime, false, "", "").Width(60).Title("Time");
+                           columns.Bound(p => p.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                           columns.Bound(p => p.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.UserName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                       })
+   .DataSource(ds =>
+   {
+       ds.Ajax()
+           .ServerOperation(false)
+           .Events(e => e.Error("onSharedGridError"))
+           .Read(read =>
+           {
+               read.Action("Read_CommentByIssue", "Main", new { area = "DomesticTrading" }).Data("onSharedIssueCommentAdditionalData");
+           });
+   }))
+
+
+    @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#ActivityByTypeIdGrid").Filter("td[title]")
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("SharedIssueCommentContextMenu")
+            .Target("#SharedDetailIssueCommentGrid")
+        .Events(events => events.Select("onSharedIssueCommentContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedIssueCommentButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

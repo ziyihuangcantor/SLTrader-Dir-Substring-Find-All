@@ -1,0 +1,56 @@
+﻿@using SLTrader.Tools
+
+<script type="text/javascript">
+
+    function additionalData() {
+
+        var datepicker = $("#PremiumCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        return {
+            effectiveDate: value
+        };
+    }
+
+    function onError(e) {
+        alert(e.message);
+    }
+
+    function onChange() {
+        $("#ListPremiumGrid").data("kendoGrid").dataSource.read();
+    }
+
+</script>
+
+
+<hr class="hr-white">
+
+    @{   Html.Kendo().Grid<BondFire.Entities.Projections.SL_ListPremiumProjection>()
+            .Name("ListPremiumGrid")
+            .Sortable()
+            .HtmlAttributes(new {@class="Workspace"})
+            .Scrollable()
+            .Filterable()
+            .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+            .Navigatable()
+            .Columns(columns =>
+                {                  
+                    columns.Bound(p => p.DateTimeId).Format("{0:yyyy-MM-dd}").DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });                  
+                    columns.Bound(p => p.SecurityNumber).DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });
+                    columns.Bound(p => p.Ticker).DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });
+                    columns.Bound(p => p.StartDate).Format("{0:yyyy-MM-dd}").DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });
+                    columns.Bound(p => p.EndDate).Format("{0:yyyy-MM-dd}").DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });                    
+                })
+                .Resizable(resize => resize.Columns(true))
+                .DataSource(dataSource => dataSource
+                .Ajax()
+                .Read(read => read
+                    .Action("Read_ListPremium", "List")
+                    .Data("additionalData")
+                    )
+                    .Events(events => events
+                    .Error("onError"))                    
+                )).Render();
+                
+               }
+

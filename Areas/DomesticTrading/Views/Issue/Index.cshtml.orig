@@ -1,0 +1,531 @@
+﻿@using SLTrader.Tools
+@using BondFire.Entities
+@using BondFire.Core.Dates;
+@using SLTrader.Helpers.SessionHelper
+
+@model SecurityPanelModel
+
+<style scoped>
+    #IssueTable {        
+        border-collapse: separate;
+        border-spacing: 5px;
+        width : 90%;
+    }
+</style>
+<script type="text/javascript">
+
+    function changeRegType(issueId, regType) {
+        var entityId = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+        console.log(entityId);
+        try {
+            $.ajax({
+                url: '/DomesticTrading/List/AddRegulatoryList',
+                type: 'POST',
+                contentType: 'application/json;',
+                async: true,
+                cache: false,
+                data: JSON.stringify({
+                    entityId: entityId,
+                    issueId: issueId,
+                    regType: regType
+                }),
+                success: function (valid) {
+                    // $("#BoxCalculationBlock").html(valid);
+                },
+                error: function (valid) {
+                    //  $("#BoxCalculationBlock").html(valid);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function deleteRegType(issueId, regType) {
+        var entityId = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+        console.log(entityId);
+        try {
+            $.ajax({
+                url: '/DomesticTrading/List/DeleteRegulatoryList',
+                type: 'POST',
+                contentType: 'application/json;',
+                async: true,
+                cache: false,
+                data: JSON.stringify({
+                    entityId: entityId,
+                    issueId: issueId,
+                    regType: regType
+                }),
+                success: function (valid) {
+                    // $("#BoxCalculationBlock").html(valid);
+                },
+                error: function (valid) {
+                    //  $("#BoxCalculationBlock").html(valid);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    $('#CheckBoxEasy').change(function () {
+        if ($("#CheckBoxEasy").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.EASYBORROW');
+        }
+        else
+        {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.EASYBORROW');
+        }
+    });
+
+    $('#CheckBoxPenaltyBox').change(function () {
+        if ($("#CheckBoxPenaltyBox").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.PENALTYBOX');
+        }
+        else {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.PENALTYBOX');
+        }
+    });
+
+    $('#CheckBoxPremium').change(function () {
+        if ($("#CheckBoxPremium").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.PREMIUM');
+        }
+        else {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.PREMIUM');
+        }
+    });
+
+    $('#CheckBoxRestricted').change(function () {
+        if ($("#CheckBoxRestricted").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.RESTRICTED');
+        }
+        else {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.RESTRICTED');
+        }
+    });
+
+    $('#CheckBoxOCC').change(function () {
+        if ($("#CheckBoxOCC").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.OCCELIGIBLE');
+        }
+        else {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.OCCELIGIBLE');
+        }
+    });
+
+
+    $('#CheckBoxThreshold').change(function () {
+        if ($("#CheckBoxThreshold").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.THRESHOLD');
+        }
+        else {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.THRESHOLD');
+        }
+    });
+
+    
+    $('#CheckBoxAllocation').change(function () {
+        if ($("#CheckBoxAllocation").is(':checked')) {
+            changeRegType('@Model.Issue.IssueId', '@SLRegulatoryType.ALLOCATION');
+        }
+        else {
+            deleteRegType('@Model.Issue.IssueId', '@SLRegulatoryType.ALLOCATION');
+        }
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            if ('@((string.IsNullOrWhiteSpace(Model.Issue.Cusip)) ? 0 : Model.Issue.Cusip.Length)' > 0 ||
+            '@((string.IsNullOrWhiteSpace(Model.Issue.SEDOL)) ? 0 : Model.Issue.SEDOL.Length)' > 0 ||
+            '@((string.IsNullOrWhiteSpace(Model.Issue.ISIN)) ? 0 : Model.Issue.ISIN.Length)' > 0){
+                $("#TradeTicketButton").data("kendoButton").enable('@SessionSecurityService.IsEditable(ManagerTask.EditSLTRade)');
+                $("#HelpButton").data("kendoButton").enable('@SessionSecurityService.IsEditable(ManagerTask.UpdateIssue)');
+                $("#IssueCommentButton").data("kendoButton").enable('@SessionSecurityService.IsEditable(ManagerTask.EditSLIssueComment)');
+
+                if ((@(Model.PossibleMatchingIssueList.Count()) > 1) && ('@(SessionService.UserPreference.ShowMatchingIssues)' == 'True'))
+                {
+                    HelperPartialWindow(
+                    JSON.stringify({
+                        cusip : '@Model.Issue.Cusip',
+                        ticker : '@Model.Issue.Ticker',
+                        sedol : '@Model.Issue.SEDOL',
+                        quick : '@Model.Issue.Quick',
+                        ISIN : '@Model.Issue.ISIN'
+                    }),
+                  'Additional Items',
+                  1100,
+                  450,
+                  '/DomesticTrading/Issue/Read_IssueList'
+                  );
+                }
+
+                try {
+                    if ('@Model.IssueColor.IssueColorType' == '@IssueColorType.GC.ToString()') {
+                        disableHeaderButton('#SecurityTempatureToolBar', '#GeneralCollateralButton', true);
+                        
+                        $("#GeneralCollateralButton").addClass("k-widget k-notification k-notification-info");
+
+                        $("#HotCollateralButton").removeClass("k-widget k-notification k-notification-error");
+                        $("#WarmCollateralButton").removeClass("k-widget k-notification k-notification-warning");
+                    }
+                    else if ('@Model.IssueColor.IssueColorType' == '@IssueColorType.WARM.ToString()') {                        
+                        $("#WarmCollateralButton").addClass("k-widget k-notification k-notification-warning");
+
+                        disableHeaderButton('#SecurityTempatureToolBar', '#WarmCollateralButton', true);
+
+                        $("#GeneralCollateralButton").removeClass("k-widget k-notification k-notification-info");
+                        $("#HotCollateralButton").removeClass("k-widget k-notification k-notification-error");
+                    }
+                    else if ('@Model.IssueColor.IssueColorType' == '@IssueColorType.HOT.ToString()') {                        
+                        $("#HotCollateralButton").addClass("k-widget k-notification k-notification-error");
+
+                        disableHeaderButton('#SecurityTempatureToolBar', '#HotCollateralButton', true);
+
+                        $("#GeneralCollateralButton").removeClass("k-widget k-notification k-notification-info");
+                        $("#WarmCollateralButton").removeClass("k-widget k-notification k-notification-warning");
+                    }
+                    else {
+                        $("#HotCollateralButton").removeClass("k-widget k-notification k-notification-error");
+                        $("#GeneralCollateralButton").removeClass("k-widget k-notification k-notification-info");
+                        $("#WarmCollateralButton").removeClass("k-widget k-notification k-notification-warning");
+                    }
+                }
+                catch (e) {
+                    console.log(e);
+                }
+            }
+            else {
+                $("#TradeTicketButton").data("kendoButton").enable(false);
+                $("#HelpButton").data("kendoButton").enable(false);
+                $("#IssueCommentButton").data("kendoButton").enable(false);
+
+                if ($("#SearchCriteria").val().length > 0) {
+                    $("#SecurityDescriptionTextBox").val("INVALID SEARCH CRITERIA");
+                }
+            }
+        }, 5);
+    });
+</script>
+<div id="IssueBlock" align="center">
+<table id="IssueTable">
+    <tr>
+        <td colspan="4" class="k-block">
+            @if (string.IsNullOrWhiteSpace(Model.Issue.Description_1))
+            {
+                <text>N.A.</text>
+                <label id="SecurityDescriptionTextBox" style="visibility:hidden;"></label>
+            }
+            else
+            {
+                @Html.DisplayFor(m => m.Issue.Description_1, Model.Issue.Description_1, new { @readonly = "readonly", @style = "width:100%;", ID = "SecurityDescriptionTextBox", @class = "k-widget" });
+            }
+        </td>
+    </tr>
+    <tr>
+        <td colspan="4" class="k-block">
+            @if (string.IsNullOrWhiteSpace(Model.SecurityTypeDescription))
+            {
+                <text>N.A.</text>
+            }
+            else
+            {
+                @Html.DisplayFor(m => m.SecurityTypeDescription, Model.SecurityTypeDescription, new { @readonly = "readonly", @style = "width:100%;", @class = "k-widget" });
+            }
+        </td>
+    </tr>
+    <tr>
+        <td>
+            @LabelHelper.Text("Cusip")
+        </td>
+        <td>
+            @LabelHelper.Text("Ticker")
+        </td>
+    </tr>
+    <tr>        
+        <td class="k-block" style="user-select:all">          
+                @if (string.IsNullOrWhiteSpace(Model.Issue.Cusip))
+                {
+                <text>N.A.</text>
+                <label id="SecurityMasterCusipTextBox" style="visibility:hidden;"></label>
+                }
+                else
+                {
+                @Html.DisplayFor(m => m.Issue.Cusip, Model.Issue.Cusip, new { @style = "width:100%;", ID = "SecurityMasterCusipTextBox", @class = "k-widget" });
+                }
+
+                @Html.HiddenFor(m => m.Issue.IssueId, new { ID = "SecurityMasterIssueIdTextBox" })
+        </td>       
+        <td class="k-block">
+            <span>               
+                @if (string.IsNullOrWhiteSpace(Model.Issue.Ticker))
+                {
+                <text>N.A.</text>
+                <label id="SecurityMasterTickerTextBox" style="visibility:hidden;"></label>
+                }
+                else
+                {
+                @Html.DisplayFor(m => m.Issue.Ticker, Model.Issue.Ticker, new { @readonly = "readonly", @style = "width:100%;", ID = "SecurityMasterTickerTextBox", @class = "k-widget" });
+                }
+            </span>
+        </td>  
+    </tr>   
+
+    @if (SessionService.UserPreference.UserTypeId == SL_UserType.INTERNATIONAL)
+    {
+    <tr>
+        <td>
+            @LabelHelper.Text("Isin")
+        </td>
+        <td>
+            @LabelHelper.Text("SecNumber")
+        </td>
+    </tr>
+    <tr>
+        <td class="k-block">
+                @if (string.IsNullOrWhiteSpace(Model.Issue.ISIN))
+                {
+                <text>N.A.</text>
+                <label id="SecurityMasterIsinTextBox" style="visibility:hidden;"></label>
+                }
+                else
+                {
+                @Html.DisplayFor(m => m.Issue.ISIN, Model.Issue.ISIN, new { @readonly = "readonly", @style = "width:100%;", @class = "k-widget", ID = "SecurityMasterIsinTextBox" });
+                }            
+        </td>
+        <td class="k-block">
+                @if (string.IsNullOrWhiteSpace(Model.Issue.SecNumber))
+                {
+                <text>N.A.</text>
+                <label id="SecurityMasterSecnumberTextBox" style="visibility:hidden;"></label>
+                }
+                else
+                {
+                @Html.DisplayFor(m => m.Issue.SecNumber, Model.Issue.SecNumber, new { @readonly = "readonly", @style = "width:100%;", @class = "k-widget", ID = "SecurityMasterSecnumberTextBox" });
+                }            
+        </td>
+    </tr>  
+    <tr>
+        <td>
+            @LabelHelper.Text("Quick")
+        </td>
+        <td>
+          @LabelHelper.Text("Sedol")
+        </td>
+    </tr>
+    <tr>
+        <td class="k-block">
+                @if (string.IsNullOrWhiteSpace(Model.Issue.SecNumber))
+                {
+                    <text>N.A.</text>
+                    <label id="SecurityMasterQuickTextBox" style="visibility:hidden;"></label>
+                }
+                else
+                {
+                    @Html.DisplayFor(m => m.Issue.Quick, Model.Issue.Quick, new { @readonly = "readonly", @style = "width:100%;", @class = "k-alt", ID = "SecurityMasterQuickTextBox" });
+                }
+        </td>
+        <td class="k-block">
+            <span>
+                
+                @if (string.IsNullOrWhiteSpace(Model.Issue.SEDOL))
+                {
+                    <text>N.A.</text>
+                }
+                else
+                {
+                    @Html.DisplayFor(m => m.Issue.SEDOL, Model.Issue.SEDOL, new { @readonly = "readonly", @style = "width:100%;", @class = "k-alt", ID = "SecurityMasterSedolTextBox" });
+                }
+            </span>
+        </td>
+    </tr>   
+    }
+    <tr>
+        <td>
+            @LabelHelper.Text("ClosingPrice")
+        </td>
+        <td>
+            @LabelHelper.Text("ClosingPriceDate")
+        </td>
+    </tr>
+    <tr>
+        <td class="k-block">              
+                @if ((Model.IssuePrice == null) || (Model.IssuePrice.CurrentCashPrice == null))
+                {
+                    <text>N.A.</text>
+                }
+                else
+                {
+                    <text>@(double.Parse(Model.IssuePrice.CurrentCashPrice.ToString()).ToString("#,##0.00"))</text>
+                }            
+        </td>
+        <td class="k-block">                
+                @if ((Model.IssuePrice == null) || (Model.IssuePrice.DateTimeId == null))
+                {
+                    <text>N.A.</text>
+                }
+                else
+                {
+                    <text>@Model.IssuePrice.DateTimeId.ToString("yyyy-MM-dd")</text>
+                }
+        </td>
+    </tr> 
+    <tr>
+        <td>
+            @LabelHelper.Text("MktPrice")
+        </td>
+        <td>
+            @LabelHelper.Text("RecordDate")
+        </td>
+    </tr>
+    <tr>
+        <td class="k-block">
+                @if ((Model.IssuePrice == null) || (Model.IssuePrice.StartCashPrice == null))
+                {
+                    <text>N.A.</text>
+                }
+                else
+                {
+                    <text>@(double.Parse(Model.IssuePrice.StartCashPrice.ToString()).ToString("#,##0.00"))</text>
+                }
+        </td>
+
+       @if ((Model.IssueDividendInfo == null) || (Model.IssueDividendInfo.RecordDate == null))
+       {
+                <td class="k-block">
+                    <text>N.A.</text>
+                    </td>
+       }
+       else if (((DateTime)Model.IssueDividendInfo.RecordDate >= DateTime.Today) &&
+       ((DateTime)Model.IssueDividendInfo.RecordDate <= DateTime.Today.AddDays(5)))
+       {
+                    <td class="k-block k-notification k-notification-error" title="Pending RecordDate">
+                        @if ((Model.IssueDividendInfo == null) || (Model.IssueDividendInfo.RecordDate == null))
+                        {
+                            <text>N.A.</text>
+                        }
+                        else
+                        {
+                            <text>@((DateTime.Parse(Model.IssueDividendInfo.RecordDate.ToString()).ToString("yyyy-MM-dd")))</text>
+                        }
+                </td>
+       }
+       else
+       {
+            <td class="k-block">
+                @if ((Model.IssueDividendInfo == null) || (Model.IssueDividendInfo.RecordDate == null))
+                {
+                    <text>N.A.</text>
+                }
+                else
+                {
+                    <text>@((DateTime.Parse(Model.IssueDividendInfo.RecordDate.ToString()).ToString("yyyy-MM-dd")))</text>
+                }
+            </td>
+       }
+    </tr>
+
+@if (SessionService.UserPreference.UserTypeId == SL_UserType.INTERNATIONAL)
+{
+    <tr>
+        <td>
+            @LabelHelper.Text("ExDate")
+        </td>
+        <td>            
+        </td>
+    </tr>
+    <tr>
+        <td class="k-block">                
+                    @if ((Model.IssueDividendInfo == null) || (Model.IssueDividendInfo.ExDate == null))
+                    {
+                        <text>N.A.</text>
+                    }
+                    else
+                    {
+                        <text>@((DateTime.Parse(Model.IssueDividendInfo.ExDate.ToString()).ToString("yyyy-MM-dd")))</text>
+                    }
+        </td>
+        <td></td>
+    </tr>
+}
+</table>
+<hr class="hr-white">
+<table id="IssueCheckBoxBlock">
+    <tr>
+        <td>@LabelHelper.Text("Easy")</td>
+        <td>
+            @Html.Kendo().CheckBoxFor(x => x.IssueList.Easy).HtmlAttributes(new { @ID = "CheckBoxEasy" }).Enable(Model.IssueList.EasyEditable)
+        </td>
+        <td>@LabelHelper.Text("PenaltyBox")</td>
+        <td>
+            @Html.Kendo().CheckBoxFor(x => x.IssueList.PenaltyBox).HtmlAttributes(new { @ID = "CheckBoxPenaltyBox" }).Enable(Model.IssueList.PenaltyBoxEditable)
+        </td>
+    </tr>
+    <tr>
+        <td>@LabelHelper.Text("Premium")</td>
+        <td>
+            @Html.Kendo().CheckBoxFor(x => x.IssueList.Premium).HtmlAttributes(new { @ID = "CheckBoxPremium" }).Enable(Model.IssueList.PremiumEditable)
+        </td>
+        <td>@LabelHelper.Text("Threshold")</td>
+        <td>
+            @Html.Kendo().CheckBoxFor(x => x.IssueList.Threshold).HtmlAttributes(new { @ID = "CheckBoxThreshold" }).Enable(Model.IssueList.ThresholdEditable)
+        </td>
+    </tr>
+    <tr>
+        <td>@LabelHelper.Text("Restricted")</td>
+        <td>
+            @Html.Kendo().CheckBoxFor(x => x.IssueList.Restricted).HtmlAttributes(new { @ID = "CheckBoxRestricted" }).Enable(Model.IssueList.RestrictedEditable)
+        </td>
+        <td>@LabelHelper.Text("OCCEligible")</td>
+        <td>
+            @Html.Kendo().CheckBoxFor(x => x.IssueList.OccEligible).HtmlAttributes(new { @ID = "CheckBoxOCC" }).Enable(Model.IssueList.OccEligibleEditable)
+        </td>
+    </tr>    
+</table>
+    <hr class="hr-white">
+<table>
+    @try
+    {
+        if (Model.IntraDayList.Count > 0)
+        { 
+        <caption>@LabelHelper.Label("IntraDayLending")</caption>
+    
+        <tr>
+            <td>
+                @LabelHelper.Label("Currency")
+            </td>
+            <td>
+                @LabelHelper.Label("RateMin")
+            </td>
+            <td>
+                @LabelHelper.Label("RateMax")
+            </td>
+            <td>
+                @LabelHelper.Label("RateAvg")
+            </td>
+        </tr>
+        
+       
+            <tr>
+                <td>                    
+                    <label class="label-white" style="font-size:x-small">USD</label>
+                </td>
+                <td>
+                    <label class="label-white" style="font-size:x-small">@string.Format("{0:#,##0.00}", Convert.ToDouble((Model.IntraDayList.Where(x => x.LoanRateMin != 0).Average(x => x.LoanRateMin) ?? 0).ToString()))</label>
+                </td>
+                <td>                   
+                    <label class="label-white" style="font-size:x-small">@string.Format("{0:#,##0.00}", Convert.ToDouble((Model.IntraDayList.Where(x => x.LoanRateMax != 0).Average(x => x.LoanRateMax) ?? 0).ToString()))</label>
+                </td>
+                <td>                   
+                    <label class="label-white" style="font-size:x-small">@string.Format("{0:#,##0.00}", Convert.ToDouble((Model.IntraDayList.Where(x => x.LoanRateAvg != 0).Average(x => x.LoanRateAvg) ?? 0).ToString()))</label>
+                </td>
+            </tr>
+      }
+    }
+    catch { }
+</table>
+   
+</div>

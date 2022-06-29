@@ -1,0 +1,119 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Tools
+<script type="text/javascript">
+
+  $(document).ready(function () {
+      setTimeout(function () {          
+          $('#LocalHeaderDetailWindow').data("kendoWindow").center();
+      }, 5);
+    });
+
+    function additionalActivityData() {
+        var effectivedatepicker = $("#PLActivityEffectiveDateCalander").data("kendoDatePicker");
+        var effectivedatevalue = kendo.toString(effectivedatepicker.value(), 'yyyy-MM-dd');
+
+        return {
+            entity: null,
+            effectiveDate: effectivedatevalue
+        };
+    }
+
+    function onActivityError(e) {
+        console.log(e.message);
+    }
+
+    function onActivityCheckData() {
+        CheckGridData('#ActivityGrid');
+    }
+
+    function onActivityChange() {
+        try
+        {
+           $('#ActivityGrid').data("kendoGrid").dataSource.read();
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+</script> 
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("ActivityToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("PLActivityEffectiveDateCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "width90" })
+            .Events(events => events.Change("onActivityChange")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+<div class="grid-div div-maxwidth1000" >
+    @{Html.Kendo().Grid<SL_ActivityProjection>()
+              .Name("ActivityGrid")
+              .Sortable()
+              .NoRecords()
+              .HtmlAttributes(new { @class = "grid" })
+              .Scrollable(scroll =>
+              {
+                  scroll.Virtual(true);
+              })
+              .Filterable()
+              .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+              .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+              .Navigatable()
+              .Events(events => events.DataBound("onActivityCheckData"))
+             .Columns(columns =>
+             {
+                 columns.Bound(p => p.ActivityType).ClientTemplate("# if (ActivityType == " + Convert.ToInt32(SL_ActivityType.Activity).ToString() + ") { #" +
+                        "<div class='k-widget k-notification k-notification-info grid-column30'><i class='fa  fa-info-circle'></i></div>" +
+                    "# } else { #" +
+                        "<div class='k-widget k-notification k-notification-error grid-column30'><i class='fa fa-exclamation-triangle' ></i></div>" +
+                    "# } #").Title("").Width(30);
+                 columns.Bound(p => p.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+                 columns.Bound(p => p.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.Activity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.TypeId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+                 columns.Bound(p => p.Amount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "");
+                 columns.Bound(p => p.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, true, "", "");
+                 columns.Bound(p => p.UserName).GetColumnFormat(ColumnTypeEnum.String, true, "", "");
+                 columns.Bound(p => p.ActivityFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.ActivityError).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.ExecutingSystem).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                 columns.Bound(p => p.InterestFrom).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                 columns.Bound(p => p.InterestTo).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+
+             })
+              .DataSource(dataSource => dataSource
+                      .Ajax()
+                      .ServerOperation(false)
+                      .PageSize(100)
+                      .Read(read => read
+                      .Action("GetActivity", "Activity", new { Area = "DomesticTrading" })
+                      .Data("additionalActivityData")
+                      )
+                      .ServerOperation(false)
+                      .Aggregates( agg =>
+                      {
+                          agg.Add(x => x.Quantity).Sum();
+                          agg.Add(x => x.Amount).Sum();
+                      })
+                  ).Render();
+    }
+
+    
+    @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#ActivityGrid").Filter("td[title]")
+</div>
+

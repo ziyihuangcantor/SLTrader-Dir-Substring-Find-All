@@ -1,0 +1,115 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Tools
+@*<style>
+       #UserErrorToolBar label {
+            padding-left: 10px;
+        }
+</style>*@
+
+<script type="text/javascript">
+
+    function onUserRefresh() {
+        $('#UserErrorGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onCheckData() {
+        CheckGridData('#UserErrorGrid');
+    }
+
+    function onUserErrorLookup() {
+        $('#UserErrorGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onUserParentCompanyChange() {
+        $('#UserErrorGrid').data('kendoGrid').dataSource.read();
+    }
+  
+    function onAdditionalUserChange() {
+        var companyId = $("#UserErrorParentCompanyDropdown").data("kendoDropDownList").value();
+
+        return {
+            companyId: companyId,
+        }
+    }
+
+    function onUserErrorData() {
+        var userId = $("#UserErrorParentUserDropdown").data("kendoDropDownList").value();
+
+        console.log(userId);
+
+        var effectiveDate = kendo.toString($("#ErrorDatePicker").data("kendoDatePicker").value(), 'yyyy-MM-dd');
+
+        console.log(effectiveDate);
+
+        return {
+            effectiveDate: effectiveDate,
+            userId: userId,
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("UserErrorToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("ParentDate").ToHtmlString());
+        items.Add().Template((Html.Kendo().DatePicker().Name("ErrorDatePicker").Format("yyyy-MM-dd").Value(DateTime.Today)).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("ParentComany").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                        .Name("UserErrorParentCompanyDropdown")
+                        .HtmlAttributes(new { @class="width100p" })
+                        .DataTextField("Name")
+                        .DataValueField("CompanyId")
+                        .OptionLabel("Empty List")
+                        .AutoBind(true)
+                        .DataSource(dataSource => dataSource
+                        .Read(read => read
+                        .Action("LoadParentCompanyDropdown", "Admin", new { area = "Admin" })))
+                        .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("ParentUser").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                        .Name("UserErrorParentUserDropdown")
+                        .HtmlAttributes(new { @class = "width100p" })
+                        .DataTextField("UserName")
+                        .CascadeFrom("UserErrorParentCompanyDropdown")
+                        .DataValueField("UserId")
+                        .OptionLabel("Empty List")
+                        .AutoBind(true)
+                        .DataSource(dataSource => dataSource
+                        .Read(read => read
+                        .Action("LoadUsersByCompanyIdDropdown", "Admin", new { area = "Admin" }).Data("onAdditionalUserChange")))
+                        .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template((Html.Kendo().Button().Name("LookupButton").Content(LabelHelper.Text("LookupButton")).Events(e => e.Click("onUserErrorLookup"))).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="UserErrorDiv" class="grid-div">
+    @{
+        Html.Kendo().Grid<SL_UserError>()
+           .Name("UserErrorGrid")
+           .HtmlAttributes(new { @class = "grid" }) 
+       .Columns(columns =>
+           {
+               columns.Bound(x => x.SLUSEREROR).Hidden(true);
+               columns.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.DateTime, false, "", "");
+               columns.Bound(x => x.BROWSER).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+               columns.Bound(x => x.SCREEN).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+               columns.Bound(x => x.Message).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           })
+       .Filterable()
+       .Scrollable()
+       .Navigatable()
+       .Selectable()
+       .DataSource(dataSource => dataSource.Ajax()
+           .Read(read => read.Action("LoadUserError", "Admin", new { Area = "Admin" }).Data("onUserErrorData"))).Render();
+    }
+</div>
+

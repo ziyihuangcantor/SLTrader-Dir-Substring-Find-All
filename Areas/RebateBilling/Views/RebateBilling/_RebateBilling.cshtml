@@ -1,0 +1,507 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+@*<style scoped>
+    #RebateBillingToolBar .k-checkbox-label {
+        padding-left: 20px;
+    }
+</style>*@
+
+<script type="text/javascript">
+    function BulkUpdateRebateBilling() {
+        var dataItems = [];
+        var grid = $('#RebateBillingItemGrid').data('kendoGrid');
+        var rows = grid.select();
+
+        rows.each(function (index, row) {
+            var selectedItem = grid.dataItem(row);
+            dataItems.push(selectedItem);
+        });
+
+
+        try {
+            HelperPartialRebateBillingWindow(
+                JSON.stringify({
+                    items: dataItems
+                }),
+                'Bulk Item Updates',
+                490,
+                490,
+                '/RebateBilling/RebateBilling/LoadRebateBillingItemsBulkUpdatePartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onRebateBillingSummaryData() {
+        var startDateDatepicker = $("#RebateBillingStartDateCalander").data("kendoDatePicker");
+        var startDate = kendo.toString(startDateDatepicker.value(), 'yyyy-MM-dd');
+
+        var endDateDatepicker = $("#RebateBillingEndDateCalander").data("kendoDatePicker");
+        var endDate = kendo.toString(endDateDatepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#RebateBillingDropdownList").data("kendoDropDownList").value();
+
+        return {
+            startDate: startDate,
+            endDate: endDate,
+            entityId: entityId,
+        }
+    }
+
+    function onRebateBillingAdditionalData(e) {
+        var startDateDatepicker = $("#RebateBillingStartDateCalander").data("kendoDatePicker");
+        var startDate = kendo.toString(startDateDatepicker.value(), 'yyyy-MM-dd');
+
+        var endDateDatepicker = $("#RebateBillingEndDateCalander").data("kendoDatePicker");
+        var endDate = kendo.toString(endDateDatepicker.value(), 'yyyy-MM-dd');
+
+        var entityGrid = $("#RebateBillingSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var entityId = $("#RebateBillingDropdownList").data("kendoDropDownList").value();
+        var groupCodeId = selectedItem["GroupCodeId"];
+        var summaryEnabled = $('#UseEnableSummary').is(':checked');
+
+        return {
+            startDate: startDate,
+            endDate:endDate,
+            entityId: entityId,
+            groupId: groupCodeId,
+            summaryEnabled : summaryEnabled
+        }
+    }
+
+    function onRebateBillingDefaultLoad() {
+        try {
+            var UserPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    UserPreference = valid;
+
+                    var dropdownList = $('#RebateBillingDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == UserPreference.DefaultFirm;
+                    });
+
+                    $('#RebateBillingSummaryGrid').data("kendoGrid").dataSource.read();                   
+                },
+                error: function (valid) {
+                    UserPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onRebateBillingSummaryRowChange() {
+        $("#RebateBillingItemGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onRebateBillingChange() {
+        $("#RebateBillingSummaryGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onRebateBillingSummaryError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onRebateBillingError(e) {
+        DisplayControllerError(e);
+    }
+
+
+    function onRebateBillingContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Bulk Updates':
+                BulkUpdateRebateBilling();
+                break;
+
+            case 'Unsort':
+                //onContractUnsortGrid("#ContractDetails");
+                break;
+
+            case 'Select All':
+                onRebateBillingSelectAll();
+                break;
+                
+            case 'AutoFit Columns':
+                resizeGridColumns("#RebateBillingItemGrid");
+                break;                
+            case 'Export To Excel':
+                exportToRebateBillingExcel();
+                break;
+        }
+    }
+
+
+    
+    function onRebateBillingSummaryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Unsort':
+                //onContractUnsortGrid("#ContractDetails");
+                break;
+
+            case 'Select All':
+                onRebateBillingSummarySelectAll();
+                break;
+            case 'AutoFit Columns':
+                resizeGridColumns("#RebateBillingSummaryGrid");
+                break;
+
+            case 'Export To Excel':
+                exportToRebateBillingSummaryExcel();
+                break;
+        }
+    }
+
+    function exportToRebateBillingSummaryExcel() {
+        KendoGridToCSVConvertor("#RebateBillingSummaryGrid", 'RebateBillingSummaryGrid', false);
+    }
+
+    function exportToRebateBillingExcel() {
+        KendoGridToCSVConvertor("#RebateBillingItemGrid", 'RebateBillingItemGrid', false);
+    }
+
+    function onRebateBillingSelectAll() {
+        try {
+            
+            var contractGrid = $("#RebateBillingItemGrid").data("kendoGrid");
+            contractGrid.select(contractGrid.tbody.find(">tr"));
+
+            contractSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function onRebateBillingSummarySelectAll() {
+        try {
+            var contractGrid = $("#RebateBillingSummaryGrid").data("kendoGrid");
+            contractGrid.select(contractGrid.tbody.find(">tr"));
+
+            contractSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function toggleSplitter() {
+        $("#RebateBillingSplitter").data("kendoSplitter").toggle("#SummaryPanel");
+
+        onRebateBillingSummaryRowChange();
+        onRebateBillingRowChange();
+    }
+
+    function onRebateBillingRowChange(e) {
+        try {
+
+            var entityGrid = $("#RebateBillingItemGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+
+            if ((securityNumber == null) || (securityNumber == '')) {
+                securityNumber = selectedItem["Sedol"];
+            }
+
+            var issueId = selectedItem["IssueId"];
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+        }
+        catch {
+
+        }   
+    }
+
+</script>
+
+@(
+    Html.Kendo().ToolBar()
+    .Name("RebateBillingToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar" })
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("StartDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("RebateBillingStartDateCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "Toolbar-Cell" })
+            .Value(DateTime.Today.AddDays(-1))
+            .Events(events => events.Change("onRebateBillingChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("EndDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("RebateBillingEndDateCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "Toolbar-Cell" })
+            .Value(DateTime.Today.AddDays(-1))
+            .Events(events => events.Change("onRebateBillingChange")).ToHtmlString());
+
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+    .Name("RebateBillingDropdownList")
+    .HtmlAttributes(new { @class = "Toolbar-Cell" })
+    .Animation(true)
+    .DataTextField("Custodian")
+    .DataValueField("CompanyId")
+    .OptionLabel("Empty List")
+    .AutoBind(true)
+    .Events(events => events.Change("onRebateBillingChange").DataBound("onRebateBillingDefaultLoad"))
+    .DataSource(dataSource => dataSource
+    .Read(read => read
+    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+    .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().CheckBox().Name("UseEnableSummary").Label("Enable Summary").Checked(true).HtmlAttributes(new { onClick = "toggleSplitter()" }).ToHtmlString());
+    }))
+
+    <hr class="hr-white">
+<div id="RebateBillingContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("RebateBillingSplitter")
+         .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+    {
+        panes.Add()
+            .Collapsible(true)
+            .Scrollable(false)
+            .HtmlAttributes(new { Id="SummaryPanel"})
+            .Size("40%")
+            .Content(@<text>
+                @(Html.Kendo().Grid<BondFire.Entities.Projections.SL_RebateBillingSummaryProjection>()
+        .Name("RebateBillingSummaryGrid")
+        .Navigatable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.GroupCodeId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.GroupCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.GroupName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.RebateAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "#=GetMoneyDirection(RebateAmount)#").Hidden(true);
+            columns.Bound(x => x.MarketValue).GetColumnFormat(ColumnTypeEnum.Money, true, "", "#=GetMoneyDirection(MarketValue)#");
+            columns.Bound(x => x.MarkUpRebateAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "#=GetMoneyDirection(MarkUpRebateAmount)#");
+            columns.Bound(x => x.BillingCurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        })
+                .Events(events => events.Change("onRebateBillingSummaryRowChange"))
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+        .DataSource(ds =>
+        {
+            ds.Ajax()
+                .ServerOperation(false)
+                .Events(events =>
+                {
+                    events.Error("onRebateBillingSummaryError");
+                })
+                    .Aggregates(agg =>
+                    {
+                        agg.Add(x => x.MarketValue).Sum();
+                        agg.Add(x => x.RebateAmount).Sum();
+                        agg.Add(x => x.MarkUpRebateAmount).Sum();
+                    })
+                .Read(read =>
+                {
+                    read.Action("Read_RebateBillingSummary", "RebateBilling", new { area = "RebateBilling" }).Data("onRebateBillingSummaryData");
+                });
+        }))
+            </text>);
+
+        panes.Add()
+            .Collapsible(false)
+            .Scrollable(false)
+            .Size("60%")
+            .Content(@<text>
+                @(Html.Kendo().Grid<BondFire.Entities.Projections.SL_RebateBillingItemProjection>()
+        .Name("RebateBillingItemGrid")
+        .Resizable(resize => resize.Columns(true))
+        .Scrollable(scroll => scroll.Virtual(true))
+        .HtmlAttributes(new { @class = "grid" })
+        .ColumnMenu(menu =>
+        {
+            menu.Enabled(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+            menu.ComponentType("modern");
+        })
+        .AutoBind(false)
+        .Selectable(select =>
+        {
+            select.Enabled(true);
+            select.Mode(GridSelectionMode.Multiple);
+            select.Type(GridSelectionType.Row);
+        })
+        .Editable(edit =>
+        {
+            edit.Enabled(SessionSecurityService.IsEditable(ManagerTask.ViewSLRebateBillingApp));
+            edit.Mode(GridEditMode.InLine);
+            edit.DisplayDeleteConfirmation(false);
+        })
+        .Columns(columns =>
+        {
+            columns.Command(x =>
+            {
+                x.Edit();
+            }).Width(50);
+            columns.Bound(x => x.SLRebateBillingItem).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountCategory).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+            columns.Bound(x => x.QuantitySettled).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+            columns.Bound(x => x.QuantityAllocated).GetColumnFormat(ColumnTypeEnum.Position, false, "", "DecimalNumber");
+            columns.Bound(x => x.QuantityRemaining).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+            columns.Bound(x => x.MarketValue).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(MarketValue)#", "");
+            columns.Bound(x => x.PositionCurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.PositionCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.BillingRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BillingRate)#", "DecimalNumber");
+            columns.Bound(x => x.RebateAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RebateAmount)#","");
+            columns.Bound(x => x.MarkupBillingRate).GetColumnFormat(ColumnTypeEnum.Rate, false,"#=GetRateDirection(MarkupBillingRate)#","");
+            columns.Bound(x => x.MarkUpRebateAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(MarkUpRebateAmount)#","");
+            columns.Bound(x => x.BillingCurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.BillingCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.IntrdayLendingRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(IntrdayLendingRate)#", "");
+            columns.Bound(x => x.BorrowAverageWeightedRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BorrowAverageWeightedRate)#", "");
+
+
+            columns.Bound(x => x.MTDAverageCharge).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(MTDAverageCharge)#", "").Hidden(true);
+            columns.Bound(x => x.MTDChargeAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(MTDChargeAmount)#", "").Hidden(true);
+            columns.Bound(x => x.MTDChargeRate).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetRateDirection(MTDChargeRate)#", "").Hidden(true);
+            columns.Bound(x => x.MTDChargeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.MTDCoveredValue).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetRateDirection(MTDCoveredValue)#", "").Hidden(true);
+            columns.Bound(x => x.MTDDaysInCharge).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(MTDDaysInCharge)#", "").Hidden(true);
+            columns.Bound(x => x.MTDQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(MTDQuantity)#", "").Hidden(true);
+            columns.Bound(x => x.MTDRateOverride).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+
+
+            columns.Bound(x => x.TodayAverageCharge).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(TodayAverageCharge)#", "").Hidden(true);
+            columns.Bound(x => x.TodayChargeAmount).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(TodayChargeAmount)#", "").Hidden(true);
+            columns.Bound(x => x.TodayChargeRate).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetRateDirection(TodayChargeRate)#", "").Hidden(true);
+            columns.Bound(x => x.TodayChargeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.TodayCoveredValue).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetRateDirection(TodayCoveredValue)#", "").Hidden(true);
+            columns.Bound(x => x.TodayDaysInCharge).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(TodayDaysInCharge)#", "").Hidden(true);
+            columns.Bound(x => x.TodayQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(TodayQuantity)#", "").Hidden(true);
+            columns.Bound(x => x.TodayRateOverride).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.TodayDeltaCharge).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(TodayDeltaCharge)#", "").Hidden(true);
+            columns.Bound(x => x.TodayDeltaType).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        })
+        .Events(events => events.Change("onRebateBillingRowChange"))
+        .DataSource(dataSource => dataSource
+            .Ajax()
+            .ServerOperation(false)
+            .Aggregates(agg =>
+            {
+                agg.Add(x => x.RebateAmount).Sum();
+                agg.Add(x => x.MarkUpRebateAmount).Sum();
+                agg.Add(x => x.MarketValue).Sum();
+            })
+            .Events(events =>
+            {
+                events.Error("onRebateBillingError");
+            })
+                                            .Read(read => read.Action("Read_RebateBillingByGroupId", "RebateBilling", new { area = "RebateBilling" }).Data("onRebateBillingAdditionalData"))
+                    .Create(create =>
+                    {
+                        create.Action("Update_RebateBillingItem", "RebateBilling", new { area = "RebateBilling" });
+                    })
+            .Update(update =>
+            {
+                update.Action("Update_RebateBillingItem", "RebateBilling", new { area = "RebateBilling" });
+            })
+            .Model(model =>
+            {
+                model.Id(x => x.SLRebateBillingItem);
+                model.Field(x => x.SLRebateBillingItem).Editable(false);
+                model.Field(x => x.EffectiveDate).Editable(false);
+                model.Field(x => x.EntityId).Editable(false);
+                model.Field(x => x.AccountNumber).Editable(false);
+                model.Field(x => x.AccountCategory).Editable(false);
+                model.Field(x => x.IssueId).Editable(false);
+                model.Field(x => x.SecurityNumber).Editable(false);
+                model.Field(x => x.Ticker).Editable(false);
+                model.Field(x => x.Price).Editable(false);
+                model.Field(x => x.MarketValue).Editable(false);
+                model.Field(x => x.QuantitySettled).Editable(false);
+                model.Field(x => x.QuantityAllocated).Editable(true);
+                model.Field(x => x.QuantityRemaining).Editable(false);
+                model.Field(x => x.PositionCurrencyCode).Editable(false);
+                model.Field(x => x.BillingRate).Editable(true);
+                model.Field(x => x.RebateAmount).Editable(false);
+                model.Field(x => x.MarkupBillingRate).Editable(false);
+                model.Field(x => x.MarkUpRebateAmount).Editable(false);
+                model.Field(x => x.BillingCurrencyCode).Editable(false);
+
+                model.Field(x => x.IntrdayLendingRate).Editable(false);
+                model.Field(x => x.BorrowAverageWeightedRate).Editable(false);
+
+                model.Field(x => x.SLRebateBillingItem).Editable(false);
+            })
+        )
+        .Sortable())
+            </text>);
+    }))
+</div>
+
+@(
+ Html.Kendo().ContextMenu()
+.Name("RebateBillingContextMenu")
+        .Target("#RebateBillingItemGrid")
+.Events(events => events.Select("onRebateBillingContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("Bulk Updates").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("AutoFit Columns").Enabled(true);
+    items.Add().Text("Unsort").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("Select All").Enabled(true);
+    items.Add().Text("Export To Excel").Enabled(true);
+})
+)
+
+@(
+ Html.Kendo().ContextMenu()
+.Name("RebateBillingSummaryContextMenu")
+        .Target("#RebateBillingSummaryGrid")
+.Events(events => events.Select("onRebateBillingSummaryContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("AutoFit Columns").Enabled(true);
+    items.Add().Text("Unsort").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("Select All").Enabled(true);
+    items.Add().Text("Export To Excel").Enabled(true);
+})
+)
+

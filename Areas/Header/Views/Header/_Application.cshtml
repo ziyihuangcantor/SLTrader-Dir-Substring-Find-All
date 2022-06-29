@@ -1,0 +1,82 @@
+﻿@using System.Globalization
+@using SLTrader.Helpers.SessionHelper
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+@model SL_Application?
+
+<script type="text/javascript">
+    function onApplicationChange(e) {
+        var appName = $("#HeaderApplicationDropdown").data("kendoDropDownList");
+
+        appName.enable(false);
+        onHeaderChangeWindowOpen(appName.text());
+
+        try {
+            $.ajax({
+                url: '@Url.Action("LoadApplication", "Header", new { area = "Header" })',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    application: appName.value()
+                }),
+                success: function (valid) {
+                    $("#ContentArea").html(valid);
+                    console.log(appName.value());
+                    if (appName.value() == null) {
+                        $("#ScratchpadButton").data("kendoButton").enable(false);
+                        $("#InventoryPushButton").data("kendoButton").enable(false);
+                    }
+                    else if (appName.value() == '@Convert.ToInt32(SL_Application.DomesticTrading)') {
+
+                        $("#ScratchpadButton").data("kendoButton").enable('@SessionSecurityService.IsEditable(ManagerTask.EditSLTRade)');
+                        $("#InventoryPushButton").data("kendoButton").enable('@SessionSecurityService.IsEditable(ManagerTask.EditSLInventory)');
+                    }
+                    else if (appName.value() == '@Convert.ToInt32(SL_Application.Locates)') {
+                        $("#ScratchpadButton").data("kendoButton").enable(false);
+                        $("#InventoryPushButton").data("kendoButton").enable('@SessionSecurityService.IsEditable(ManagerTask.EditSLInventory)');
+                    } else {
+                        $("#ScratchpadButton").data("kendoButton").enable(false);
+                        $("#InventoryPushButton").data("kendoButton").enable(false);
+                    }
+
+                    appName.enable(true);
+                    onHeaderChangeWindowClose();
+                },
+                error: function (valid) {
+                    appName.enable(true);
+                    onHeaderChangeWindowClose();
+                }
+            });
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function onHeaderChangeWindowOpen(appName) {
+        var wnd = $("#HeaderChangeWindow").data("kendoWindow");
+
+        wnd.setOptions({
+            title: 'Processing',
+            modal: true
+        });
+
+        wnd.content("<span style='align:center;'><label>Changing to module " + appName + "</label><br/><span><div id='LoadingDiv' style='width:200px;height:150px;'></div>");
+        kendo.ui.progress($("#LoadingDiv"), true);
+
+        wnd.open();
+        wnd.center();
+    }
+
+
+    function onHeaderChangeWindowClose() {
+        var wnd = $("#HeaderChangeWindow").data("kendoWindow");
+
+        wnd.close();
+    }
+</script>
+
+<div id="AppBlock">
+    @()
+</div>
+
+@Html.Kendo().Window().Name( "HeaderChangeWindow" ).Visible( false )

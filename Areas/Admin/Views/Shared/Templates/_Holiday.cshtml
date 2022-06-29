@@ -1,0 +1,63 @@
+﻿@using SLTrader.Tools
+@model Holiday
+
+<script type="text/javascript">
+    function onSubmit() {
+        var form = $("#HolidayForm");
+
+        $.ajax({
+            url: '/Admin/Admin/AddHoliday',
+            data: form.serializeArray(),
+            type: "POST",
+            success: function () {
+                $("#HolidayStatusLabel").text("Holiday added.");
+                $('#HolidayListGrid').data('kendoGrid').dataSource.read();
+            },
+            error: function () {
+                $("#HolidayStatusLabel").text("Holiday add failed.");
+            }
+        });
+    }
+
+    function onCancel() {
+
+    }
+</script>
+<style>
+    #HolidayWrapper th,
+    #HolidayWrapper td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+</style>
+<div class="div-admin-shared">
+    @using ( Html.BeginForm( "", "", FormMethod.Post, new { id = "HolidayForm" } ) )
+    {
+        <table id="HolidayWrapper">
+            <tr>
+                <td>@LabelHelper.Label( "HolidayDate" )</td>
+                <td>@Html.Kendo().DatePickerFor( x => x.HolidayDate ).Name( "HolidayDate" )</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label( "Description" )</td>                
+                <td>@Html.Kendo().TextAreaFor(x => x.Description) </td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("Country")</td>
+                <td>@Html.Kendo().DropDownListFor(x => x.Country).Name("HolidayCountryDownDownList").BindTo(EnumExtensions.GetEnumSelectList<Country>())</td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <label id="HolidayStatusLabel"></label>
+                </td>
+            </tr>
+            <tr>
+                <td align="right" colspan="2">
+                    @Html.Kendo().Button().Name("AddHolidayButton").Events(ev => ev.Click("onSubmit")).Content(@LabelHelper.Text("Add"))
+                </td>
+            </tr>
+        </table>
+    }
+</div>
+
+@Html.HiddenFor(x => x.Country)

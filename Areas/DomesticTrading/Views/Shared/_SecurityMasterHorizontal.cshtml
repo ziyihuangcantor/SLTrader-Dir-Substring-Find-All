@@ -1,0 +1,314 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+
+@(Html.Kendo().Notification()
+    .Name("popupNotification")
+    .Templates(t =>
+    {
+        t.Add().Type("info").ClientTemplateID("emailTemplate");
+    })
+)
+
+<style scoped>
+    .LookUpPanel {
+        border: 0px;
+        border-collapse: collapse;
+        padding: 0px;        
+        margin:0px;
+    }
+        .LookUpPanel th {
+            border: 0px;
+            padding: 0px;
+        }
+        .LookUpPanel td {
+            border: 0px;
+            padding: 0px;
+            padding-right: 3px;
+        }
+    .InternalLookUpPanel {
+        border: 0px;
+        border-collapse: collapse;
+        padding: 0px;
+        vertical-align: top; 
+    }
+        .InternalLookUpPanel th {
+            border: 0px;
+            padding: 0px;
+        }
+        .InternalLookUpPanel td {
+            border: 0px;
+            padding: 0px;
+        }
+
+        #LookUpPanelSplitter {
+            width:100%;
+            height:140px;
+        }
+</style>
+
+<script id="emailTemplate" type="text/x-kendo-template">
+    <div class="new-mail">
+        <i class="fa fa-envelope-o fa-2x" />
+        <h4>#= title #</h4>
+        <h4>#= message #</h4>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    var popupNotification = $("#popupNotification").data("kendoNotification");
+
+    $(document).ready(function () {
+        try {
+            traderHubProxy.on('updateClientEmail', function (update) {
+                var fileTypeString = "";
+
+                $.each(update, function (i, obj) {
+                    if (obj.ClientEmailAction.FileType == '@Convert.ToInt32(SL_FileType.INVENTORY)') {
+                        fileTypeString = "Inventory";
+                    }
+                    else if (obj.ClientEmailAction.FileType == '@Convert.ToInt32(SL_FileType.LOCATE)') {
+                        fileTypeString = "Locates";
+                    }
+                    popupNotification.show({
+                        title: obj.ClientEmail.EmailAddress + " from " + obj.ClientEmail.Source,
+                        message: obj.ClientEmailAction.ItemProcessed + "  " + fileTypeString + " items processed!",
+                    }, "info");
+                });
+            });
+        }
+        catch (e) { }
+    });
+
+    $("#SearchCriteria").keyup(function (event) {
+        if (event.keyCode == 13) {
+            $("#IssueButton").click();
+        }
+    });
+
+    $(document).bind('keydown', 'alt+t', function (e) {
+        if (e.altKey && (e.which == 84)) {
+            e.preventDefault();
+            onTradeTicketSubmit();
+            return false;
+        }
+    });
+
+    $(document).bind('keydown', 'ctrl+a', function (e) {
+        if (e.altKey && (e.which == 84)) {
+            e.preventDefault();
+
+            onTradeTicketSubmit();
+            return false;
+        }
+    });
+
+    function onSecMasterSubmit() {
+        var securityNumber = document.getElementById("SearchCriteria").value;
+        var entityId = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+        var effectiveDate = new Date().toJSON().slice(0, 10);
+
+        try {
+            $("#TradeTicketButton").data("kendoButton").enable(false);
+            $("#HelpButton").data("kendoButton").enable(false);
+
+            SidePanelUpdateWithMatchingResults(effectiveDate, entityId, securityNumber, securityNumber);
+        }
+        catch (e) {
+            console.log(JSON.stringify(e));
+        }
+
+        $('#SearchCriteria').focus();
+    }
+
+    function onIssueCommentSubmit() {
+        var issue = document.getElementById("SecurityMasterIssueIdTextBox").value;
+        var entity = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+
+        if (issue != 0) {
+            HelperPartialWindow(
+                      JSON.stringify({
+                          criteria: issue,
+                          entityId: entity
+                      }),
+                      'Issue Comment',
+                      480,
+                      480,
+                      '/DomesticTrading/Issue/LoadIssueCommentAdd'
+                  );
+        }
+    }
+
+    function onHelpClick() {
+        var issue = document.getElementById("SecurityMasterIssueIdTextBox").value;
+        var entity = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+
+        if (issue != 0) {
+            HelperPartialWindow(
+                      JSON.stringify({
+                          criteria: issue,
+                          entityId: entity
+                      }),
+                      'Issue Edit',
+                      480,
+                      480,
+                      '/DomesticTrading/Issue/Read_IssueBundleByIssueId'
+                  );
+        }
+    }
+
+
+    function onTradeTicketSubmit() {
+        var issueId = document.getElementById("SecurityMasterIssueIdTextBox").value;
+
+        var entity = $("#SecMasterDropdownList").data("kendoDropDownList");
+
+        if ((issueId != null) && (issueId != '')) {
+
+            HelperPartialWindow(
+               JSON.stringify({
+                   entityId: entity.value(),
+                   issueId: issueId,
+               }),
+               'Book Contract',
+               480,
+               480,
+               '/DomesticTrading/Trade/LoadTradeTicket'
+           );
+        }
+    }
+
+    $('#SearchCriteria').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $(document).ready(function () {
+     
+    });
+
+    function onIssueRateSubmit() {
+        var issue = document.getElementById("SecurityMasterIssueIdTextBox").value;
+        var entity = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+
+
+        HelperPartialWindow(
+            JSON.stringify({
+                entityId: entity
+            }),
+            'Add Issue Rates',
+            480,
+            480,
+            '/DomesticTrading/Issue/LoadIssueRateAdd'
+        );
+    }
+
+    function onIssueHistorySubmit() {
+
+        HelperPartialWindow(
+            null,
+            'View History',
+            480,
+            480,
+            '/DomesticTrading/Issue/Read_IssueHistoryLookup'
+        );
+    }
+</script>
+
+<table class="LookUpPanel">
+<tr>         
+    <td>
+        @(
+Html.Kendo().Splitter()
+.Name("LookUpPanelSplitter")
+.Orientation(SplitterOrientation.Horizontal)
+.Panes(panes =>
+{
+panes.Add()
+.Resizable(true)
+.Size("13%")
+.Scrollable(false)
+.Content(@<text>
+            <table id="InternalLookUpPanel">
+            <tr>
+                <td>@LabelHelper.Label("Security")</td>
+                <td>@Html.Kendo().TextBox().Name("SearchCriteria").Value("")</td>
+                <td>@Html.Kendo().Button().Name("IssueButton").Events(e => e.Click("onSecMasterSubmit")).Content("<i class='fa fa-search'></i>")</td>
+                <td></td>
+           </tr>
+            <tr>
+                <td>@LabelHelper.Label("Entity")</td>
+                <td>
+                    @(Html.Kendo().DropDownList()
+.Name("SecMasterDropdownList")
+.HtmlAttributes(new { @class = "Toolbar-Cell" })
+.DataTextField("Custodian")
+.DataValueField("CompanyId")
+.OptionLabel(LabelHelper.Text("OptionLabel"))
+.AutoBind(true)
+.Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+"{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+"else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+.AutoWidth(true)
+.SelectedIndex(1)
+.DataSource(dataSource => dataSource
+.Read(read => read
+.Action("Read_EntityDropdown", "ContraEntity", new { Area = "DomesticTrading" }))))
+                </td>
+                <td></td>
+                <td></td>
+           </tr>
+                <tr>                    
+                    <td colspan="4" align="center">                        
+                        @Html.Kendo().Button().Name("HelpButton").Events(e => e.Click("onHelpClick")).Enable(false).Content("<i class='fa fa-pencil'></i>")
+                        @Html.Kendo().Button().Name("TradeTicketButton").Events(e => e.Click("onTradeTicketSubmit")).Enable(false).Content("<i class='fa fa-ticket'></i></text>")
+                        @Html.Kendo().Button().Name("IssueCommentButton").Events(e => e.Click("onIssueCommentSubmit")).Enable(false).Content("<i class='fa fa-plus-square'></i></text>")
+                        @Html.Kendo().Button().Name("IssueRateButton").Events(e => e.Click("onIssueRateSubmit")).HtmlAttributes(new { @title = "Add Issue Rates (Alt-R)" }).Enable(true).Content("<i class='fa fa-heartbeat'></i>")
+                        @Html.Kendo().Button().Name("IssueHistoryButton").Events(e => e.Click("onIssueHistorySubmit")).HtmlAttributes(new { @title = "View Issue History" }).Enable(true).Content("<i class='fa fa-history'></i>")
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="4" align="center" valign="bottom">
+                        @if (SessionSecurityService.IsEditable(ManagerTask.ViewSLInventory) == true)
+                        {
+                            <span id="ClientNeedSnapshotBlock">@Html.Partial("~/Areas/DomesticTrading/Views/ClientNeed/_ClientNeedNotification.cshtml")</span>
+                        }
+                    </td>
+                </tr>
+        </table>     
+    </text>);
+
+panes.Add()
+.Resizable(true)
+.Scrollable(false)
+.Content(@<text>
+<span id="IssueBlock">@Html.Partial("~/Areas/DomesticTrading/Views/Issue/IndexTop.cshtml", new SecurityPanelModel())</span>
+</text>);
+
+panes.Add()
+.Resizable(true)
+.Scrollable(false)
+.Content(@<text>
+<span id="InventorySnapshotBlock">@Html.Partial("~/Areas/Locates/Views/Inventory/_InventorySnapshotHorizontal.cshtml", new List<SL_InventoryProjection>())</span>
+</text>);
+
+panes.Add()
+.Resizable(true)
+.Scrollable(false)
+.Content(@<text>
+<span id="SecTradingBlock">@Html.Partial("~/Areas/DomesticTrading/Views/Trade/_SecurityTradingHorizontal.cshtml", new List<SecurityTradingModel>())</span>
+</text>);
+        }))
+    </td>
+</tr>
+<tr>  
+    <td valign="top" style="width:100%;padding-top:0px;">
+        @if (SessionSecurityService.IsEditable(ManagerTask.ViewSLBox) == true)
+        {
+            <span id="BoxCalculationBlock">@Html.Partial("~/Areas/DomesticTrading/Views/BoxCalculation/_BoxCalculationHorizontal.cshtml", new SL_BoxCalculationExtendedProjection())</span>
+        }
+    </td>
+</tr>
+</table>

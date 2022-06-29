@@ -1,0 +1,351 @@
+﻿
+@using BondFire.Entities.Projections
+@using SLTrader.Tools
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+
+
+<style scoped>
+        #FeeTypeToolBar td {
+            padding-left: 5px;
+        }
+</style>
+
+
+<script type="text/javascript">
+
+    var _originalFeeTypeListGrid = null;
+    var _originalFeeTypeListGridToolBar = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalFeeTypeListGrid = $("#FeeTypeGrid").data('kendoGrid').getOptions();
+            _originalFeeTypeListGridToolBar = $("#FeeTypeGrid .k-grid-toolbar").html();
+
+            _originalFundingRatesListGrid = $("#FundingRateGrid").data('kendoGrid').getOptions();
+            _originalFundingRatesListGridToolBar = $("#FundingRateGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#FeeTypeGrid");
+            LoadGridLayout("#FundingRateGrid");
+            
+
+            $("#FeeTypeGrid .k-grid-toolbar").html(_originalFeeTypeListGridToolBar);
+            $("#FeeTypeGrid .k-grid-toolbar").addClass("k-grid-top");
+
+            $("#FundingRateGrid .k-grid-toolbar").html(_originalFundingRatesListGridToolBar);
+            $("#FundingRateGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#FeeTypeGrid");
+    });
+        
+
+    function additionalFeeTypeData() {     
+        var entity = $("#FeeTypeDropdownList").data("kendoDropDownList").value();
+     
+        return {
+            entityId: entity
+        };
+    }
+
+    function additionalFundingRateData() {
+        var entityId = $("#FeeTypeDropdownList").data("kendoDropDownList").value();
+
+        var entityGrid = $("#FeeTypeGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var feeType = selectedItem["SLFeeType"];
+
+        return {
+            entityId: entityId,
+            feeId: feeType
+        };
+    }
+
+    function onFeeTypeRowChange(e) {
+       $("#FundingRateGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function additionalCreateFundingRateData() {
+        var entityId = $("#FeeTypeDropdownList").data("kendoDropDownList").value();
+
+        var entityGrid = $("#FeeTypeGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var feeType = selectedItem["SLFeeType"];
+        
+        return {
+            entityId: entityId,
+            feeId : feeType
+        };
+    }
+
+    function additionalCreateFeeTypeData() {
+        var entity = $("#FeeTypeDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity,
+        };
+    }
+
+    function onFeeTypeDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#FeeTypeDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#FeeTypeGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function() {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e);
+        }
+    }
+
+    function onFeeTypeCheckData() {
+        CheckGridData('#FeeTypeGrid');
+    }
+
+    function onFeeTypeError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onFundingRateError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onFeeTypeChange() {
+        $("#FeeTypeGrid").data("kendoGrid").dataSource.read();
+    }
+
+
+    function onFeeTypeLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#FeeTypeGrid");
+        }, 5);
+    }
+
+    function onFundingRateLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#FundingRateGrid");
+        }, 5);
+    }
+
+</script>
+
+
+
+@(
+ Html.Kendo().ToolBar()
+    .Name( "FeeTypeToolBar" )
+    .Resizable( true )
+    .Items( items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                                        .Name("FeeTypeDropdownList")                                        
+                                        .AutoBind(true)
+                                        .DataTextField("Custodian")
+                                        .DataValueField("CompanyId")
+                                        .OptionLabel(LabelHelper.Text("OptionLabel"))
+                                        .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                                                                    "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                                                                    "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                                        .Events(events => events.Change("onFeeTypeChange").DataBound("onFeeTypeDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                                        .DataSource(dataSource => dataSource
+                                        .Read(read => read
+                                        .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                                        .SelectedIndex(0).ToHtmlString());
+    }))
+<hr class="hr-white">
+<div id="FudingRateContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("FundingSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Horizontal)
+        .Panes(panes =>
+        {
+        panes.Add()
+            .Collapsible(false)
+        .Content(
+            @<text>
+            @(
+        Html.Kendo().Grid <SL_FeeType>()
+        .Name("FeeTypeGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Editable(e => e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate)))
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Events(events =>
+        {
+            events.DataBound("onFeeTypeCheckData");
+            events.ColumnHide("onFeeTypeLayoutChange");
+            events.ColumnShow("onFeeTypeLayoutChange");
+            events.ColumnResize("onFeeTypeLayoutChange");
+            events.ColumnReorder("onFeeTypeLayoutChange");
+            events.Change("onFeeTypeRowChange");
+        })
+        .ToolBar(toolbar =>
+        {
+            if (SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate))
+            {
+                toolbar.Create();
+            }
+        })
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLFeeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.Fee).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Description).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Command(x =>
+            {
+                if (SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate))
+                {
+                    x.Edit();
+                }
+            });
+        })
+        .ColumnMenu( menu =>
+        {
+            menu.Columns( false );
+            menu.Filterable( true );
+            menu.Sortable( false );
+            menu.ComponentType( "modern" );
+        } )
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .Events(events => events.Error("onFeeTypeError"))
+            .Read(read => read.Action("Read_FeeTypes", "FeeType", new { area = "DomesticTrading" }).Data("additionalFeeTypeData"))
+            .Update(update => update.Action("Update_FeeType", "FeeType", new { area = "DomesticTrading" }))
+            .Create(create => create.Action("Create_FeeType", "FeeType", new { area = "DomesticTrading" }).Data("additionalCreateFeeTypeData"))
+            .Model(model =>
+            {
+                model.Id(x => x.SLFeeType);
+                model.Field(x => x.EntityId).Editable(false);
+                model.Field(x => x.Fee).Editable(true).DefaultValue("");
+                model.Field(x => x.Description).Editable(true).DefaultValue("");
+            }))
+            )
+            </text>);
+
+    panes.Add()
+        .Collapsible(false)
+        .Content(
+        @<text>
+    @(Html.Kendo().Grid<SL_FundingRate>()
+        .Name("FundingRateGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Editable(e => e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate)))
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .AutoBind(false)
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .ToolBar(toolbar =>
+        {
+            if (SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate))
+            {
+                toolbar.Create();
+            }
+        })
+        .Events(events =>
+        {
+            events.ColumnHide("onFundingRateLayoutChange");
+            events.ColumnShow("onFundingRateLayoutChange");
+            events.ColumnResize("onFundingRateLayoutChange");
+            events.ColumnReorder("onFundingRateLayoutChange");
+        })
+        .NoRecords()
+        .Editable(edit =>
+        {
+            edit.Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate));
+            edit.Mode(GridEditMode.InLine);
+            edit.DisplayDeleteConfirmation(false);
+            edit.CreateAt(GridInsertRowPosition.Bottom);
+        })
+        .Columns(columns =>
+        {
+            columns.Bound(p => p.SLFundingRate).Hidden(true);
+            columns.Bound(p => p.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(p => p.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(p => p.FeeId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(p => p.Fund).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "#=GetRateDirection(Fund)#");
+            columns.Command(command =>
+            {
+                if (SessionSecurityService.IsEditable(ManagerTask.EditSLFundingRate))
+                {
+                    command.Edit();
+                    command.Destroy();
+                }
+            });
+        })
+        .ColumnMenu( menu =>
+        {
+            menu.Columns( false );
+            menu.Filterable( true );
+            menu.Sortable( false );
+            menu.ComponentType( "modern" );
+        } )
+        .DataSource(dataSource => dataSource
+        .Ajax()
+        .Model(model =>
+        {
+            model.Id(x => x.SLFundingRate);
+            model.Field(x => x.EntityId).Editable(false);
+            model.Field(x => x.EffectiveDate).Editable(false);
+            model.Field(x => x.FeeId).Editable(false);
+            model.Field(x => x.Fund).Editable(true);
+        })
+        .Create(create =>
+        {
+            create.Action("Create_FundingRate", "List", new { area = "DomesticTrading" }).Data("additionalCreateFundingRateData");
+        })
+        .Update(update =>
+        {
+            update.Action("Update_FundingRate", "List", new { area = "DomesticTrading" });
+        })
+        .Destroy(destroy =>
+        {
+            destroy.Action("Delete_FundingRate", "List", new { area = "DomesticTrading" });
+        })
+        .Read(read =>
+        {
+            read.Action("Read_FundingRates", "List", new { area = "DomesticTrading" }).Data("additionalFundingRateData");
+        })
+        .Events(events =>
+        {
+            events.Error("onFundingRateError");
+        })))
+        </text>);
+        }))
+</div>

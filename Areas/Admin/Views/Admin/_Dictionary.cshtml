@@ -1,0 +1,76 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+
+
+<script type="text/javascript">
+    function onDictionaryFileExport() {
+        window.location = '/Admin/Admin/ExportDictionaryToExcel';
+    }
+
+    function onDictionaryFileUplaod() {       
+        HelperPartialAdminWindow(
+         null,
+          "Upload Dictionary",
+          525,
+          325,
+          "/Admin/Admin/UploadLoadDictionaryUplpad");
+    }
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+    });
+</script>
+
+
+        @{
+            Html.Kendo().Grid<SL_Dictionary>()
+               .Name("DictionaryGrid")
+               .HtmlAttributes(new { @class = "grid" })
+               .NoRecords()
+               .ToolBar(toolbar =>
+               {
+               toolbar.Template(@<text>
+                    @LabelHelper.Text("DictionarySetup")
+
+                    @Html.Kendo().Button().Name("UploadWindowButton").Content("Upload Dictionary").Events(e => e.Click("onDictionaryFileUplaod")).Enable(SessionSecurityService.IsEditable(ManagerTask.ViewSLAdminApp))
+                    @Html.Kendo().Button().Name("ExportButton").Content("Export Dictionary").Events(e => e.Click("onDictionaryFileExport")).Enable(SessionSecurityService.IsEditable(ManagerTask.ViewSLAdminApp))
+                </text>);
+               })
+       .Columns(columns =>
+       {
+           columns.Command(command => command.Edit()).Width(80);
+           columns.Bound(x => x.SLDictionary).Hidden(true);
+           columns.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.DateTime, false, "", "");
+           columns.Bound(x => x.PropertyName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.DisplayName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.ColumnWidth).GetColumnFormat(ColumnTypeEnum.Position, false, "", "DecimalNumber");
+       })
+       .Editable(editable => editable.Mode(GridEditMode.InLine))
+       .Filterable()
+       .Scrollable(x => x.Virtual(true))
+       .Sortable()
+       .Navigatable()
+       .Selectable()
+       .DataSource(dataSource => dataSource.Ajax()
+        .ServerOperation(false)
+        .PageSize(50)
+           .Read(read => read.Action("GetDictionary", "Admin", new { Area = "Admin" }))
+           .Model(model =>
+           {
+               model.Id(x => x.SLDictionary);
+               model.Field(x => x.PropertyName).Editable(false);
+           })
+           .Update(update => update.Action("UpdateDictionary", "Admin", new { Area = "Admin" }))).Render();
+        }
+
+

@@ -1,0 +1,37 @@
+﻿<script type="text/javascript">
+    function onAdminActivate(e) {
+        resizeTabs("#MainTabStrip", 40);
+        $(e.contentElement).find('.k-state-active [data-role="grid"]').each(function () {            
+            $(this).data("kendoGrid").refresh();
+        });
+    }
+</script>
+
+@(  
+    Html.Kendo().TabStrip()
+        .Name("AdminMainTabStrip")      
+                    .Events(e => e.Activate("onAdminActivate(this)").ContentLoad("onAdminActivate(this)").Select("onAdminActivate(this)"))
+)
+<div id="AdminMainTabStrip"></div>
+    <style scoped>
+        #AdminMainTabStrip {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: auto;
+            height: auto;            
+        }
+
+        #AdminMainTabStrip > .k-content {
+                border: 0;
+                position: absolute;
+                top: 34px;
+                bottom: 10px;
+                left: 0;
+                right: 0;
+                width: auto;
+                height: auto;
+            }
+    </style>

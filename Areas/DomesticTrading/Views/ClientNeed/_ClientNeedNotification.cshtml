@@ -1,0 +1,170 @@
+﻿@using System.ComponentModel
+@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Tools
+
+
+<style scoped>
+    #NotificationTable {
+        width: 100%;
+    }
+</style>
+
+
+<script type="text/javascript">
+    var clientNeedPanelInterval;
+
+    $(document).ready(function () {
+        try
+        {
+            Notification.requestPermission();
+        }
+        catch (e)
+        {
+            console.log(e.message);
+        }
+
+
+        updateClientNeed();
+        updateAutoLoanNotification();
+        updateLocateNotification();
+
+        clientNeedPanelInterval = setInterval("updateClientNeedPanel()", 30000);
+    });
+
+    function updateClientNeedPanel() {
+        updateClientNeed();
+        updateAutoLoanNotification();
+        updateLocateNotification();
+    }
+
+    function updateClientNeed() {
+        try {
+
+            $.ajax({
+                url: '@Url.Action( "LoadClientNeedCount", "ClientNeed", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                async: true,
+                contentType: 'application/json;',
+                success: function (valid) {
+                    $("#NumebrOfNeeds").text(valid);
+                },
+                error: function (valid) {
+                }
+            });
+        }
+        catch (e) {
+            clearInterval(clientNeedPanelInterval);
+        }
+    }
+
+    function updateAutoLoanNotification() {
+        try
+        {
+
+            $.ajax({
+                url: '@Url.Action( "LoadPendingAutoLoanCount", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                async: true,
+                contentType: 'application/json;',
+                success: function (valid) {
+                    try {
+                        if (valid > 0) {
+                            var notifyText = valid.toString() + " pending autoloan request(s)";
+
+                            var notification = new Notification("AutoLoan Notification", { body: notifyText, tag: 'AutoLoanNotificationsTag' });
+                        }
+                    }
+                    catch (e) {
+
+                    }
+
+                    $("#NumberOfAutoLoan").text(valid);
+                },
+                error: function (valid) {
+                }
+            });
+        }
+        catch (e) {
+            clearInterval(clientNeedPanelInterval);
+        }
+    }
+
+    function updateLocateNotification() {
+        try {
+            var entity = $("#SecMasterDropdownList").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '@Url.Action( "LoadPendingLocatesCount", "Locates", new { area = "Locates" } )',
+                type: 'POST',
+                data: JSON.stringify({
+                    entityId: entity
+                }),
+                async: true,
+                contentType: 'application/json;',
+                success: function (valid) {
+                    try {
+                        if (valid > 0) {
+                            var notifyText = valid.toString() + " pending locate request(s)";
+
+                            var notification = new Notification("Locate Notification", { body: notifyText, tag: 'AutoLoanNotificationsTag', });
+                        }
+                    }
+                    catch (e) {
+                    
+                    }
+
+                    $("#NumberOfLocates").text(valid);
+                },
+                error: function (valid) {
+                }
+            });
+        }
+        catch (e) {
+            clearInterval(clientNeedPanelInterval);
+        }
+    }
+
+
+
+    function onClientNeedOpen() {
+        try
+        {
+            AddTab('~/Areas/DomesticTrading/Views/ClientNeed/Index.cshtml', 'Client Needs');
+        }
+        catch (e) {
+            alert(e.message);
+        }
+    }
+
+    function onAutoLoanOpen() {
+        try {
+
+            AddTab('~/Areas/DomesticTrading/Views/AutoLoan/_AutoLoan.cshtml', 'Auto Loan');
+
+        }
+        catch (e) {
+            alert(e.message);
+        }
+    }
+</script>
+
+
+<table id="NotificationTable">
+    <tr>        
+        <td align="left"><i class="fa fa-cart-plus fa"></i></td>
+        <td align="right"><h4 id="NumebrOfNeeds">0</h4></td>
+        <td align="left">@LabelHelper.Text("Needs")</td>
+        <td align="left"><i class="fa fa-mail-reply-all fa"></i></td>
+        <td align="right"><h4 id="NumberOfAutoLoan">0</h4></td>
+        <td align="left">@LabelHelper.Text("AutoLoan")</td>
+    </tr>
+    <tr>        
+        <td align="left" style="padding-right:10px;"><i class="fa fa-envelope fa"></i></td>
+        <td align="right"><h4 id="NumberOfLoanCallback">0</h4></td>
+        <td align="left">@LabelHelper.Text("Callback")</td>
+        <td align="left" style="padding-right:10px;"><i class="fa fa-cloud-upload fa"></i></td>
+        <td align="right"><h4 id="NumberOfLocates">0</h4></td>
+        <td align="left">@LabelHelper.Text("Locates")</td>
+    </tr>
+</table>

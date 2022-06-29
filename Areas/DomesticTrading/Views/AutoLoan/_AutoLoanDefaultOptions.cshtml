@@ -1,0 +1,144 @@
+﻿@using SLTrader.Tools
+<script type="text/javascript">
+    function onSettingsPost()
+    {
+
+        var mark=$("#AutoLoanDefaultMarkTextBox").data("kendoNumericTextBox").value();
+        var markId =document.getElementById("AutoLoanDefaultMarkIdTextBox").value;
+        var profitId =document.getElementById("AutoLoanDefaultProfitIdTextBox").value;
+        var batchCode=document.getElementById("AutoLoanDefaultBatchCodeTextBox").value;
+        var addToLoanet = document.getElementById("AutoLoanDefaultAddToLoanetTextBox").value;
+        var deliverViaCode = document.getElementById("AutoLoanDefaultDeliverViaCodeTextBox").value;
+        var autoPopulate = $("#AutoPopulateCheckBox").prop('checked');
+
+        $('#StatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+        try {
+            $.ajax({
+                url: '/DomesticTrading/AutoLoan/ProcessDefaultsUpdateAutoLoanOrder',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    mark: mark,
+                    markId: markId,
+                    profitId: profitId,
+                    batchCode: batchCode,
+                    addToLoanet: addToLoanet,
+                    deliverViaCode: deliverViaCode,
+                    autoPopulate: autoPopulate
+                }),
+                success: function (valid) {
+                    $('#StatusLabel').html("Sucessfully updated default values");
+                },
+                error: function (valid) {
+                    LogError(valid.message);
+
+                    $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                }
+            });
+        }
+        catch(e)
+        {
+            console.log(e.message);
+        }
+    }
+
+   
+    $('#AutoLoanDefaultBatchCodeTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoLoanDefaultProfitIdTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoLoanDefaultMarkTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoLoanDefaultMarkIdTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoLoanDefaultAddToLoanetTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoLoanDefaultDeliverViaCodeTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    //---
+    $('#AutoLoanDefaultBatchCodeTextBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoLoanDefaultProfitIdTextBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoLoanDefaultMarkTextBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoLoanDefaultMarkIdTextBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoLoanDefaultAddToLoanetTextBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoLoanDefaultDeliverViaCodeTextBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoPopulateCheckBox').change(function () {
+        $("#PostAutoLoanOptions").data("kendoButton").enable(true);
+    });
+
+</script>
+<div id="AutoLoanDefaultOptionsDiv" class="table-form">
+    <table>
+        <tr>
+            <td>@LabelHelper.Text("AutoLoanBatchCode")</td>
+            <td>@Html.TextBox("AutoLoanDefaultBatchCodeTextBox", DataSystemValues.LoadSystemValue("AutoLoanBatchCode", "A"), new { @class = "k-textbox" })</td>
+            <td>@LabelHelper.Text( "AutoLoanAddToLoanet" )</td>
+            <td>@Html.TextBox( "AutoLoanDefaultAddToLoanetTextBox", DataSystemValues.LoadSystemValue( "AutoLoanAddToLoanet", "Y" ), new { @class = "k-textbox" } )</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text( "AutoLoanDeliverViaCode" )</td>
+            <td>@Html.TextBox( "AutoLoanDefaultDeliverViaCodeTextBox", DataSystemValues.LoadSystemValue( "AutoLoanDeliverViaCode", "D" ), new { @class = "k-textbox" } )</td>
+            <td>@LabelHelper.Text("AutoLoanProfitId")</td>
+            <td>@Html.TextBox("AutoLoanDefaultProfitIdTextBox", DataSystemValues.LoadSystemValue("AutoLoanProfitId", "A"), new { @class = "k-textbox" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text("AutoLoanMark")</td>
+            <td>@Html.Kendo().NumericTextBox().Name("AutoLoanDefaultMarkTextBox").Format("#,##0.00").Value(Convert.ToDouble(DataSystemValues.LoadSystemValue("AutoLoanMark", "1.02")))</td>
+            <td>@LabelHelper.Text("AutoLoanMarkId")</td>
+            <td>@Html.TextBox("AutoLoanDefaultMarkIdTextBox", DataSystemValues.LoadSystemValue("AutoLoanMarkId", "%"), new { @class = "k-textbox" })</td>
+        </tr>  
+        <tr>
+            <td>@LabelHelper.Text( "AutoLoanAutoPopulate" )</td>
+            <td>@Html.Kendo().CheckBox().Name( "AutoPopulateCheckBox").Checked(bool.Parse( DataSystemValues.LoadSystemValue( "AutoLoanAutoPopulate", false.ToString() ) ) ).HtmlAttributes(new { @class= "float-left" })</td>
+            <td></td>
+            <td></td>
+        </tr>    
+        <tr>   
+            <td colspan="4">
+                <label id="StatusLabel" class="label-status"></label>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" align="right">
+                @Html.Kendo().Button().Name("PostAutoLoanOptions").Enable(false).Content(LabelHelper.Text("PostAutoLoanOptionsChange")).Events(e => e.Click("onSettingsPost"))
+            </td>
+        </tr>
+    </table>
+</div>

@@ -1,0 +1,204 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model  PartialViewModel
+<style scoped>
+    #SharedUnderlyingSecuritiesUnderlyingSecuritiesButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script type="text/javascript">
+    var _originalSharedUnderlyingSecuritiesGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSharedUnderlyingSecuritiesGrid = $('#SharedDetailUnderlyingSecuritiesGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#SharedDetailUnderlyingSecuritiesGrid");
+            
+            $(".k-grid-toolbar", "#SharedDetailUnderlyingSecuritiesGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+            $('#SharedDetailUnderlyingSecuritiesGrid').data('kendoGrid').dataSource.read();
+        }, 3);
+
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("SharedUnderlyingSecuritiesButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#SharedDetailUnderlyingSecuritiesGrid", "SharedDetailUnderlyingSecuritiesGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    function onSharedUnderlyingSecuritiesLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedDetailUnderlyingSecuritiesGrid");
+        }, 5);
+    }
+
+    function onSharedUnderlyingSecuritiesCheckData() {
+        CheckGridData('#SharedDetailUnderlyingSecuritiesGrid');
+    }
+
+    function onSharedUnderlyingSecuritiesByIsinAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            isin: '@Model.SecurityNumber'
+        };
+    }
+
+    function onSharedUnderlyingSecuritiesContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#SharedDetailUnderlyingSecuritiesGrid");
+                break;
+
+            case 'Unsort':
+                onSharedUnderlyingSecuritiesUnsortGrid("#SharedDetailUnderlyingSecuritiesGrid");
+                break;
+
+            case 'Select All':
+                onSharedUnderlyingSecuritiesSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedDetailUnderlyingSecuritiesGrid");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedDetailUnderlyingSecuritiesGrid");
+                $('#SharedDetailUnderlyingSecuritiesGrid').data('kendoGrid').setOptions(_originalSharedUnderlyingSecuritiesGrid);
+                $(".k-grid-toolbar", "#SharedDetailUnderlyingSecuritiesGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedDetailUnderlyingSecuritiesGrid').data('kendoGrid').dataSource.read();
+                break;
+
+            case 'Export To Excel':
+                exportToSharedUnderlyingSecuritiesExcel();
+                break;
+        }
+    }
+
+    function onSharedUnderlyingSecuritiesSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedDetailUnderlyingSecuritiesGrid").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedUnderlyingSecuritiesUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedUnderlyingSecuritiesExcel() {
+        KendoGridToCSVConvertor("#SharedDetailUnderlyingSecuritiesGrid", 'SharedDetailUnderlyingSecuritiesGrid');
+    }
+</script>
+
+
+<div id="SharedDetaiUnderlyingSecuritiesDiv" class="grid-div">
+
+    @(
+ Html.Kendo().Grid<SL_BoxCalculationExtendedProjection>()
+    .Name("SharedDetailUnderlyingSecuritiesGrid")
+               .Navigatable()
+            .Scrollable()
+            .Sortable()
+            .AutoBind(false)
+                 .ToolBar(t =>
+                 {
+                     t.Template("<label></label>");
+                 })
+                        .Editable(x => x.Enabled(false))
+                        .HtmlAttributes(new { @class = "grid" })
+                        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                        .Filterable()
+                        .Events(events =>
+                        {
+                            events.DataBound("onSharedUnderlyingSecuritiesCheckData");
+                            events.ColumnHide("onSharedUnderlyingSecuritiesLayoutChange");
+                            events.ColumnShow("onSharedUnderlyingSecuritiesLayoutChange");
+                            events.ColumnResize("onSharedUnderlyingSecuritiesLayoutChange");
+                            events.ColumnReorder("onSharedUnderlyingSecuritiesLayoutChange");
+                        })
+                        .Resizable(resize => resize.Columns(true))
+                        .ColumnMenu(columnMenu =>
+                        {
+                            columnMenu.Columns(true);
+                            columnMenu.Sortable(true);
+                            columnMenu.Filterable(true);
+                            columnMenu.ComponentType( "modern" );
+                        } )
+                        .NoRecords()
+                        .Reorderable(reorder =>
+                        {
+                            reorder.Columns(true);
+                        })
+                        .Navigatable()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.SLBoxCalculation).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+        cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.DateTime, false, "", "").Hidden(true);
+        cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.DtDtccEligible).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ExcessPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(ExcessPositionSettled)#", "");
+        cols.Bound(x => x.FirmLongPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(FirmLongPositionSettled)#", "");
+        cols.Bound(x => x.FirmShortPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(FirmShortPositionSettled)#", "");
+        cols.Bound(x => x.CustomerLongPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CustomerLongPositionSettled)#", "");
+        cols.Bound(x => x.CustomerShortPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CustomerShortPositionSettled)#", "");
+
+        cols.Bound(x => x.TotalFailToDeliverPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(TotalFailToDeliverPositionSettled)#", "");
+        cols.Bound(x => x.TotalFailToRecievePositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(TotalFailToDeliverPositionSettled)#", "");
+    })
+       .DataSource(ds =>
+       {
+           ds.Ajax()
+               .ServerOperation(false)
+               .Read(read =>
+               {
+                   read.Action("Read_UnderlyingSecuritiesByIsin", "Main", new { area = "DomesticTrading" }).Data("onSharedUnderlyingSecuritiesByIsinAdditionalData");
+               })
+               .Aggregates(agg =>
+               {
+                   agg.Add(x => x.ExcessPositionSettled).Sum();
+                   agg.Add(x => x.FirmLongPositionSettled).Sum();
+                   agg.Add(x => x.FirmShortPositionSettled).Sum();
+                   agg.Add(x => x.CustomerLongPositionSettled).Sum();
+                   agg.Add(x => x.CustomerShortPositionSettled).Sum();
+                   agg.Add(x => x.TotalFailToDeliverPositionSettled).Sum();
+                   agg.Add(x => x.TotalFailToRecievePositionSettled).Sum();
+               });
+       }))
+</div>
+@(Html.Kendo().ContextMenu()
+.Name("SharedUnderlyingSecuritiesContextMenu")
+            .Target("#SharedDetailUnderlyingSecuritiesGrid")
+        .Events(events => events.Select("onSharedUnderlyingSecuritiesContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedUnderlyingSecuritiesButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

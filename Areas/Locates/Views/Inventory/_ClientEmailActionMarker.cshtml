@@ -1,0 +1,218 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+    var _originalClientEmailActionMarkerGrid = null;
+    var _originalClientEmailActionMarkerToolBar = null;
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#ClientEmailActionMarkerGrid");
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalClientEmailActionMarkerGrid = $("#ClientEmailActionMarkerGrid").data('kendoGrid').getOptions();
+            _originalClientEmailActionMarkerToolBar = $("#ClientEmailActionMarkerGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#ClientEmailActionMarkerGrid");
+
+            $("#ClientEmailActionMarkerGrid .k-grid-toolbar").html(_originalClientEmailActionMarkerToolBar);
+            $("#ClientEmailActionMarkerGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onClientEmailActionMarkerLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ClientEmailActionMarkerGrid");
+        }, 5);
+    }
+
+    function onClientEmailActionMarkerCheckData() {
+        CheckGridData('#ClientEmailActionMarkerGrid');
+    }
+
+    function createClientEmailActionMarkerData() {
+        var entity = $("#ClientEmailActionMarkerDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity,
+            operatorId: '@Convert.ToInt32(SL_Operator.gte)'
+        };
+    }
+
+    function additionalClientEmailActionMarkerData() {
+        var entity = $("#ClientEmailActionMarkerDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity
+        };
+    }
+
+    function onClientEmailActionMarkerEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () {
+            input.select();
+        }, 25);
+    }
+
+    function onClientEmailActionMarkerDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#ClientEmailActionMarkerDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#ClientEmailActionMarkerGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onClientEmailActionMarkerChange() {
+        $("#ClientEmailActionMarkerGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onClientEmailActionMarkerContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#ClientEmailActionMarkerGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ClientEmailActionMarkerGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#ClientEmailActionMarkerGrid");
+
+                $("#ClientEmailActionMarkerGrid").data('kendoGrid').setOptions(_originalClientEmailActionMarkerGrid);
+                $("#ClientEmailActionMarkerGrid .k-grid-toolbar").html(_originalClientEmailActionMarkerToolBar);
+                $("#ClientEmailActionMarkerGrid .k-grid-toolbar").addClass("k-grid-top");
+                $('#ClientEmailActionMarkerGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#ClientEmailActionMarkerGrid");
+                break;
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("ClientEmailActionMarkerToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("ClientEmailActionMarkerDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onClientEmailActionMarkerChange").DataBound("onClientEmailActionMarkerDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="ClientEmailActionMarkerContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<SL_ClientEmailActionMarker>()
+        .Name("ClientEmailActionMarkerGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .ColumnMenu(menu =>
+        {
+            menu.ComponentType("modern");
+        })
+        .Editable(e =>
+        {
+            e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLInventory));
+            e.DisplayDeleteConfirmation(false);
+        })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Events(events =>
+        {
+            events.DataBound("onClientEmailActionMarkerCheckData");
+            events.Edit("onClientEmailActionMarkerEdit");
+            events.ColumnHide("onClientEmailActionMarkerLayoutChange");
+            events.ColumnShow("onClientEmailActionMarkerLayoutChange");
+            events.ColumnResize("onClientEmailActionMarkerLayoutChange");
+            events.ColumnReorder("onClientEmailActionMarkerLayoutChange");
+        })
+        .ToolBar(toolbar => toolbar.Create())
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLClientEmailActionMarker).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.Description).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Marker).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(Marker)#", "_ClientEmailActionMarkerColorDropdown");
+
+            columns.Command(x =>
+            {
+                x.Edit();
+                x.Destroy();
+            });
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .Read(read => read.Action("Read_ClientEmailActionMarker", "ClientEmailActionMarker", new { area = "Locates" }).Data("additionalClientEmailActionMarkerData"))
+            .Update(update => update.Action("Update_ClientEmailActionMarker", "ClientEmailActionMarker", new { area = "Locates" }))
+            .Destroy(delete => delete.Action("Delete_ClientEmailActionMarker", "ClientEmailActionMarker", new { area = "Locates" }))
+            .Create(create => create.Action("Create_ClientEmailActionMarker", "ClientEmailActionMarker", new { area = "Locates" }).Data("additionalClientEmailActionMarkerData"))
+            .Model(model =>
+            {
+                model.Id(x => x.SLClientEmailActionMarker);
+                model.Field(x => x.SLClientEmailActionMarker).Editable(false);
+                model.Field(x => x.EntityId).Editable(false);
+                model.Field(x => x.DateTimeId).Editable(false);
+                model.Field(x => x.Description).DefaultValue("").Editable(true);
+                model.Field(x => x.Marker).Editable(true).DefaultValue("#0000ff");
+            }))
+    )
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("ClientEmailActionMarkerContextMenu")
+    .Target("#ClientEmailActionMarkerGrid")
+    .Events(events => events.Select("onClientEmailActionMarkerContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+    }))

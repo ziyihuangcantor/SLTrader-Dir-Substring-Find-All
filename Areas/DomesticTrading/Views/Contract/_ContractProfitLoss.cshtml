@@ -1,0 +1,685 @@
+﻿    @using System.ComponentModel
+    @using BondFire.Entities.Projections
+    @using SLTrader.Enums
+    @using SLTrader.Tools
+
+
+    <style scoped>   
+        #ProfitLossChart {
+            width: 100%;
+            height: 100%;
+        }
+
+        #ProfitLossChartArea {
+            width: 100%;
+            height: 100%;
+        }
+
+        #ProfitLossGrid {
+            width: 100%;
+            height: 100%;
+        }
+
+          #ProfitLossButton.zeroclipboard-is-hover {
+            background-color: #1ba1e2;
+        }
+
+        #ProfitLossToolBar .k-radio-label {
+            padding-left:20px;
+            vertical-align:middle;
+        }
+
+        #ProfitLossToolBar.k-widget .k-multiselect input {
+            display: none;
+        }
+
+        #ProfitLossToolBar .k-checkbox-label {
+            padding-left: 20px;
+        }
+
+        hideControl {
+            display:none;
+        }
+    </style>
+
+    <script type="text/javascript">
+        var _originalProfitLossGrid = null;
+        var _profitLossSelectAll = false;
+        var enumType = null;
+        var rate = 0;
+
+        var _profitLossInquiryInterval = false;
+        var _profitLossInquiryInProgress = false;
+        var _profitLossRefreshIntervalTime = 10000;
+
+        $(document).ready(function () {
+
+            setTimeout(function () {
+                _originalProfitLossGrid = $('#ProfitLossGrid').data('kendoGrid').getOptions();
+
+                LoadGridLayout("#ProfitLossGrid");
+            }, 5);
+
+
+            var clientEvent1 = new ZeroClipboard(document.getElementById("ProfitLossButton"));
+
+            clientEvent1.on("ready", function (readyEvent) {
+                clientEvent1.on("copy", function (event) {
+                    var data1 = KendoGridToText("#ProfitLossGrid", "ProfitLossGrid", false);
+                    clientEvent1.setText(data1);
+                });
+            });
+
+            try {
+                _profitLossInquiryInterval = setInterval("onProfitLosssInquiryRefresh()", _profitLossRefreshIntervalTime);
+            }
+            catch (e) {
+            }
+        });
+
+        $('#SharedLabelCheckBox').on('change', function () {
+            RefreshGrid("#ProfitLossGrid");
+        });
+
+        function onProfitLossChange() {
+       
+            $('#ProfitLossGrid').data("kendoGrid").dataSource.read();
+        }
+
+        function onProfitLossStart() {
+            kendo.ui.progress($("#ProfitLossGrid"), true);
+        }
+
+        function onProfitLossEnd() {
+            kendo.ui.progress($("#ProfitLossGrid"), false);
+
+        }
+
+        function onProfitLossCheckData(e) {
+            CheckGridData("#ProfitLossGrid");
+
+            //ReInitVirtualScroll("#ProfitLossGrid");
+        }
+
+        function onProfitLosssInquiryRefresh() {
+            try {
+                if (_profitLossInquiryInProgress == false) {
+                    _profitLossInquiryInProgress = true;
+
+                    try {
+                        if ($("#ProfitLossAutoUpdateCheckBox").is(':checked')) {
+                            $("#ProfitLossGrid").data("kendoGrid").dataSource.read();
+                        }
+                    }
+                    catch (e) {
+                        clearInterval(_profitLossInquiryInterval);
+                    }
+
+                    _profitLossInquiryInProgress = false;
+                }
+            }
+            catch (e) {
+
+            }
+        }
+
+        function onProfitLossRowChange(e) {
+            try {
+                var entityGrid = $("#ProfitLossGrid").data("kendoGrid");
+                var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                var entityId = selectedItem["Entity"];
+                var effectiveDate = selectedItem["EffectiveDate"];
+                var securityNumber = selectedItem["SecurityNumber"];
+                var issueId = selectedItem["IssueId"];
+
+
+                SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+                _profitLossSelectAll = false;
+            }
+            catch (e) {
+                console.log(e.message);
+                console.log(e.message);
+            }
+        }
+
+        function onProfitLossGridLayoutChange(e) {
+            e.preventDefault();
+
+            setTimeout(function () {
+                UpdateGridLayout("#ProfitLossGrid");
+            }, 5);
+        }
+
+
+        function onProfitLossDefaultLoad() {
+            try {
+                var userPreference;
+
+                $.ajax({
+                    url: '/Header/Header/GetUserPreferenceMultiple',
+                    type: 'POST',
+                    contentType: 'application/json;',
+                    success: function (valid) {
+                        userPreference = valid;
+
+                        var dropdownList = $('#ProfitLossEntityDropdownList').data("kendoMultiSelect");
+
+                        dropdownList.value(userPreference);
+
+
+                        $('#ProfitLossGrid').data("kendoGrid").dataSource.read();
+                    },
+                    error: function (valid) {
+                        userPreference = null;
+                    }
+                })
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+
+        function onProfitLossTrendAdditionalData(e) {
+            var profitLossEntity = $("#ProfitLossEntityDropdownList").data("kendoMultiSelect").value();
+            var startDatepickerSource = $("#ProfitLossStartDateCalander").data("kendoDatePicker");
+            var stopDatepickerSource = $("#ProfitLossStopDateCalander").data("kendoDatePicker");
+            var currencyDropDown = $('#ProfitAndLossCurrencyTypeDropdownList').data("kendoDropDownList").value();
+            var criteriaDropDown = $('#ProfitLossCriteriaTypeDropdownList').data("kendoDropDownList").value();
+            
+            var startDate = kendo.toString(startDatepickerSource.value(), 'yyyy-MM-dd');
+            var stopDate = kendo.toString(stopDatepickerSource.value(), 'yyyy-MM-dd');
+
+            var rollupEntityCheck = $("#ProfitLossReollupEntityCheckBox").is(':checked');
+
+            return {
+                startDate: startDate,
+                stopDate: stopDate,
+                entity: profitLossEntity,
+                enumType: criteriaDropDown,
+                currency: currencyDropDown,
+                rollupEntity: rollupEntityCheck
+            }
+        }
+
+
+        function onProfitLossRadioCLick() {
+            var entityGrid = $("#ProfitLossGrid").data("kendoGrid");
+
+
+            var criteriaDropDown = $('#ProfitLossCriteriaTypeDropdownList').data("kendoDropDownList").text();
+
+            if (criteriaDropDown == '@ProfitLossEnum.ContraID.ToString()') {
+
+                if (!$("#HideChartCheckBox").is(':checked')) {
+                    $('#ProfitLossContraEntityChart').show();
+                }
+                $('#ProfitLossSecIdChart').hide();
+                $('#ProfitLossProfitIdChart').hide();
+                $('#ProfitLossClassificationChart').hide();
+            
+
+                entityGrid.hideColumn("IssueId");
+                entityGrid.hideColumn("SecurityNumber");
+                entityGrid.hideColumn("Ticker");
+                entityGrid.hideColumn("Sedol");
+                entityGrid.hideColumn("Isin");
+                entityGrid.hideColumn("Quick");
+                entityGrid.hideColumn("SecNumber");
+
+                entityGrid.hideColumn("ProfitId");
+                entityGrid.hideColumn("Classification");
+                entityGrid.showColumn("ContraEntityId");
+                entityGrid.showColumn("AccountName");
+
+                enumType = '@ProfitLossEnum.ContraID';
+            } else if (criteriaDropDown == '@ProfitLossEnum.Security.ToString()') {
+                $('#ProfitLossContraEntityChart').hide();
+
+                if (!$("#HideChartCheckBox").is(':checked')) {
+                    $('#ProfitLossSecIdChart').show();
+                }
+                $('#ProfitLossProfitIdChart').hide();
+                $('#ProfitLossClassificationChart').hide();
+
+                entityGrid.hideColumn("IssueId");
+                entityGrid.showColumn("SecurityNumber");
+                entityGrid.showColumn("Ticker");
+                entityGrid.showColumn("Sedol");
+                entityGrid.showColumn("Isin");
+                entityGrid.showColumn("Quick");
+                entityGrid.showColumn("SecNumber");
+
+                entityGrid.hideColumn("Classification");
+                entityGrid.hideColumn("ProfitId");
+                entityGrid.hideColumn("ContraEntityId");
+                entityGrid.hideColumn("AccountName");
+
+                enumType = '@ProfitLossEnum.Security';
+            } else if (criteriaDropDown == '@ProfitLossEnum.SecurityProfitId.ToString()') {
+                $('#ProfitLossContraEntityChart').hide();
+                $('#ProfitLossSecIdChart').hide();
+                $('#ProfitLossClassificationChart').hide();
+                if (!$("#HideChartCheckBox").is(':checked')) {
+                    $('#ProfitLossProfitIdChart').show();
+                }
+
+                entityGrid.showColumn("SecurityNumber");
+                entityGrid.showColumn("Ticker");
+                entityGrid.showColumn("SecurityNumber");
+                entityGrid.showColumn("Ticker");
+                entityGrid.showColumn("Sedol");
+                entityGrid.showColumn("Isin");
+                entityGrid.showColumn("Quick");
+                entityGrid.showColumn("SecNumber");
+
+                entityGrid.hideColumn("Classification");
+                entityGrid.hideColumn("IssueId");
+                entityGrid.showColumn("ProfitId");
+                entityGrid.hideColumn("ContraEntityId");
+                entityGrid.hideColumn("AccountName");
+                enumType = '@ProfitLossEnum.SecurityProfitId';
+            }
+            else if (criteriaDropDown == '@ProfitLossEnum.Classification.ToString()') {
+                $('#ProfitLossContraEntityChart').hide();
+                $('#ProfitLossSecIdChart').hide();
+                $('#ProfitLossProfitIdChart').hide();
+                if (!$("#HideChartCheckBox").is(':checked')) {
+                    $('#ProfitLossClassificationChart').show();
+                }
+
+                entityGrid.showColumn("Classification");
+
+                entityGrid.hideColumn("SecurityNumber");
+                entityGrid.hideColumn("Ticker");
+                entityGrid.hideColumn("SecurityNumber");
+                entityGrid.hideColumn("Ticker");
+                entityGrid.hideColumn("Sedol");
+                entityGrid.hideColumn("Isin");
+                entityGrid.hideColumn("Quick");
+                entityGrid.hideColumn("SecNumber");
+
+                entityGrid.hideColumn("IssueId");
+                entityGrid.hideColumn("ProfitId");
+                entityGrid.hideColumn("ContraEntityId");
+                entityGrid.hideColumn("AccountName");
+                enumType = '@ProfitLossEnum.Classification';
+            }
+        }
+
+        function onProfitLossError(e) {
+            console.log(e.message);
+        }
+
+        function onProfitLossContextMenuSelect(e) {
+            switch ($(e.item).children(".k-link").text()) {
+                case 'AutoFit Columns':
+                    resizeGridColumns("#ProfitLossGrid");
+                    break;
+
+                case 'Unsort':
+                    UnsortGrid("#ProfitLossGrid");
+                    break;
+
+                case "Reset Filter":
+                    ResetFilter("#ProfitLossGrid");
+                    break;
+
+                case 'Select All':
+                    onProfitLossSelectAll();
+                    break;
+                case "Reset Grid":
+                    ResetUserLayout("#ProfitLossGrid");
+                    $('#ProfitLossGrid').data('kendoGrid').setOptions(_originalProfitLossGrid);
+                    $('#ProfitLossGrid').data("kendoGrid").dataSource.read();
+                    break;
+
+                case 'Export To Excel':
+                    exportToProfitLossExcel();
+                    break;
+            }
+        }
+
+        function onProfitLossSelectAll() {
+            try {
+                var profitLossGrid = $("#ProfitLossGrid").data("kendoGrid");
+                profitLossGrid.select(profitLossGrid.tbody.find(">tr"));
+                _profitLossSelectAll = true;
+            } catch (e) {
+                console.log(e.message);
+            }
+        }
+
+
+        function exportToProfitLossExcel() {
+            KendoGridToCSVConvertor("#ProfitLossGrid", 'ProfitLossGrid', _profitLossSelectAll);
+        }
+
+        function onProfitLossSearchChange(e) {
+            e.preventDefault();
+
+            try {
+                var cusipTextBox = document.getElementById("ProfitLossSecuritySearchTextBox").value;
+
+                QuickColumnGrid("#ProfitLossGrid", cusipTextBox);
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+
+
+        function ReInitVirtualScroll(e) {
+            var grid = $(e).data("kendoGrid");
+            grid._rowHeight = undefined;
+            grid.virtualScrollable.refresh();
+        }
+
+        function getSharedContractBreakOutAverageWeightedRate(tradeType) {
+            try {
+                var view = getCSVDataItems('#ProfitLossGrid', true);
+ 
+
+                if ((view.length > 0) &&  ($('#ProfitLossGrid').data("kendoGrid").dataSource.filter())) {
+                    try {
+                        $.ajax({
+                            url: '/DomesticTrading/ContractRelated/CalculateAverageWeightedRateProfitLossModelByTradeType',
+                            type: 'POST',
+                            async: false,
+                            data: JSON.stringify({
+                                contractList: view,
+                                tradeType: tradeType
+                            }),
+                            contentType: 'application/json;',
+                            success: function (valid) {
+                                rate = valid;
+                            },
+                            error: function (valid) {
+                                rate = 0;
+                            }
+                        });
+
+                        return rate;
+                    } catch (e) {
+                        console.log(e.message);
+                    }
+                } 
+                else
+                {               
+                    if (view.length > 0) {                        
+                        var item = $('#ProfitLossGrid').data("kendoGrid").dataItem("tbody tr:eq(0)");
+
+                        if (tradeType == 51) {
+                            rate = item['BorrowBookAverageRate'];
+                        }
+                        else if (tradeType == 50) {                            
+                            rate = item['LoanBookAverageRate'];
+                        }                     
+                    }
+                    else {
+                        rate = 0
+                    }
+
+                    return rate;
+                }
+            }
+            catch (e) {
+                console.log(e);
+            }
+        }
+
+
+
+    </script>
+
+
+    @(
+     Html.Kendo().ToolBar()
+            .Name( "ProfitLossToolBar" )
+        .Resizable( true )
+        .HtmlAttributes( new { @class = "tBar" } )
+        .Items( items =>
+        {
+            items.Add().Template( LabelHelper.Label( "StartDate" ).ToHtmlString() );
+
+            items.Add().Template( Html.Kendo().DatePicker()
+                .Name( "ProfitLossStartDateCalander" )
+                .Format( "yyyy-MM-dd" )
+                .Value( DateTime.Today )
+                .Events( events => events.Change( "onProfitLossChange" ) )
+                .HtmlAttributes( new { @class = "Toolbar-Cell" } ).ToHtmlString() );
+
+            items.Add().Template( LabelHelper.Label( "StopDate" ).ToHtmlString() );
+
+            items.Add().Template( Html.Kendo().DatePicker()
+                .Name( "ProfitLossStopDateCalander" )
+                .Format( "yyyy-MM-dd" )
+                .Value( DateTime.Today )
+                 .Events( events => events.Change( "onProfitLossChange" ) )
+                .HtmlAttributes( new { @class = "Toolbar-Cell" } ).ToHtmlString() );
+
+            items.Add().Template( LabelHelper.Label( "Entity" ).ToHtmlString() );
+            items.Add().Template(Html.Kendo().MultiSelect()
+                    .Name("ProfitLossEntityDropdownList")
+                   .TagMode(TagMode.Multiple)
+                   .AutoWidth(true)
+                   .Enable(true)
+                   .DownArrow(true)
+                   .Size(ComponentSize.Small)
+                   .ClearButton(false)
+                   .HtmlAttributes(new { @style = "width:100%" })
+                       .Placeholder("No records selected")
+                       .AutoBind(true)
+                    .ItemTemplate("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                     "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                     "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                     .Events(e =>
+                     {
+                         e.DataBound("onProfitLossDefaultLoad");
+                         e.Close("onProfitLossChange");
+                         e.Deselect("onProfitLossChange");
+                     })
+                     .DataTextField("Custodian")
+                     .DataValueField("CompanyId")
+                     .DataSource(ds =>
+                     {
+                         ds.Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" }));
+                     }).ToHtmlString());
+
+
+            items.Add().Template(LabelHelper.Label("ReportingCurrency", "").ToHtmlString());
+
+            items.Add().Template(Html.Kendo().DropDownList()
+                        .Name("ProfitAndLossCurrencyTypeDropdownList")
+                        .HtmlAttributes(new { @class="width100" })
+                        .AutoWidth(true)
+                        .AutoBind(true)
+                        .Events(e => e.Change("onProfitLossChange"))
+                        .SelectedIndex(0)
+                        .Value(EnumExtensions.GetEnumSelectListItem(SessionService.UserPreference.ReportingCurrency).Value.ToString())
+                        .BindTo(SLTrader.Tools.EnumExtensions.GetEnumSelectList<Currency>())
+                        .ToHtmlString());
+
+            items.Add().Template(LabelHelper.Label("ProfitLossCriteria", "").ToHtmlString());
+
+            items.Add().Template(Html.Kendo().DropDownList()
+                        .Name("ProfitLossCriteriaTypeDropdownList")
+                        .HtmlAttributes(new { @class="width100" })
+                        .AutoWidth(true)
+                        .DataValueField("Value")
+                        .DataTextField("Text")
+                        .AutoBind(true)
+                        .Events(e => e.Change("onProfitLossChange"))
+                        .SelectedIndex(0)
+                        .Value(DataSystemValues.LoadSystemValue("ContractProfitLossCriteriaType", "1"))
+                        .BindTo(SLTrader.Tools.EnumExtensions.GetEnumSelectList<ProfitLossEnum>())
+                        .ToHtmlString());
+
+            items.Add().Template(Html.Kendo().Button().Name("ProfitLossRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onProfitLossChange")).ToHtmlString());
+
+            items.Add().Template(Html.Kendo().CheckBox().Name("ProfitLossAutoUpdateCheckBox").Checked(false).Label(LabelHelper.Text("AutoUpdate")).ToHtmlString());
+
+            items.Add().Template(Html.Kendo().CheckBox().Name("ProfitLossReollupEntityCheckBox").HtmlAttributes(new { onclick= "onProfitLossChange()" }).Checked(false).Enable(true).Label(LabelHelper.Text("RollupEntity")).ToHtmlString());
+
+
+            items.Add().Template(
+        "<table ID='ProfitLossTable'><tr><td>" +
+        LabelHelper.LabelFor("TickerSearch", "ProfitLossSecuritySearchTextBox").ToHtmlString() + "</td><td>" +
+        Html.Kendo().AutoComplete().Name("ProfitLossSecuritySearchTextBox").HtmlAttributes(new { @class="width90" }).Events(eve => eve.Filtering("onProfitLossSearchChange")).Suggest(true).ToHtmlString() + "</td></tr></table>"
+        ).HtmlAttributes(new { @class="float-right"});
+        } ))
+
+    <hr class="hr-white">   
+    <div id="ProfitLossContent" class="grid-div">
+                @(Html.Kendo().Grid<ProfitLossModel>()
+                    .Name( "ProfitLossGrid" )
+                    .HtmlAttributes( new { @class = "grid" } )
+                    .Sortable( sort =>
+                    {
+                        sort.AllowUnsort( true );
+                        sort.Enabled( true );
+                        sort.SortMode( GridSortMode.SingleColumn );
+                    })
+                    .Scrollable( scrollable => scrollable.Virtual( true ).Enabled( true ) )
+                    .Filterable()
+                    .NoRecords()
+                    .Navigatable()
+                    .AutoBind( false )
+                    .ColumnMenu( menu =>
+                    {
+                        menu.Columns( true );
+                        menu.Filterable( true );
+                        menu.Sortable( true );
+                        menu.ComponentType( "modern" );
+                    } )
+                    .Pageable(pagable =>
+                    {
+                        pagable.Numeric(false);
+                        pagable.PreviousNext(false);
+                        pagable.Messages(config =>
+                        {
+                            config.Display("Showing {2} contract(s)");
+                        });
+                    })
+                    .Events( events =>
+                    {
+                        events.Change( "onProfitLossRowChange" );
+                        events.DataBound("onProfitLossCheckData");
+                        events.ColumnResize( "onProfitLossGridLayoutChange" );
+                        events.ColumnReorder("onProfitLossGridLayoutChange");
+                    })
+                    .Selectable( selectable => selectable.Mode( GridSelectionMode.Multiple ).Type( GridSelectionType.Row ) )
+                    .Reorderable( reorder => reorder.Columns( true ) )
+                    .Resizable( resize => resize.Columns( true ) )
+                    .Columns( columns =>
+                    {
+                        columns.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" );
+                        columns.Bound( x => x.Entity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+                        columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound( x => x.ContraEntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                        columns.Bound( x => x.AccountName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                        columns.Bound( x => x.IssueId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+                        columns.Bound( x => x.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+                        columns.Bound( x => x.ProfitId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                        columns.Bound(x => x.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantity)#", "");
+                        columns.Bound( x => x.BorrowBalance ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowBalance)#", "" );
+                        columns.Bound(x => x.BorrowRecallQuantity).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(BorrowRecallQuantity)#", "");
+                        columns.Bound(x => x.BorrowAverageRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BorrowAverageRate)#", "").ClientFooterTemplate("#=kendo.toString(kendo.parseFloat(getSharedContractBreakOutAverageWeightedRate(51)),'0.000') #");
+                        columns.Bound(x => x.BorrowBookAverageRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BorrowBookAverageRate)#", "");
+                        columns.Bound( x => x.BorrowIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowIncome)#", "" );
+
+                        columns.Bound(x => x.LoanQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantity)#", "");
+                        columns.Bound( x => x.LoanBalance ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanBalance)#", "" );
+                        columns.Bound(x => x.LoanRecallQuantity).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(LoanRecallQuantity)#", "");
+                        columns.Bound(x => x.LoanAverageRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(LoanAverageRate)#", "").ClientFooterTemplate("#=kendo.toString(kendo.parseFloat(getSharedContractBreakOutAverageWeightedRate(50)),'0.000') #");
+                        columns.Bound(x => x.LoanBookAverageRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(LoanBookAverageRate)#", "");
+                        columns.Bound( x => x.LoanIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanIncome)#", "" );
+
+                        columns.Bound(x => x.DiffQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DiffQuantity)#", "");
+                        columns.Bound(x => x.DiffBalance).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DiffBalance)#", "");
+                        columns.Bound(x => x.DiffRecallQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DiffRecallQuantity)#", "");
+
+
+                        columns.Bound(x => x.BorrowCustomerQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowCustomerQuantity)#", "");
+                        columns.Bound(x => x.BorrowCustomerCharge).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowCustomerCharge)#", "");
+                        columns.Bound(x => x.BorrowCustomerRate).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetRateDirection(BorrowCustomerRate)#", "");
+
+
+                        columns.Bound( x => x.TotalIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalIncome)#", "" );
+                        columns.Bound(x => x.MatchBookIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(MatchBookIncome)#", "");
+                        columns.Bound(x => x.ContractCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.ReportingTotalIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(ReportingTotalIncome)#", "");
+                        columns.Bound( x => x.Spread ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(Spread)#", "" );
+
+                        columns.Bound(x => x.SpreadCloseOfBusiness).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(SpreadCloseOfBusiness)#", "");
+                        columns.Bound(x => x.DiffSpread).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(DiffSpread)#", "");
+                        columns.Bound(x => x.CashFlow).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(CashFlow)#", "");
+                    } )
+                    .DataSource( ds =>
+                    {
+                        ds.Ajax()
+                            .ServerOperation( false )
+                            .Read(read =>
+                            {
+                                read.Action("GetProfitLossTrendReadMultiSelect", "ProfitLoss", new { area = "Dashboard" }).Data("onProfitLossTrendAdditionalData");
+                            })
+                            .PageSize(100)
+                            .Aggregates( agg =>
+                            {
+                                agg.Add(x => x.BorrowQuantity).Sum();
+                                agg.Add(x => x.BorrowRecallQuantity).Sum();
+                                agg.Add( x => x.BorrowBalance ).Sum();
+                                agg.Add( x => x.BorrowIncome ).Sum();
+
+                                agg.Add(x => x.LoanQuantity).Sum();
+                                agg.Add(x => x.LoanRecallQuantity).Sum();
+                                agg.Add( x => x.LoanBalance ).Sum();
+                                agg.Add( x => x.LoanIncome ).Sum();
+
+                                agg.Add(x => x.DiffQuantity).Sum();
+                                agg.Add(x => x.DiffBalance).Sum();
+                                agg.Add(x => x.DiffRecallQuantity).Sum();
+
+                                agg.Add(x => x.BorrowCustomerQuantity).Sum();
+                                agg.Add(x => x.BorrowCustomerCharge).Sum();
+                                agg.Add(x => x.BorrowCustomerRate).Sum();
+
+                                agg.Add( x => x.TotalIncome ).Sum();
+                                agg.Add(x => x.MatchBookIncome).Sum();
+                                agg.Add(x => x.ReportingTotalIncome).Sum();
+                                agg.Add(x => x.CashFlow).Sum();
+                                agg.Add(x => x.BorrowAverageRate).Average();
+                                agg.Add(x => x.LoanAverageRate).Average();
+                                agg.Add(x => x.BorrowBookAverageRate).Average();
+                                agg.Add(x => x.LoanBookAverageRate).Average();
+                            } );
+                    } ))   
+    </div>
+
+    @(
+     Html.Kendo().ContextMenu()
+    .Name( "ProfitLossContextMenu" )
+                .Target( "#ProfitLossGrid" )
+    .Events( events => events.Select( "onProfitLossContextMenuSelect" ) )
+    .Items( items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text( "Unsort" ).Enabled( true );
+        items.Add().Text( "Reset Filter" ).Enabled( true );
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator( true );
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text( "Copy" ).Enabled( true ).HtmlAttributes( new { ID = "ProfitLossButton" } );
+        items.Add().Text( "Export To Excel" ).Enabled( true );
+    } ))

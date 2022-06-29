@@ -1,0 +1,268 @@
+﻿@using SLTrader.Tools
+@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+
+@model SLTrader.Models.LocateCustom
+
+
+@*<style scoped>
+    #LocateSingleTable th,
+    #LocateSingleTable td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+</style>*@
+
+
+
+<script type="text/javascript">
+    $('#LocateSourceTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#LocateSecurityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AllocatedQuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#LocateCommentTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#LocateTradeXrefTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#LocateCustomRequestedQuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+    
+    function onLocateSavePost() {
+        try {
+
+            if (ValidateLocate() == 0) {
+
+                if (ValidateLocateRule() == 0) {
+                    var form = $("#my-form");
+                    $.ajax({
+                        url: "@Url.Action("AddSingleLocate", "Locates", new { area = "Locates" })",
+                        data: form.serializeArray(),
+                        type: "POST",
+                        success: function () {
+                            $("#StatusLabel").text("Locate created.");
+                            $('#LocalDetailWindow').data("kendoWindow").close();
+                        },
+                        error: function (e) {
+                            if (e.statusText == "Issue [0] not found.") {
+                                var security = $("#LocateSecurityTextBox");
+                                security.css("background", "lightcoral");
+                                $("#StatusLabel").text("Not a valid security.");
+                            }
+                            else {
+                                $("#StatusLabel").text(e.statusText);
+                            }
+                        }
+                    });
+                }
+            }
+            else {
+                $("#StatusLabel").text("Values missing highlighted in red.");               
+            }
+        }
+        catch (e) {
+          
+
+            console.log(e.message);
+        }
+    }
+
+    function onLocateCustomClientData() {
+
+        return {
+            entityId : '@Model.EntityId'
+        }
+    }
+
+
+    function ValidateLocate() {
+        var source = $("#LocateSourceTextBox");
+        var security = $("#LocateSecurityTextBox");
+        var customQty = $("#LocateCustomRequestedQuantityTextBox").data("kendoNumericTextBox");
+        var allocatedQty = $("#AllocatedQuantityTextBox").data("kendoNumericTextBox");
+        var clientId = $("#LocateClientIdDropDownList").data("kendoDropDownList");
+        //.val();
+        var itemsWrong = 0;
+
+        if ((clientId.value() == null) || (clientId.value() == 0)) {
+            clientId.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            clientId.wrapper.find(".k-input").css("background", "white");
+        }
+
+        if ((source.val() == null) || (source.val() == '')) {
+            source.css("background", "lightcoral");            
+            itemsWrong++;
+        }
+        else {
+            source.css("background", "white");
+        }
+
+        if ((security.val() == null) || (security.val() == '')) {
+            security.css("background", "lightcoral");
+            itemsWrong++;
+        }
+        else {        
+            security.css("background", "white");
+        }
+
+        if ((customQty.value() == null) || (customQty.value() == 0)) {
+            customQty.wrapper.find(".k-input").css("background", "lightcoral");
+            itemsWrong++;
+        }
+        else {
+            customQty.wrapper.find(".k-input").css("background", "white");            
+        }
+
+
+        if ((allocatedQty.value() == null) || (allocatedQty.value() == 0)) {
+            allocatedQty.wrapper.find(".k-input").css("background", "lightcoral");
+            itemsWrong++;
+        }
+        else {
+            allocatedQty.wrapper.find(".k-input").css("background", "white");
+        }
+
+
+        return itemsWrong;
+    }
+
+    function ValidateLocateRule() {
+        var source = $("#LocateSourceTextBox");
+        var security = $("#LocateSecurityTextBox");
+        var customQty = $("#LocateCustomRequestedQuantityTextBox").data("kendoNumericTextBox");
+        var allocatedQty = $("#AllocatedQuantityTextBox").data("kendoNumericTextBox");
+        var clientId = $("#LocateClientIdDropDownList").data("kendoDropDownList");
+        //.val();
+        var itemsWrong = 0;
+
+
+        if (customQty.value() < allocatedQty.value())
+        {
+            customQty.wrapper.find(".k-input").css("background", "lightcoral");
+            allocatedQty.wrapper.find(".k-input").css("background", "lightcoral");
+            
+            $("#StatusLabel").text("Requested Qty cannot be less than Alloc Qty");
+
+            itemsWrong++;
+        }
+      
+        return itemsWrong;
+    }
+</script>
+
+
+<div id="TradeAddDiv" class="table-form">
+@using (Html.BeginForm("Action", "ControllerName", FormMethod.Post, new { id = "my-form" }))
+{
+    <table id="LocateSingleTable">
+    <tr>
+        <td>
+            @LabelHelper.Text("LocateClientId")
+        </td>
+        <td>
+        @(Html.Kendo().DropDownListFor(model => model.Client)
+                          .HtmlAttributes(new { @class = "Toolbar-Cell", tabindex = 1, @ID= "LocateClientIdDropDownList" })
+                          .Animation(true)
+                          .DataTextField("Client")
+                          .DataValueField("Client")
+                          .OptionLabel(LabelHelper.Text("OptionLabel"))
+                          .AutoBind(true)
+                          .Enable(true)
+                          .DataSource(dataSource => dataSource
+                              .Read(read => read
+                                  .Action("LoadLocateClientDropdown", "Locates", new { area = "Locates" }).Data("onLocateCustomClientData")))
+                          .SelectedIndex(0))
+        </td>
+        <td>
+            @LabelHelper.Text("Source")
+        </td>
+        <td>
+            @Html.Kendo().TextBoxFor(model => model.Source).HtmlAttributes(new { @class = "width90", @ID = "LocateSourceTextBox", tabindex = 2 })            
+        </td>
+    </tr>
+        <tr>
+            <td>
+                @LabelHelper.Text( "SecurityNumber" )
+            </td>
+            <td colspan="3">                
+                @Html.Kendo().TextBoxFor(model => model.Ticker).HtmlAttributes( new { @class = "width90", @ID = "LocateSecurityTextBox", tabindex = 3 })
+            </td>
+        </tr>
+    
+    <tr>
+        <td>
+            @LabelHelper.Text( "LocateCustomRequestedQuantity" )
+        </td>
+        <td>
+            @(Html.Kendo().NumericTextBoxFor( x => x.RequestedQuantity ).HtmlAttributes( new { @class = "width90", @ID= "LocateCustomRequestedQuantityTextBox", tabindex = 4 } ).Format( "n0" ).Spinners( false ).Value( 100 ).Enable( true ))
+        </td>
+           
+        <td>
+            @LabelHelper.Text("LocateCustomAllocatedQuantity")
+        </td>
+        <td>
+            @(Html.Kendo().NumericTextBoxFor(x => x.AllocatedQuantity).HtmlAttributes(new { @class = "width90", @ID= "AllocatedQuantityTextBox", tabindex = 5 }).Format("n0").Spinners(false).Value(100).Enable(true))
+        </td>
+    </tr>
+        <tr>
+            <td>
+                @LabelHelper.Text("TradeXRef")
+            </td>
+            <td colspan="3">                
+                @Html.Kendo().TextBoxFor(model => model.TradeXref).HtmlAttributes(new { @class = "width100p", @ID = "LocateTradeXrefTextBox", tabindex = 6 })
+
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                @LabelHelper.Text( "Comment" )
+            </td>
+            <td colspan="3">
+                @Html.Kendo().TextBoxFor(model => model.Comment).HtmlAttributes(new { @class = "width100p", @ID = "LocateCommentTextBox", tabindex = 7 })
+            </td>
+        </tr>
+      <tr>
+          <td colspan="6">
+              <label id="StatusLabel" class="label-status"></label>
+          </td>
+      </tr>
+      <tr>          
+          <td colspan="6" class="text-right">              
+              @Html.Kendo().Button().Name("PostLocateButton").Events(ev => ev.Click("onLocateSavePost")).Content(@LabelHelper.Text("PostLocate"))
+          </td>
+      </tr>
+</table>
+     @Html.HiddenFor(model => model.EntityId);
+     @Html.HiddenFor(model => model.Client);
+     @Html.HiddenFor(model => model.RequestedQuantity);
+     @Html.HiddenFor( model => model.AllocatedQuantity );
+}    
+</div>

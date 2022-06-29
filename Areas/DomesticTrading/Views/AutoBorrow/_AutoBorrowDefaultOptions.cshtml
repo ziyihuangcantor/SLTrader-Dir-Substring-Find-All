@@ -1,0 +1,206 @@
+﻿@using SLTrader.Tools
+<script type="text/javascript">
+    function onSettingsPost()
+    {
+
+        var divRate = $("#AutoBorrowDefaultDivRateTextBox").data("kendoNumericTextBox").value();
+        var mark=$("#AutoBorrowDefaultMarkTextBox").data("kendoNumericTextBox").value();
+        var markId =document.getElementById("AutoBorrowDefaultMarkIdTextBox").value;
+        var profitId =document.getElementById("AutoBorrowDefaultProfitIdTextBox").value;
+        var incomeTracked = $("#AutoBorrowDefaultIncomeTrackedCheckBox").prop('checked');
+        var matchMin = $("#AutoBorrowDefaultMatchMinCheckBox").prop('checked');
+        var minQuantity=$("#AutoBorrowDefaultMinPartialQuantityTextBox").data("kendoNumericTextBox").value();
+        var batchCode=document.getElementById("AutoBorrowDefaultBatchCodeTextBox").value;
+        var timeOut=document.getElementById("AutoBorrowDefaultTimeOutTextBox").value;
+        var addToLoanet = document.getElementById("AutoBorrowDefaultAddToLoanetTextBox").value;
+        var routeTableRateId = document.getElementById("AutoBorrowRoutingTableRateIdTextBox").value;
+
+        $('#StatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+        try {
+            $.ajax({
+                url: '/DomesticTrading/AutoAction/ProcessDefaultsUpdateBorrowOrder',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    divRate: divRate,
+                    mark: mark,
+                    markId: markId,
+                    profitId: profitId,
+                    matchMin: matchMin,
+                    incomeTracked: incomeTracked,
+                    minQuantity: minQuantity,
+                    batchCode: batchCode,
+                    timeOut: timeOut,
+                    addToLoanet: addToLoanet,
+                    routeTableRateId: routeTableRateId
+                }),
+                success: function (valid) {
+                    $('#StatusLabel').html("Sucessfully updated default values");
+                },
+                error: function (valid) {
+                    LogError(valid.message);
+
+                    $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                }
+            });
+        }
+        catch(e)
+        {
+            console.log(e.message);
+        }
+    }
+
+   
+    $('#AutoBorrowDefaultBatchCodeTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultDivRateTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultProfitIdTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultMarkTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultMarkIdTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultMinPartialQuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultTimeOutTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowDefaultAddToLoanetTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#AutoBorrowRoutingTableRateIdTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    //---
+    $('#AutoBorrowDefaultIncomeTrackedCheckBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultMatchMinCheckBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultBatchCodeTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultDivRateTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultProfitIdTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultMarkTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultMarkIdTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultMinPartialQuantityTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultTimeOutTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowDefaultAddToLoanetTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $('#AutoBorrowRoutingTableRateIdTextBox').change(function () {
+        $("#PostAutoBorrowOptions").data("kendoButton").enable(true);
+    });
+
+    $(document).ready(function () {
+        $('#LocalDetailWindow').data("kendoWindow").center();
+    });
+    
+</script>
+
+<style scoped>
+    #AutoBorrowDefaultOptionsTable td {
+        padding-left:5px;     
+        padding-right:0px;     
+    }
+</style>
+<div id="AutoBorrowDefaultOptionsDiv" class="table-form">
+    <table id="AutoBorrowDefaultOptionsTable">
+        <tr>
+            <td>@LabelHelper.Text("AutoBorrowBatchCode")</td>
+            <td>@Html.TextBox("AutoBorrowDefaultBatchCodeTextBox", DataSystemValues.LoadSystemValue("AutoBorrowBatchCode", ""), new { @class = "k-textbox width90" })</td>
+            <td>@LabelHelper.Text("AutoBorrowDivRate")</td>
+            <td>@Html.Kendo().NumericTextBox().Name("AutoBorrowDefaultDivRateTextBox").Format("#,##0.00").Value(Convert.ToDouble(DataSystemValues.LoadSystemValue("AutoBorrowDivRate", ""))).HtmlAttributes(new { @class = "width90" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text("AutoBorrowIncomeTracked")</td>
+            <td>@Html.Kendo().CheckBox().Name("AutoBorrowDefaultIncomeTrackedCheckBox").Checked(bool.Parse(DataSystemValues.LoadSystemValue("AutoBorrowIncomeTracked", ""))).HtmlAttributes(new { @class= "float-left margin0-auto" })</td>
+            <td>@LabelHelper.Text("AutoBorrowProfitId")</td>
+            <td>@Html.TextBox("AutoBorrowDefaultProfitIdTextBox", DataSystemValues.LoadSystemValue("AutoBorrowProfitId", ""), new { @class = "k-textbox width90" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text("AutoBorrowMark")</td>
+            <td>@Html.Kendo().NumericTextBox().Name("AutoBorrowDefaultMarkTextBox").Format("#,##0.00").Value(Convert.ToDouble(DataSystemValues.LoadSystemValue("AutoBorrowMark", ""))).HtmlAttributes(new { @class = "width90" })</td>
+            <td>@LabelHelper.Text("AutoBorrowMarkId")</td>
+            <td>@Html.TextBox("AutoBorrowDefaultMarkIdTextBox", DataSystemValues.LoadSystemValue("AutoBorrowMarkId", ""), new { @class = "k-textbox width90" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text("AutoBorrowMinPartialQuantity")</td>
+            <td>@Html.Kendo().NumericTextBox().Name("AutoBorrowDefaultMinPartialQuantityTextBox").Format("#,##0.00").Value(Convert.ToDouble(DataSystemValues.LoadSystemValue("AutoBorrowMinPartialQuantity", ""))).HtmlAttributes(new { @class = "width90" })</td>
+            <td>@LabelHelper.Text("AutoBorrowMatchMin")</td>            
+            <td>@Html.Kendo().CheckBox().Name("AutoBorrowDefaultMatchMinCheckBox").Checked(bool.Parse(DataSystemValues.LoadSystemValue("AutoBorrowMatchMin", ""))).HtmlAttributes(new { @class = "float-left margin0-auto" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text("AutoBorrowAddToLoanet")</td>
+            <td>@Html.TextBox("AutoBorrowDefaultAddToLoanetTextBox", DataSystemValues.LoadSystemValue("AutoBorrowAddToLoanet", "Y"), new { @class = "k-textbox width90" })</td>
+            <td>@LabelHelper.Text("AutoBorrowTimeOut")</td>
+            <td>@Html.TextBox("AutoBorrowDefaultTimeOutTextBox", DataSystemValues.LoadSystemValue("AutoBorrowTimeOut", ""), new { @class = "k-textbox width90" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Text("AutoBorrowRoutingTableRateId")</td>
+            <td>@Html.TextBox("AutoBorrowRoutingTableRateIdTextBox", DataSystemValues.LoadSystemValue("AutoBorrowRoutingTableRateId", "F"), new { @class = "k-textbox width90" })</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                <label id="StatusLabel" class="label-status"></label>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" align="right">
+                @Html.Kendo().Button().Name("PostAutoBorrowOptions").Enable(false).Content(LabelHelper.Text("PostAutoBorrowOptionsChange")).Events(e => e.Click("onSettingsPost"))
+            </td>
+        </tr>
+    </table>
+</div>

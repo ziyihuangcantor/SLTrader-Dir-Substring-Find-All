@@ -1,0 +1,625 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models;
+@using SLTrader.Models.ContractRelatedModels
+@using BondFire.Entities
+@using BondFire.Entities.Projections
+
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+@using TradeType = BondFire.Entities.TradeType
+
+<script type="text/javascript">
+    var _originalPushListPad = null;
+    var _originalPushListPadSelectAll = false;
+
+    var _pushPadInquiryInterval = false;
+    var _pushPadInquiryInProgress = false;
+    var _pushPadRefreshIntervalTime = 10000;
+
+    $(document).ready(function () {       
+        setTimeout(function () {
+            _originalPushListPad = $("#PushListPadGrid").data('kendoGrid').getOptions(); 
+
+            LoadGridLayout("#PushListPadGrid");
+        }, 5);
+
+        var clientPushListPadCopyButton = new ZeroClipboard(document.getElementById("PushListPadCopyButton"));
+
+        clientPushListPadCopyButton.on("ready", function (readyEvent) {
+            clientPushListPadCopyButton.on("copy", function (event) {
+                var data = KendoGridToText("#PushListPadGrid", "PushListPadGrid", false);
+                clientPushListPadCopyButton.setText(data);
+            });
+        });   
+
+        _pushPadRefreshIntervalTime = '@DataSystemValues.LoadSystemValue("PushPadRefreshIntervalTime", "60000")'
+
+        try {
+            _pushPadInquiryInterval = setInterval("onPushPadInquiryRefresh()", _pushPadRefreshIntervalTime);
+        }
+        catch (e) {
+        }
+    });
+
+    function onPushPadInquiryRefresh() {
+        try {
+            if (_pushPadInquiryInProgress == false) {
+                _pushPadInquiryInProgress = true;
+
+                try {
+                    if ($("#PushListAutoUpdateCheckBox").is(':checked')) {           
+                            $("#PushListPadGrid").data("kendoGrid").dataSource.read();            
+                    }
+                }
+                catch (e) {
+                    clearInterval(_pushPadInquiryInterval);
+                }        
+
+                _pushPadInquiryInProgress = false;
+            }
+        }
+        catch (e) {
+
+        }
+    }
+
+    function onPushListPadGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#PushListPadGrid");
+        }, 5);
+    }
+
+    $(document).ready(function () {
+        $('#EntityCheckBox').change(function () {
+            $("#PushListpadEntityDropdownList").data("kendoMultiSelect").enable($(this).is(':checked'));
+        });
+
+        $('#OtherEntityCheckBox').change(function () {
+            $("#PushListpadOtherEntityDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#DtccEligibleCheckBox').change(function () {
+            $("#PushListDtccEligibleDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#PriceMinCheckBox').change(function () {
+            $("#PriceMinTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+        });
+
+        $('#QuantityMinCheckBox').change(function () {
+            $("#QuantityMinTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+        });
+
+        $('#AvailLookupCheckBox').change(function () {
+            $('#PushListAvailLookupDropdownList').data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#DisplayRateCheckBox').change(function () {
+            $('#DisplayRateDropdownList').data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#DisplayOCCCheckBox').change(function () {
+            $('#PushPadDisplayOCCDropdownList').data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+
+        $('#PushListReceiveCheckBox').change(function () {
+            $('#PushListReceiveDropdownList').data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#PushListAutoUpdateCheckBox').change(function () {
+            
+        });
+
+        $('#DisplayParAvailCheckBox').change(function () {
+            $('#PushListParAvailDropdownList').data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+
+        
+    });
+
+    function checkScratchPadAll(ele) {
+        var grid = $('#PushListPadGrid').data('kendoGrid');
+        var datasourcedata = grid.dataSource.data();
+
+        for (var i = 0; i < datasourcedata.length; i++) {
+            var dataitem = datasourcedata[i];
+            dataitem['Enabled'] = true;
+        }
+    }
+
+    function onPushListPadError(e) {
+        console.log(e);
+        DisplayControllerByStringError(e.message);
+    }
+
+    function exportToPushListPadExcel() {
+        KendoGridToCSVConvertor("#PushListPadGrid", 'PushListPadGrid', _originalPushListPadSelectAll);
+    }
+
+    function onPushListPadSelectAll(e) {
+        try {
+            var PushListPadGrid = $("#PushListPadGrid").data("kendoGrid");
+            PushListPadGrid.select(PushListPadGrid.tbody.find(">tr"));
+
+            _originalPushListPadSelectAll = true;
+        }
+        catch (e) {
+            DisplayControllerByStringError(e.message);
+        }
+    }
+
+    function onPushPadUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onPushListPadContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Unsort':
+                onPushPadUnsortGrid('#PushListPadGrid');
+                break;
+
+            case 'Select All':
+                onPushListPadSelectAll(true);
+                break;
+
+
+            case "Reset Grid":
+                ResetUserLayout("#PushListPadGrid");
+
+                $("#PushListPadGrid").data('kendoGrid').setOptions(_originalPushListPad);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#PushListPadGrid");
+                break;
+
+            case 'Export To Excel':
+                exportToPushListPadExcel();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#PushListPadGrid");
+                break;
+        }
+    }
+
+   function removePushListPadTrades(e) {
+        $('#PushListPadGrid').data("kendoGrid").dataSource.data([]);
+    }
+
+    function onPushListPadParse(e) {
+        $('#PushListPadGrid').data("kendoGrid").dataSource.read();
+    }
+
+    function onPushListData(e) {
+        var entityId = $("#PushListpadEntityDropdownList").data("kendoMultiSelect").value();
+        var otherEntityId = ($("#OtherEntityCheckBox").is(':checked')) ? $("#PushListpadOtherEntityDropdownList").data("kendoDropDownList").value() : null;
+        var eligible = ($("#DtccEligibleCheckBox").is(':checked')) ? $("#PushListDtccEligibleDropdownList").data("kendoDropDownList").value() : null;
+
+        var availLookupType = $("#PushListAvailLookupDropdownList").data("kendoDropDownList").value();
+        var displatRateType = $("#DisplayRateDropdownList").data("kendoDropDownList").value();
+        var displayOCCType = $("#PushPadDisplayOCCDropdownList").data("kendoDropDownList").value();
+        var displayReceive = $("#PushListReceiveDropdownList").data("kendoDropDownList").value();
+
+        var priceMin = $("#PriceMinCheckBox").is(':checked') ? $("#PriceMinTextBox").data("kendoNumericTextBox").value() : 0 ;
+        var quantityMin = $("#QuantityMinCheckBox").is(':checked') ? $("#QuantityMinTextBox").data("kendoNumericTextBox").value() : 0 ;
+        var rollup = ($("#PushListRollupCheckBox").is(':checked')) ? true:false;
+        var includeIntradayLendingCheckBox = ($("#IncludeIntradayLendingCheckBox").is(':checked')) ? true:false;
+        var showRateComparisonCheckBox = ($("#ShowRateComparisonCheckBox").is(':checked')) ? true:false;
+        var source = ($("#PushListClassificationCheckBox").is(':checked')) ? $("#PushListPadClassificationDropdownList").data("kendoMultiSelect").dataItems() : '';        
+        var parValue = ($("#DisplayParAvailCheckBox").is(':checked')) ? $("#PushListParAvailDropdownList").data("kendoDropDownList").value() : null;
+
+        return {
+            entityId: entityId,
+            otherEntityId: otherEntityId,
+            displatRateType: displatRateType,
+            availLookupType: availLookupType,
+            displayOCCType: displayOCCType,
+            displayReceiveType: displayReceive,
+            showRateComparison: showRateComparisonCheckBox,
+            eligible: eligible,
+            quantityMin: quantityMin,
+            priceMin: priceMin,
+            issueTypes: source,
+            pushListRollup : rollup,
+            hariCut: 0,
+            parValue: parValue
+        }
+    }
+
+    function onPushListPadDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreferenceMultiple',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#PushListpadEntityDropdownList').data("kendoMultiSelect");
+
+                     dropdownList.value(userPreference);
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) { }
+    }
+
+
+    function additionalPushListPadData() {
+        var entityId = $("#PushListpadEntityDropdownList").data("kendoMultiSelect").value();
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+    function onPushPadRowChange(e) {
+        try {
+
+            var pushPadGrid = $("#PushListPadGrid").data("kendoGrid");
+            var selectedItem = pushPadGrid.dataItem(pushPadGrid.select());
+
+
+
+            var effectiveDate = '@DateTime.Today.ToString("yyyy-MM-dd")';
+            var entityId = selectedItem["EntityId"];            
+            var securityNumber = selectedItem["SeucrityIdentifer"];            
+            var issueId = selectedItem["IssueId"];
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+            _originalPushListPadSelectAll = false;
+        }
+        catch (e) {
+            console.log(e.message);            
+        }        
+    }
+
+    function onPushListSearchChange(e) {
+        e.preventDefault();
+
+        try {
+            var cusipTextBox = document.getElementById("PushListSecuritySearchTextBox").value;
+
+            QuickColumnGrid("#PushListPadGrid", cusipTextBox);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onPushPadCheckData(e) {
+        CheckGridData('#PushListPadGrid');
+
+    }
+
+</script>
+
+<style scoped>
+    .input {
+        text-transform: uppercase;
+    }
+
+    #PushListToolBar .k-checkbox-label {
+        padding-left: 20px;
+    }
+   
+    .k-widget.k-tooltip {
+        font-size: small;
+    }
+
+    #PushListPadCopyButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+
+    hideControl {
+        visibility: hidden;
+    }
+   
+    #PushPadDiv {
+        height:85%;
+    }
+
+    #PushListPadGrid {
+        height:95%;
+    }
+
+    #PushListPadOptionsToolBar.k-widget .k-multiselect input {
+        display: none;
+    }
+</style>
+
+ <div id="PushPadDiv">
+    @(Html.Kendo().ToolBar()
+                .Name("PushListToolBar")
+                .Resizable(true)
+                .Items(items =>
+                {
+                items.Add().Template(Html.Kendo().Button().Name("PushListPadButton").Events(e => e.Click("onPushListPadParse")).Content(@<text><i class="fa fa-pencil"></i>&nbsp;Run List</text>).ToHtmlString());
+                    items.Add().Template(Html.Kendo().Button().Name("PushListTrashButton").HtmlAttributes(new { @class="k-widget k-notification k-notification-error" }).Events(e => e.Click("removePushListPadTrades")).Content(@<text> <i class="fa fa-trash-o"></i>&nbsp;Trash</text>).ToHtmlString());
+
+                    items.Add().Template(Html.Kendo().CheckBox().Name("PushListAutoUpdateCheckBox").Checked(false).Label(LabelHelper.Text("AutoUpdate")).ToHtmlString());
+
+                    items.Add().Template(
+                "<table ID='PushListTable'><tr><td>" +
+                LabelHelper.LabelFor("TickerSearch", "PushListSecuritySearchTextBox").ToHtmlString() + "</td><td>" +
+                Html.Kendo().AutoComplete().Name("PushListSecuritySearchTextBox").HtmlAttributes(new { @class = "width90" }).Events(eve => eve.Filtering("onPushListSearchChange")).Suggest(true).ToHtmlString() + "</td></tr></table>"
+                ).HtmlAttributes(new { @class = "float-right" });
+
+                }))
+
+    <table id="PushListPadOptionsToolBar" class="toolbar">
+        <tr>
+            <td>
+                @Html.Kendo().CheckBox().Name("EntityCheckBox").Label(LabelHelper.Text("Entity"))
+            </td>
+            <td>
+                @(Html.Kendo().MultiSelect()
+                    .Name("PushListpadEntityDropdownList")
+                     .HtmlAttributes(new { @class = "Toolbar-Cell", @style = "width:190px;" })
+                    .AutoClose(false)
+                    .TagMode(TagMode.Single)
+                    .AutoWidth(true)
+                    .Enable(true)
+                    .Placeholder("No records selected")
+                    .AutoBind(true)
+                    .ItemTemplate("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                    "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                    "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                    .DataTextField("Custodian")
+                    .DataValueField("CompanyId")
+                    .Value(SessionService.UserDefaultFrimMultiple)
+                    .DataSource(ds =>
+                    {
+                        ds.Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" }));
+                }))
+           </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("OtherEntityCheckBox").Label(LabelHelper.Text("ComapareEntity"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("PushListpadOtherEntityDropdownList")
+                     .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                    .DataTextField("Custodian")
+                    .DataValueField("CompanyId")
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .Animation(true)
+                    .AutoBind(true)
+                    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" + "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" + "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                    .AutoWidth(true)                                                
+                    .Enable(false)
+                    .DataSource(dataSource => dataSource.Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                    .Value(SessionService.UserPreference.DefaultFirm))
+            </td> 
+            <td>
+                @Html.Kendo().CheckBox().Name("AvailLookupCheckBox").Label(LabelHelper.Text("AvailLookup"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("PushListAvailLookupDropdownList")
+                                  .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .AutoWidth(true)
+                                  .Value(DataSystemValues.LoadSystemValue("PushPadDefaultValue","DepoPosition", SessionService.SecurityContext))
+                                  .Enable(false)
+                                  .BindTo(Enum.GetNames(typeof(PushPadAvailLookupEnum)).ToList()))
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @Html.Kendo().CheckBox().Name("PriceMinCheckBox").Label(LabelHelper.Text("PriceMin"))
+            </td>
+            <td>
+                @Html.Kendo().NumericTextBox().Name("PriceMinTextBox").HtmlAttributes(new { @class= "pushlist-item-width" }).Spinners(false).Value(0).Format("#,##0.00").Enable(false)
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("QuantityMinCheckBox").Label(LabelHelper.Text("QuantityMin"))
+            </td>
+            <td>
+                @Html.Kendo().NumericTextBox().Name("QuantityMinTextBox").HtmlAttributes(new { @class = "pushlist-item-width" }).Spinners(false).Value(0).Format("#,##0.00").Enable(false)
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("DisplayRateCheckBox").Label(LabelHelper.Text("DisplayRate"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("DisplayRateDropdownList")
+                                                                       .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .AutoWidth(true)
+                                  .Value(PushPadDisplayRateEnum.IntradayRate.ToString())
+                                  .Enable(false)
+                                  .BindTo(Enum.GetNames(typeof(PushPadDisplayRateEnum)).ToList()))
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @Html.Kendo().CheckBox().Name("PushListClassificationCheckBox").Label(LabelHelper.Text("Classification"))
+            </td>
+            <td>
+                @(Html.Kendo().MultiSelect()
+                                  .Name("PushListPadClassificationDropdownList")
+                                                                       .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .AutoClose(false)
+                                  .AutoWidth(true)
+                                  .TagMode(TagMode.Single)
+                                  .Enable(true)
+                                  .Placeholder(LabelHelper.Text("UseAll"))
+                                  .AutoBind(false)
+                                  .DataSource(ds =>
+                                  {
+                                      ds.Read(read => read.Action("Read_ClassificationTypesMultiSelect", "Trade", new { area = "DomesticTrading" }).Data("additionalPushListPadData"));
+                                  }))
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("DtccEligibleCheckBox").Label(LabelHelper.Text("DtccEligible"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("PushListDtccEligibleDropdownList")
+                                                                       .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .Value(DtccEligibleType.DTCC.ToString())
+                                  .AutoWidth(true)
+                                  .Enable(false)
+                                  .BindTo(Enum.GetNames(typeof(DtccEligibleType)).ToList()))
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("DisplayOCCCheckBox").Label(LabelHelper.Text("DisplayOCC"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("PushPadDisplayOCCDropdownList")
+                                                                       .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .AutoWidth(true)
+                                  .Value(PushPadDisplayOCCEnum.DisplayAll.ToString())
+                                  .Enable(false)
+                                  .BindTo(Enum.GetNames(typeof(PushPadDisplayOCCEnum)).ToList()))
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @Html.Kendo().CheckBox().Name("PushListReceiveCheckBox").Label(LabelHelper.Text("Receives"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("PushListReceiveDropdownList")
+                                     .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .Value(PushPadReceivesEnum.WithoutReceives.ToString())
+                                  .AutoWidth(true)
+                                  .Enable(false)
+                                  .BindTo(Enum.GetNames(typeof(PushPadReceivesEnum)).ToList()))
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("DisplayParAvailCheckBox").Label(LabelHelper.Text("ParValue"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList().Name("PushListParAvailDropdownList")
+                                  .HtmlAttributes(new { @class = "Toolbar-Cell pushlist-item-width" })
+                                  .AutoWidth(true)
+                                  .Value(DataSystemValues.LoadSystemValue("PushPadParAvailDefaultValue", "100", SessionService.SecurityContext))
+                                  .Enable(false)
+                                  .BindTo(new int[] { 10, 100, 1000 }))
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("PushListRollupCheckBox").Label(LabelHelper.Text("RollupEntity")).Checked((bool)SessionService.UserPreference.RollupEntity)
+            </td>
+            <td></td>
+
+        </tr>
+
+    </table>
+
+    @(Html.Kendo().Grid<PushListModel>()
+    .Name("PushListPadGrid")
+    .Scrollable(x => x.Virtual(true).Enabled(true))
+    .Selectable(select => select.Type(GridSelectionType.Row).Mode(GridSelectionMode.Multiple))
+    .Resizable(resize => resize.Columns(true))
+    .AutoBind(true)
+    .Events(e =>
+    {
+        e.Change("onPushPadRowChange");
+        e.DataBound("onPushPadCheckData");
+        e.ColumnHide("onPushListPadGridLayoutChange");
+        e.ColumnShow("onPushListPadGridLayoutChange");
+        e.ColumnResize("onPushListPadGridLayoutChange");
+        e.ColumnReorder("onPushListPadGridLayoutChange");
+    })
+    .Sortable()
+    .Filterable()
+    .Reorderable(reorder =>
+    {
+        reorder.Columns(true);
+    })
+    .ColumnMenu(menu =>
+    {
+        menu.Columns(true);
+        menu.Filterable(true);
+        menu.Sortable(true);
+        menu.ComponentType( "modern" );
+    } )
+           .Pageable(pagable =>
+           {
+               pagable.Numeric(false);
+               pagable.PreviousNext(false);
+               pagable.Messages(config =>
+               {
+                   config.Display("Showing {2} item(s)");
+               });
+           })
+    .NoRecords()
+    .Navigatable()
+    .Columns(columns =>
+    {
+        columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.SeucrityIdentifer).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.DtccEligible).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(Price)#", "DecimalNumber");
+        columns.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "QuantityDecimalNumber");
+        columns.Bound(x => x.Amount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(Amount)#", "DecimalNumber");
+        columns.Bound(x => x.PotentialIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(PotentialIncome)#", "");
+        columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.IntraDayRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(IntraDayRate)#", "RebateRateDecimalNumber");
+        columns.Bound(x => x.OtherEntityRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(OtherEntityRate)#", "RebateRateDecimalNumber");
+        columns.Bound(x => x.OnlyOCC).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox' #= OnlyOCC ? checked='checked':'' # class='chkbx' />", "");
+
+        columns.Bound(x => x.RecieveQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(RecieveQuantity)#", "");
+        columns.Bound(x => x.RecieveRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RecieveRate)#", "");
+
+        columns.Bound(x => x.SameDayDeltaQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(SameDayDeltaQuantity)#", "");
+        columns.Bound(x => x.SameDayDeltaAmount).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetMoneyDirection(SameDayDeltaAmount)#", "");
+        columns.Bound(x => x.SameDayLoanRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(SameDayLoanRate)#", "");
+
+
+        columns.Bound(x => x.PendingOutNewLoan).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingOutNewLoan)#", "");
+        columns.Bound(x => x.PendingOutReturn).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingOutReturn)#", "");
+
+        columns.Bound(x => x.VesusRecieve).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox' #= VesusRecieve ? checked='checked':'' # class='chkbx' />", "");
+        columns.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    })
+    .DataSource(read => read.Ajax()
+    .PageSize(50)
+    .Read(reader =>
+    {
+        reader.Action("ReadPushListOptionsMultiSelect", "Trade", new { area = "DomesticTrading" }).Data("onPushListData");
+    })
+    .Aggregates(agg =>
+    {
+        agg.Add(x => x.Quantity).Sum();
+        agg.Add(x => x.PendingOutNewLoan).Sum();
+        agg.Add(x => x.PendingOutReturn).Sum();
+        agg.Add(x => x.Amount).Sum();
+        agg.Add(x => x.PotentialIncome).Sum();
+    })
+    .Events(e => e.Error("onPushListPadError"))
+    .ServerOperation(false)))
+</div>
+       
+
+    @(Html.Kendo().ContextMenu()
+    .Name("PushListPadContextMenu")
+    .Target("#PushListPadGrid")
+    .Events(events => events.Select("onPushListPadContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns").Enabled(true);
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Text( "Check All" ).Enabled( true );
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "PushListPadCopyButton" });
+        items.Add().Text("Export To Email").Enabled(false);
+        items.Add().Text("Export To Excel").Enabled(true);
+    }))

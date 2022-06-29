@@ -1,0 +1,431 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities
+@using BondFire.Entities.Projections
+
+@model List<SL_AutoBorrowOrderProjection>
+
+<style scoped>
+    #BulkAutoBorrowTable {
+        border-collapse:collapse;
+        margin:0;
+    }
+
+    .k-checkbox-label {
+        top: -2px;
+    }
+
+    #BulkAutoBorrowContent {
+        width:1200px;
+    }
+</style>
+<script type="text/javascript">
+    var _autoBorrowUpdateSelectAll = false;
+    var _autoBorrowBulkSuspendRefresh = false;
+
+    function onAutoBorrowBulkUpdateSmartRouteSelect(e) {
+
+        var grid = $("#AutoBorrowBulkGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["ContraEntityId"] = "";
+    }
+
+    function onAutoBorrowBulkUpdateContraEntitySelect(e) {
+
+        var grid = $("#AutoBorrowBulkGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["SmartRoute"] = -1;
+        selectedItem["SmartRouteName"] = "";
+    }
+
+    function onBulkAutoBorrowSelectAll() {
+        try {
+            var bulkUpdateGrid = $("#AutoBorrowBulkGrid").data("kendoGrid");
+            bulkUpdateGrid.select(bulkUpdateGrid.tbody.find(">tr"));
+
+            _autoBorrowUpdateSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onBulkAutoBorrowsApplyChanges() {
+
+        $("#StatusAutoBorrowLabel").html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+        try {
+            var smartRoute = ($("#AutoBorrowSmartRouteCheckBox").is(':checked')) ? $("#AutoBorrowSmartRouteDropdownList").data("kendoDropDownList").value() : "";
+            var contraEntityId = ($("#AutoBorrowContraEntityCheckBox").is(':checked')) ? $("#AutoBorrowContraEntityDropdownList").data("kendoAutoComplete").value() : "";
+            var profitId = ($("#AutoBorrowProfitCenterCheckBox").is(':checked')) ? document.getElementById("AutoBorrowProfitCenterTextBox").value : "";
+            var executingSystem = $("#AutoBorrowExecutingSystemDropdownList").data("kendoAutoComplete").value();
+            var rebateRate = ($("#AutoBorrowRebateRateCheckBox").is(':checked')) ? $("#AutoBorrowRebateRateTextBox").data("kendoNumericTextBox").value() : null;
+            var rebateRateId = ($("#AutoBorrowRebateRateCheckBox").is(':checked')) ? document.getElementById("AutoBorrowRebateRateIdTextBox").value : "";
+            var mark = ($("#AutoBorrowMarkCheckBox").is(':checked')) ? $("#AutoBorrowMarkTextBox").data("kendoNumericTextBox").value() : null;
+            var batchCode = ($("#AutoBorrowBatchCodeCheckBox").is(':checked')) ? document.getElementById("AutoBorrowBatchCodeTextBox").value : "";
+            var timeOut = ($("#AutoBorrowTimeOutCheckBox").is(':checked')) ? document.getElementById("AutoBorrowTimeOutTextBox").value : "";
+            var listName = ($("#AutoBorrowListNameCheckBox").is(':checked')) ? document.getElementById("AutoBorrowListNameTextBox").value : "";
+
+            var dataItems = [];
+
+            dataItems = getDataItems('#AutoBorrowBulkGrid',
+                    false,
+                    '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+            if (dataItems.length == 0) {
+                $('#StatusAutoBorrowLabel').html('<i class="fa fa-times"></i> No items selected!');
+            }
+            else {
+                $.ajax({
+                    url: '@Url.Action("ProcessAutoBorrowBulkOptions", "SmartRoute", new { area = "DomesticTrading" })',
+                    type: 'POST',
+                    contentType: 'application/json;',
+                    data: JSON.stringify({
+                        list: dataItems,
+                        smartRoute: smartRoute,
+                        listName: listName,
+                        contraEntityId: contraEntityId,
+                        rebateRate: rebateRate,
+                        mark: mark,
+                        profitId: profitId,
+                        batchCode: batchCode,
+                        timeOut: timeOut,
+                        rebateRateId: rebateRateId,
+                        executingSystem: executingSystem
+                    }),
+                    success: function (valid) {
+                        _autoBorrowBulkSuspendRefresh = true;
+
+                        for (var i = 0; i < valid.length; i++) {
+                            var dataItem = valid[i];
+
+                            $("#AutoBorrowBulkGrid").data("kendoGrid").dataSource.pushUpdate(dataItem);
+                        }
+
+                        _autoBorrowBulkSuspendRefresh = false;
+
+                        $("#AutoBorrowBulkGrid").data("kendoGrid").refresh();
+                        $('#StatusAutoBorrowLabel').html('Updated ' + valid.length + ' auto borrow(s).');
+                        $("#SaveAutoBorrowsButton").data("kendoButton").enable(true);
+                    },
+                    error: function (valid) {
+                        $('#StatusAutoBorrowLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                    }
+                });
+            }
+        }
+        catch (e) {
+            $('#StatusAutoBorrowLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            console.log(e.message);
+        }
+
+        _autoBorrowSelectAll = false;
+    }
+
+    function onSaveBulkAutoBorrows() {
+        $("#StatusAutoBorrowLabel").html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+        $("#SaveAutoBorrowsButton").data("kendoButton").enable(false);
+
+        try {
+            var dataItems = getDataItems('#AutoBorrowBulkGrid',
+                     false,
+                     '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+
+            if (dataItems.length == 0) {
+                $('#StatusAutoBorrowLabel').html('<i class="fa fa-times"></i> No items selected!');
+            }
+            else {
+                $.ajax({
+                    url: "@Url.Action("SaveBulkAutoBorrowsEditor", "SmartRoute", new { area = "DomesticTrading" })",
+                    type: 'POST',
+                    contentType: 'application/json;',
+                    data: JSON.stringify({
+                        list: dataItems
+                    }),
+                    success: function(valid) {
+
+                        for (var i = 0; i < valid.length; i++) {
+                            var dataItem = valid[i];
+                            $("#AutoBorrowBulkGrid").data("kendoGrid").dataSource.pushDestroy(dataItem);
+                        }
+
+                        $('#StatusAutoBorrowLabel').html("Successfully saved " + (valid.length) + " auto borrow(s).");
+                    },
+                    error: function(valid) {
+                        $('#StatusAutoBorrowLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                    }
+                });
+            }
+        }
+        catch (e) {
+            $('#StatusAutoBorrowLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            console.log(e.message);
+        }
+
+        $("#SaveAutoBorrowsButton").data("kendoButton").enable(true);
+    }
+
+    $(document).ready(function () {
+
+        $('#AutoBorrowSmartRouteCheckBox').change(function () {
+            $("#AutoBorrowSmartRouteDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+
+            if ($('#AutoBorrowContraEntityCheckBox').is(':checked')) {
+                $('input[name=AutoBorrowContraEntityCheckBox]').attr('checked', !$(this).is(':checked'));
+                $("#AutoBorrowContraEntityDropdownList").data("kendoAutoComplete").enable(!$(this).is(':checked'));
+            }
+
+            $("#BulkAutoBorrowApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowContraEntityCheckBox').change(function () {
+            $("#AutoBorrowContraEntityDropdownList").data("kendoAutoComplete").enable($(this).is(':checked'));
+
+            if ($('#AutoBorrowSmartRouteCheckBox').is(':checked')) {
+                $('input[name=AutoBorrowSmartRouteCheckBox]').attr('checked', !$(this).is(':checked'))
+                $("#AutoBorrowSmartRouteDropdownList").data("kendoDropDownList").enable(!$(this).is(':checked'));
+            }
+
+            $("#BulkAutoBorrowApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowRebateRateCheckBox').change(function () {
+            $("#AutoBorrowRebateRateTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+            $("#ApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowMarkCheckBox').change(function () {
+            $("#AutoBorrowMarkTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+            $("#BulkAutoBorrowApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowProfitCenterCheckBox').change(function () {
+            $("#BulkAutoBorrowApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowBatchCodeCheckBox').change(function () {
+            $("#BulkAutoBorrowApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowTimeOutCheckBox').change(function () {
+            $("#BulkAutoBorrowApplyChangesButton").data("kendoButton").enable(true);
+        });
+
+        $('#AutoBorrowExecutingSystemCheckBox').change(function () {
+            $("#AutoBorrowExecutingSystemDropdownList").data("kendoAutoComplete").enable($(this).is(':checked'));
+        });
+
+        $('#LocalDetailWindow').data("kendoWindow").center();
+    });
+
+    function onBulkAutoBorrowCheckData() {
+        try {
+            CheckGridData('#AutoBorrowBulkGrid');
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onAutoBorrowBulkRowEdit(e) {
+        $("#SaveAutoBorrowButton").data("kendoButton").enable(true);
+    }
+
+    function additionalBulkAutoBorrowsData() {
+
+        return {
+            entityId: '@Model.ToList()[0].EntityId',
+        }
+    }
+
+    function onAutoBorrowBulkBinding(e) {
+        if (_autoBorrowBulkSuspendRefresh) {
+            e.preventDefault();
+        }
+    }
+</script>
+
+
+@(Html.Kendo().ToolBar()
+                .Name("BulkAutoBorrowButtonToolBar")
+                .Resizable(true)
+                .Items(items =>
+                {                    
+                    items.Add().Template(Html.Kendo().Button().Enable(true).Name("BulkAutoBorrowApplyChangesButton").Events(e => e.Click("onBulkAutoBorrowsApplyChanges")).Content(@<text><i class="fa fa-repeat"></i>&nbsp;Apply Options</text>).ToHtmlString());
+                    items.Add().Template(Html.Kendo().Button().Enable(true).Name("SaveAutoBorrowsButton").Events(e => e.Click("onSaveBulkAutoBorrows")).Content(@<text> <i class="icon-check color-green" ></i>&nbsp;Save AutoBorrow</text>).ToHtmlString());
+                    items.Add().Template(Html.Kendo().Button().Enable(true).Name("BulkUpdateAutoBorrowSelectAllButton").Events(e => e.Click("onBulkAutoBorrowSelectAll")).Content(@<text><i class="icon-check color-green"></i>&nbsp;Select All</text>).ToHtmlString());
+                }))
+
+<table id="BulkAutoBorrowTable">
+    <tr>
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowListNameCheckBox").Label(LabelHelper.Text("ListName"))                  
+        </td>
+        <td>
+            @Html.TextBox("AutoBorrowListNameTextBox", "", new { @class = "k-textbox width90" })
+        </td>
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowSmartRouteCheckBox").Label(LabelHelper.Text("SmartRoute"))
+        </td>
+        <td>
+            @(Html.Kendo().DropDownList()
+                .Name("AutoBorrowSmartRouteDropdownList")
+                .DataTextField("Name")
+                .DataValueField("Name")
+                .Enable(false)
+                .HtmlAttributes(new {@class="width120" })
+                .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SmartRouteListsDropdown", "SmartRoute", new { area = "DomesticTrading" }).Data("additionalBulkAutoBorrowsData"))))
+        </td>
+
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowContraEntityCheckBox").Label(LabelHelper.Text("ContraEntity"))
+        </td>
+        <td>
+            @(Html.Kendo().AutoComplete()
+                        .Name("AutoBorrowContraEntityDropdownList")
+                        .DataTextField("ContraEntity")
+                        .Enable(false)
+                        .HtmlAttributes(new { @class = "width90" })
+                        .DataSource(source => source.Read(read => read.Action("Read_ContraEntityDropdown", "ContraEntity", new { area = "DomesticTrading" }).Data("additionalBulkAutoBorrowsData")))
+                        .HtmlAttributes(new { ID = "AutoBorrowContraEntityDropdownList", @class = "width90" })
+                        .Events(events => events.Open("onContraEntityAutoCompleteResize"))
+                                .Template("<span class=\"k-state-default\">#:data.ContraEntity# #:data.AccountName# </span>")
+                        .Filter("startswith"))
+        </td>
+
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowRebateRateCheckBox").Label(LabelHelper.Text("RebateRate"))                      
+        </td>
+        <td>
+            @Html.Kendo().NumericTextBox().Name("AutoBorrowRebateRateTextBox").Spinners(false).Value(0).Enable(false).HtmlAttributes(new { @class = "width90" }).Min(-99)
+        </td>
+        <td>
+            @Html.TextBox("AutoBorrowRebateRateIdTextBox", "", new { @class = "k-textbox width90" })
+        </td>
+    </tr>
+    <tr>
+        <td>            
+            @Html.Kendo().CheckBox().Name("AutoBorrowMarkCheckBox").Label(LabelHelper.Text("Mark"))
+        </td>
+        <td>
+            @Html.Kendo().NumericTextBox().Name("AutoBorrowMarkTextBox").Spinners(false).Value(1.02).Format("#,##0.00").Enable(false).HtmlAttributes(new { @class = "width90" })
+        </td>
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowProfitCenterCheckBox").Label(LabelHelper.Text("ProfitCenter"))
+        </td>
+        <td>
+            @Html.TextBox("AutoBorrowProfitCenterTextBox", "", new { @class = "k-textbox width90" })
+        </td>
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowBatchCodeCheckBox").Label(LabelHelper.Text("BatchCode"))
+        </td>
+        <td>
+            @Html.TextBox("AutoBorrowBatchCodeTextBox", "", new { @class = "k-textbox width90" })
+        </td>
+        <td>           
+            @Html.Kendo().CheckBox().Name("AutoBorrowTimeOutCheckBox").Label(LabelHelper.Text("TimeOut"))
+        </td>
+        <td>
+            @Html.TextBox("AutoBorrowTimeOutTextBox", DataSystemValues.LoadSystemValue("AutoBorrowTimeOut", ""), new { @class = "k-textbox width90" })
+        </td>
+        </tr>
+        <tr>
+        <td>
+            @Html.Kendo().CheckBox().Name("AutoBorrowExecutingSystemCheckBox").Label(LabelHelper.Text("ExecutingSystem"))
+        <td>
+            @(Html.Kendo().AutoComplete()
+                                   .Name( "AutoBorrowExecutingSystemDropdownList" )
+                                .HtmlAttributes( new { ID = "AutoBorrowExecutingSystemDropdownList", @class = "width90" } )
+                                .Suggest( true )
+                                .Enable( false )
+                                .BindTo( Enum.GetNames( typeof( SL_ExecutionSystemType ) ).ToList() )
+                                .Value( SL_ExecutionSystemType.LOANET.ToString() ))
+        </td>
+    </tr>
+</table>
+<div id="BulkAutoBorrowContent" class="grid-div">
+    @(Html.Kendo().Grid(Model)
+    .Name("AutoBorrowBulkGrid")
+    .Sortable(sort =>
+    {
+    sort.AllowUnsort(true);
+    sort.Enabled(true);
+    sort.SortMode(GridSortMode.MultipleColumn);
+    })
+    .Scrollable(scroll => scroll.Virtual(true))
+    .Filterable()
+    .NoRecords()
+    .Navigatable()
+    .Editable(edit => edit.Mode(GridEditMode.InCell).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow)))
+    .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))
+    .Events(events => events.DataBound("onBulkAutoBorrowCheckData").Edit("onAutoBorrowBulkRowEdit").DataBinding("onAutoBorrowBulkBinding"))
+    .Columns(cols =>
+    {
+    cols.Bound(x => x.SLAutoBorrowOrder).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound( x => x.AutoBorrowOrderSystem ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+    cols.Bound(x => x.ListName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    cols.Bound(x => x.AutoBorrowOrderRequest).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.SmartRouteId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.SmartRouteName).GetColumnFormat(ColumnTypeEnum.String, false, "", "_AutoBorrowBulkUpdateSmartRouteDropdown");
+    cols.Bound(x => x.ContraEntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "_AutoBorrowBulkUpdateContraEntityAutoComplete");
+    cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    cols.Bound(x => x.MaxPrice).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "DecimalNumber");
+    cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "QuantityDecimalNumber");
+    cols.Bound(x => x.MinQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(MinQuantity)#", "QuantityDecimalNumber");
+    cols.Bound(x => x.MinRebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(MinRebateRate)#", "RebateRateDecimalNumber");
+    cols.Bound(x => x.MinRebateRateId).GetColumnFormat(ColumnTypeEnum.String, false, "", "String");
+    cols.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "RebateRateDecimalNumber");
+    cols.Bound(x => x.MarkParameterId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.ProfitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "String");
+    cols.Bound(x => x.CollateralFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "_CollateralFlagDropdown").Hidden(true);
+    cols.Bound(x => x.DividendRate).GetColumnFormat(ColumnTypeEnum.Margin, false, "", "DecimalNumber");
+    cols.Bound(x => x.IncomeTracked).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox' onclick='clickAutoBorrowCheck(this)' #=(IncomeTracked) ? checked='checked' :'' # />", "").Filterable(false);
+    cols.Bound(x => x.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.TimeOut).GetColumnFormat(ColumnTypeEnum.Position, false, "", "").Filterable(false);
+    cols.Bound(x => x.AddToLoanetId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Filterable(false).Hidden(true);
+    cols.Bound(x => x.BatchCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "String").Hidden(true);
+    cols.Bound(x => x.AutoBorrowOrderRequest).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.AutoBorrowOrderResponse).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.AutoBorrowOrderSystem).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.BorrowStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.BorrowStatusFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+    cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "").Hidden(true);
+    })
+    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+    .DataSource(ds => ds.Ajax()
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Create(create => create.Action("UpdateBulkAutoBorrow", "SmartRoute", new { area = "DomesticTrading" }))
+        .Update(update => update.Action("UpdateBulkAutoBorrow", "SmartRoute", new { area = "DomesticTrading" }))
+        .Aggregates(agg =>
+        {
+            agg.Add(x => x.MinQuantity).Sum();
+            agg.Add(x => x.Quantity).Sum();
+        })
+        .Model(model =>
+        {
+            model.Id(x => x.SLAutoBorrowOrder);
+            model.Field(x => x.SLAutoBorrowOrder).Editable(false);
+            model.Field(x => x.EntityId).Editable(false);
+            model.Field(x => x.IssueId).Editable(false);
+            model.Field(x => x.SecurityNumber).Editable(false);
+            model.Field(x => x.Ticker).Editable(false);
+            model.Field(x => x.AutoBorrowOrderRequest).Editable(false);
+            model.Field(x => x.AutoBorrowOrderResponse).Editable(false);
+            model.Field(x => x.AutoBorrowOrderSystem).Editable(false);
+            model.Field(x => x.BorrowStatus).Editable(false);
+            model.Field(x => x.BorrowStatusFlag).Editable(false);
+            model.Field(x => x.IncomeTracked).Editable(false);
+        })))
+</div>
+<label id="StatusAutoBorrowLabel"></label>

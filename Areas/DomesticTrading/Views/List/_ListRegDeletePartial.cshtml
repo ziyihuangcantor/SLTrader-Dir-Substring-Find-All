@@ -1,0 +1,137 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Tools
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+
+@model List<SL_RegulatoryListProjection> 
+
+<script type="text/javascript">
+
+
+    function onCancelDeleteRegList() {
+        $('#LocalDetailWindow').data("kendoWindow").close();
+    }
+
+    function onClientInventoryExportGridData(e) {
+        var dataItemsHidden = getCSVDataItems('#ClientInventoryHiddenGrid', true);
+
+        return {
+            list: dataItemsHidden
+        }
+    }
+
+    function onSendDeleteRegList() {
+        $("#SendDeleteRegListButton").data("kendoButton").enable(false);
+        $("#CancelDeleteRegListButton").data("kendoButton").enable(false);
+
+        try {
+            var dataItems = [];
+            var grid = $('#ClientRegListGrid').data('kendoGrid');
+            var rows = getCSVDataItems("#ClientRegListGrid", true);        
+
+            $.ajax({
+                url: '/DomesticTrading/List/DeleteRegulatoryProjectionList',
+                type: 'POST',
+                contentType: 'application/json;',
+                async: true,
+                cache: false,
+                data: JSON.stringify({
+                    list: rows
+                }),
+                success: function (valid) {
+                    $('#ListRegulatoryGrid').data("kendoGrid").dataSource.read();
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                },
+                error: function (valid) {
+                    $("#DeleteRegulatoryListLabel").text("Delete failed. - " + valid.message);
+                    $("#SendDeleteRegListButton").data("kendoButton").enable(true);
+                    $("#CancelDeleteRegListButton").data("kendoButton").enable(true);
+                }
+            });
+        }
+        catch (e) {
+            $("#DeleteRegulatoryListLabel").text("Export failed. - " + e.message);
+            $("#SendDeleteRegListButton").data("kendoButton").enable(true);
+            $("#CancelDeleteRegListButton").data("kendoButton").enable(true);
+        }
+    }
+</script>
+
+<style scoped>
+    #DeleteRegulatoryListTable td,
+    #DeleteRegulatoryListTable th {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+
+
+    #DeleteRegulatoryListLabel {
+        font-style: normal;
+        white-space: pre-wrap;
+        border: 1px solid #ccc;
+        height: 50px;
+    }
+
+    #DeleteRegulatoryListTable {
+        width: 300px;
+        max-width: 300px;
+    }  
+</style>
+
+@if (Model == null)
+{
+    @LabelHelper.Label("NoData")
+}
+else
+{
+    <table id="DeleteRegulatoryListTable">
+        <tr>
+            <td>
+                @LabelHelper.Label("NumberOfLists")
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td>
+                @(Html.Kendo().Grid(Model)
+.Name("ClientRegListGrid")
+.Scrollable(scroll => scroll.Enabled(true).Virtual(true))
+.Columns(cols =>
+{
+    cols.Bound(x => x.SLRegulatoryList).Hidden();
+    cols.Bound(x => x.EffectiveDate).Hidden();
+    cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    cols.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+})
+.DataSource(data =>
+{
+    data.Ajax().ServerOperation(false);
+}))
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td colspan="2">@LabelHelper.Label("Status")</td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <label id="DeleteRegulatoryListLabel">Delete @Model.Count() item(s)?</label>
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td colspan="2" align="right">
+                @Html.Kendo().Button().Name("SendDeleteRegListButton").Content(LabelHelper.Text("SendDeleteRegList")).Events(e => e.Click("onSendDeleteRegList"))
+                @Html.Kendo().Button().Name("CancelDeleteRegListButton").Content(LabelHelper.Text("CancelDeleteRegList")).Events(e => e.Click("onCancelDeleteRegList"))
+            </td>
+        </tr>
+    </table>
+}

@@ -1,0 +1,1117 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<style scoped>
+    #SecurityPositionTable td {
+        margin: 0px;
+        padding: 0px;
+    }
+
+    .hiddenControl {
+        display:none;
+    }
+
+    #SecurityPositionToolBar.k-widget .k-multiselect input {
+        display: none;
+    }
+</style>
+
+<script type="text/javascript">
+    var _boxSelectedRows = [];
+
+    var _securityPositionSelectAll = false;    
+
+    var _originalSecurityPositionGrid = null;    
+
+    var lastRefresh = null;
+    var scrolling = true;
+
+    var _securityPositionSuspendRefresh = false;
+    var boxCalculationInterval;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSecurityPositionGrid = $('#SecurityPositionDetails').data('kendoGrid').getOptions();            
+        
+            LoadGridLayout("#SecurityPositionDetails");            
+        }, 5);
+
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("SecurityPositionCalcButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#SecurityPositionDetails", "SecurityPositionDetails", _securityPositionSelectAll);
+                clientEvent2.setText(data2);
+            });
+        });
+    });
+
+    $('#SecurityPositionCalcButton').hover(
+    function () { $(this).addClass('k-state-hover') },
+    function () { $(this).removeClass('k-state-hover') }
+    )
+
+    function onSecurityPositionGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SecurityPositionDetails");
+        }, 5);
+    }
+
+
+    function BackupBoxRowSelection() {
+        var grid = $("#SecurityPositionDetails").data("kendoGrid");
+
+        var rows = grid.select();
+
+        rows.each(function (index, row) {
+            var selectedItem = grid.dataItem(row);
+            _boxSelectedRows.push(selectedItem);
+        });
+    }
+
+    function RestoreBoxRowSelection() {
+        if (_boxSelectedRows.length !== 0) {
+            try {
+                for (var i = 0; i < _boxSelectedRows.length; i++) {
+                    var currId = _boxSelectedRows[i].uid;
+
+                    $('#SecurityPositionDetails').data("kendoGrid").tbody.find("tr[data-uid='" + currId + "']").addClass("k-state-selected");
+                }
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onSecurityPositionRequestEnd(e) {
+        _securityPositionSuspendRefresh = false;
+        $("#SecurityPositionDetails").data("kendoGrid").refresh();
+    }
+
+    function onSecurityPositionRequestStart(e) {
+        _securityPositionSuspendRefresh = true;
+
+        traderHubProxy.off('updateBox');
+
+        try {
+            $("#SecurityPositionRefreshButton").data("kendoButton").enable(false);
+        } catch (e) { }
+    }
+
+    function onSecurityPositionContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case "Refresh Data":
+                onSecurityPositionChange();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#SecurityPositionDetails");
+                break;
+
+            case "Unsort":
+                onSecurityPositionUnsortGrid("#SecurityPositionDetails");
+                break;
+
+            case "Select All":
+                boxSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                $("#SecurityPositionSearchTextBox").val("");
+                ResetFilter("#SecurityPositionDetails");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#SecurityPositionDetails");
+                $('#SecurityPositionDetails').data('kendoGrid').setOptions(_originalSecurityPositionGrid);
+                break;
+
+            case "Export To Excel":
+                exportToSecurityPositionExcel();
+                break;
+
+            default:
+                console.log($(e.item).children(".k-link").text());
+                break;
+        }
+    }
+
+    function updateBoxRow(update) {
+        try {
+            var entity = $("#SecurityPositionDropdownList").data("kendoDropDownList").value();
+
+            $.each(update, function (i, obj) {
+                if (obj.EntityId == entity) {
+
+                    if ($("#SecurityPositionDetails").length) {
+                        var data = $("#SecurityPositionDetails").data("kendoGrid").dataSource;
+
+                        var dateTimeId = kendo.parseDate(obj['DateTimeId']);
+                        obj['DateTimeId'] = dateTimeId;
+
+                        data.pushUpdate(obj);
+                    }
+                }
+            });
+        } catch (e) {
+            console.log('updateBoxRow err::' + e.message);
+        }
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        try {
+            var summaryType = $("#BoxCalculationSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+            RefreshGrid("#SecurityPositionDetails");
+
+        } catch (e) { }
+    });
+
+    $(document).bind('keydown', 'ctrl+a', function (e) {
+        if (e.altKey && (e.which == 65)) {
+            e.preventDefault();
+
+            var summaryType = $("#BoxCalculationSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+            boxSelectAll(true);
+
+            return false;
+        }
+    });
+
+    function onSecurityPositionUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSecurityPositionExcel() {
+        try {
+            KendoGridToCSVConvertor("#SecurityPositionDetails", 'SecurityPositionDetails', _securityPositionSelectAll);
+
+            _securityPositionSelectAll = false;
+            _boxSelectedRows = [];
+            RestoreBoxRowSelection();
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+
+    function boxSelectAll(e) {
+        try {
+            var boxGrid = $("#SecurityPositionDetails").data("kendoGrid");
+            boxGrid.select(boxGrid.tbody.find(">tr"));
+
+            _securityPositionSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSecurityPositionRowChange(e) {
+       // e.preventDefault();
+
+        _securityPositionSelectAll = false;
+        _boxSelectedRows = [];
+
+        try {
+            var entityGrid = $("#SecurityPositionDetails").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);           
+        }
+        catch (error) {
+            console.log(error);
+        }
+
+        BackupBoxRowSelection();
+    }
+
+    function onSecurityPositionDefaultLoad() {
+        try {
+            var userPreference;
+
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreferenceMultiple',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#SecurityPositionDropdownList').data("kendoMultiSelect");
+
+                    dropdownList.value(userPreference);                    
+
+                    $('#SecurityPositionDetails').data("kendoGrid").dataSource.read();               
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function addBoxCalculationToList(e) {
+        if (e) {
+            var dataItems = [];
+
+            var grid = $('#SecurityPositionDetails').data('kendoGrid');
+            var rows = grid.select();
+            var useTraded = $('#UseTradedCheckBox').is(':checked');
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialWindow(
+                JSON.stringify(dataItems),
+                'Add items to list',
+                490,
+                490,
+                '/DomesticTrading/Action/LoadActionSecurityPositionPartial'
+            );
+        }
+    }
+
+    function sleep(delay) {
+        var start = new Date().getTime();
+        while (new Date().getTime() < start + delay);
+    }
+
+    function addBoxCalculationToAutoBorrow(e, fieldName) {
+        if (e) {
+            try {
+                var difference = Date.now() - lastRefresh;
+
+                var minutes = (difference / 1000) / 60;
+
+                if (minutes >= 5) {
+                    DisplayControllerByStringError("Info", "Grid data has been stale for more than 5 minutes. Automcatic Refresh will now occur.");
+                    $("#SecurityPositionDetails").data("kendoGrid").dataSource.read();
+                }
+                else {
+                    var boxLcorItems = [];
+                    var boxDataItems = getDataItems('#SecurityPositionDetails',
+                        _securityPositionSelectAll,
+                        '@DataSystemValues.LoadSystemValue("BoxCalculationMaxItems","1000")');
+
+                    if (boxDataItems.length > 0) {
+                        for (i = 0; i < boxDataItems.length; i++) {
+
+                            if (boxDataItems[i][fieldName] > 0) {
+                                boxLcorItems.push(
+                                {
+                                    ModelId: boxDataItems[i].SLBoxCalculation,
+                                    Enabled: true,
+                                    AutoBorrowOrderSystem: '@SL_ExecutionSystemType.LOANET',
+                                    EntityId: boxDataItems[i].EntityId,
+                                    ListName: "",
+                                    SmartRoute: "",
+                                    ContraEntityId: "",
+                                    IssueId: boxDataItems[i].IssueId,
+                                    SecurityNumber: boxDataItems[i].SecurityNumber,
+                                    Ticker: boxDataItems[i].Ticker,
+                                    Quantity: boxDataItems[i][fieldName],
+                                    MaxPrice: boxDataItems[i].Price,
+                                    RebateRate: 0,
+                                    Mark: 0,
+                                    SubmissionType: '@StatusDetail.Pending',
+                                    MemoInfo: ""
+                                });
+                            }
+                        }
+
+                        HelperPartialWindow(
+                            JSON.stringify({ items: boxLcorItems }),
+                            'Add items to AutoBorrow',
+                            490,
+                            490,
+                            '/DomesticTrading/SmartRoute/LoadAutoBorrowBoxProjectionPartial'
+                        );
+                    }
+                }
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function addBoxCalculationToLcor(e) {
+        if (e) {
+            try {
+                var boxLcorItems = [];
+                var boxDataItems = getDataItems('#SecurityPositionDetails',
+                    _securityPositionSelectAll,
+                    '@DataSystemValues.LoadSystemValue("BoxCalculationMaxItems","1000")');
+
+                if (boxDataItems.length > 0) {
+                    for (i = 0; i < boxDataItems.length; i++) {
+                        boxLcorItems.push(
+                        {
+                            ModelId: boxDataItems[i].SLBoxCalculation,
+                            Enabled: true,
+                            EntityId: boxDataItems[i].EntityId,
+                            ContraEntityId: "",
+                            IssueId: boxDataItems[i].IssueId,
+                            SecurityNumber: boxDataItems[i].SecurityNumber,
+                            Ticker: boxDataItems[i].Ticker,
+                            Quantity: boxDataItems[i].SuggestionBorrowSettled,
+                            MaxPrice: boxDataItems[i].Price,
+                            RebateRate: 0,
+                            Mark: 0,
+                            SubmissionType: '@StatusDetail.Pending',
+                            MemoInfo: ""
+                        });
+                    }
+
+                    HelperPartialWindow(
+                        JSON.stringify({ items: boxLcorItems }),
+                        'Add items to AutoBorrow',
+                        490,
+                        490,
+                        '/DomesticTrading/AutoAction/LoadAutoBorrowBoxProjectionPartial'
+                    );
+                }
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onSecurityPositionMemoSeg(e) {
+        if (e) {
+            try {
+                var grid = $("#SecurityPositionDetails").data("kendoGrid");
+                var dataItems = [];
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        items: dataItems
+                    }),
+                   'Book MemoSeg',
+                   480,
+                   480,
+                   '/DomesticTrading/ContractRelated/Load_MemoSeg'
+               );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+
+
+    function onSecurityPositionBorrow(e) {
+        if (e) {
+            try {
+                var grid = $("#SecurityPositionDetails").data("kendoGrid");
+                var selectedItem = grid.dataItem(grid.select());
+                var useTraded = $('#UseTradedCheckBox').is(':checked');
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        item: selectedItem,
+                        useTraded: useTraded,
+                    }),
+                   'Book Borrow',
+                   480,
+                   480,
+                   '/DomesticTrading/Boxcalculation/Load_Borrow'
+               );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onSecurityPositionLoan(e) {
+        if (e) {
+            try {
+                var grid = $("#SecurityPositionDetails").data("kendoGrid");
+                var selectedItem = grid.dataItem(grid.select());
+                var useTraded = $('#UseTradedCheckBox').is(':checked');
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        item: selectedItem,
+                        useTraded: useTraded,
+                    }),
+                   'Book Loan',
+                   480,
+                   480,
+                   '/DomesticTrading/Boxcalculation/Load_Loan'
+               );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onSecurityPositionRecall(e) {
+        if (e) {
+            try {
+                var grid = $("#SecurityPositionDetails").data("kendoGrid");
+                var dataItems = [];
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        items: dataItems,
+                        useTraded: false,
+                    }),
+                    'Book Recalls',
+                    1100,
+                    450,
+                    '/DomesticTrading/ContractRelated/Load_RecallBySuggestion'
+                    );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+
+    function onSecurityPositionPendExcess(e) {
+        if (e) {
+            try {
+                var grid = $("#SecurityPositionDetails").data("kendoGrid");
+                var dataItems = [];
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        items: dataItems
+                    }),
+                    'Book Pend Excess',
+                    1100,
+                    450,
+                    '/DomesticTrading/ContractRelated/Pend_ExcessByContract'
+                    );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onSecurityPositionCheckData(e) {
+        _boxSelectedRows = [];        
+    } 
+
+    function onSecurityPositionReturn(e) {
+        if (e) {
+            try {          
+               var boxDataItems = getDataItems('#SecurityPositionDetails',
+                    _securityPositionSelectAll,
+                   '@DataSystemValues.LoadSystemValue("BoxCalculationMaxItems","1000")');
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        items: boxDataItems,
+                        useTraded: false,
+                    }),
+                    'Book Returns',
+                    1100,
+                    450,
+                    '/DomesticTrading/ContractRelated/Load_ReturnBySuggestion'
+                    );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function additionalSecurityPositionData() {
+        var datepicker = $("#SecurityPositionCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#SecurityPositionDropdownList").data("kendoMultiSelect");
+    
+        return {
+            entityId: entity.value(),
+            effectiveDate: value            
+        };
+    } 
+
+    function onSecurityPositionPortfolioChange() {
+        var entity = $("#SecurityPositionDropdownList").data("kendoMultiSelect");
+
+        return {
+            entityId: JSON.stringify(entity.value()),
+        }
+    }
+
+    function onSecurityPositionFilterLoad() {
+        var entity = $("#SecurityPositionDropdownList").data("kendoMultiSelect");
+
+        return {
+            gridName: 'SecurityPositionDetails',
+            entityIdList: JSON.stringify(entity.value()),
+        }
+    }
+
+    function onSecurityPositionGridError(e) {
+        ErrorGridData("#SecurityPositionDetails");
+    }
+
+    function onSecurityPositionError(e) {
+        console.log(e.message);
+    }
+
+    function onSecurityPositionChange() {
+        $("#SecurityPositionDetails").data("kendoGrid").dataSource.read();
+
+        $('#SecurityPositionQuickDropdownList').data("kendoDropDownList").dataSource.read();
+    }
+
+    function onSecurityPositionPortfolioMgt() {
+        try {
+            var entity = $("#SecurityPositionDropdownList").data("kendoMultiSelect").dataItems();
+
+
+            HelperPartialWindow(
+                JSON.stringify({ enttyId: entity[0].CompanyId }),
+                'Manage Portfolio(s)',
+                1100,
+                450,
+                '/DomesticTrading/Portfolio/LoadPortfolioPartial'
+                );
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSecurityPositionFilterChange() {
+        try {
+            var grid = $("#SecurityPositionDetails").data("kendoGrid");
+            var entityId = $("#SecurityPositionDropdownList").data("kendoMultiSelect").dataItems();            
+            var filterDropDown = $('#SecurityPositionDropdownList').data("kendoDropDownList").dataItem();
+            console.log(filterDropDown);
+
+            $.ajax({
+                url: '/DomesticTrading/BoxCalculation/QuickFilterLookup',
+                type: 'POST',
+                data: JSON.stringify({
+                    entityId: filterDropDown.EntityId,
+                    gridName: 'SecurityPositionDetails',
+                    filterName: filterDropDown.FilterName
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+                    if ((valid != null) && (valid.length > 0)) {
+                        $("#SecurityPositionSearchTextBox").val("");
+
+                        var filterInital = { logic: "and", filters: [] };
+                        var filterAnd = { logic: "and", filters: [] };
+                        var filterOr = { logic: "or", filters: [] };
+
+                        for (i = 0; i < valid.length; i++) {
+
+                            var quickFilter = valid[i];
+                            console.log(quickFilter.Logic);
+
+                            if (quickFilter.Logic == "and") {
+                                var ops = null;
+
+                                if (quickFilter.OperatorId == 1) {
+                                    ops = '@SL_Operator.gte';
+                                }
+                                else if (quickFilter.OperatorId == 2) {
+                                    ops = '@SL_Operator.gt';
+                                }
+                                else if (quickFilter.OperatorId == 3) {
+                                    ops = '@SL_Operator.lt';
+                                }
+                                else if (quickFilter.OperatorId == 4) {
+                                    ops = '@SL_Operator.lte';
+                                }
+                                else if (quickFilter.OperatorId == 5) {
+                                    ops = '@SL_Operator.eq';
+                                }
+                                else if (quickFilter.OperatorId == 6) {
+                                    ops = '@SL_Operator.neq';
+                                }
+                                else if (quickFilter.OperatorId == 8) {
+                                    ops = '@SL_Operator.contains'
+                                }
+                                else if (quickFilter.OperatorId == 9) {
+                                    ops = '@SL_Operator.startswith'
+                                }
+
+
+                                var valueAnd = null;
+
+                                try {
+                                    var columnType = getFieldType(grid.dataSource, quickFilter.Field);
+
+
+                                    if (columnType == 'string') {
+                                        valueOr = quickFilter.Value.toString();
+                                    }
+                                    else if (columnType == 'number') {
+                                        valueAnd = getNumber(quickFilter.Value, '0');
+                                    }
+                                    else {
+                                        valueOr = quickFilter.Value;
+                                    }
+                                }
+                                catch (e) {
+                                    valueAnd = quickFilter.Value;
+                                }
+                                console.log({ field: quickFilter.Field, operator: ops, value: valueAnd });
+
+                                filterAnd.filters.push({ field: quickFilter.Field, operator: ops, value: valueAnd });
+                            }
+
+                            if (quickFilter.Logic == "or") {
+                                var ops = null;
+
+                                if (quickFilter.OperatorId == 1) {
+                                    ops = '@SL_Operator.gte';
+                                }
+                                else if (quickFilter.OperatorId == 2) {
+                                    ops = '@SL_Operator.gt';
+                                }
+                                else if (quickFilter.OperatorId == 3) {
+                                    ops = '@SL_Operator.lt';
+                                }
+                                else if (quickFilter.OperatorId == 4) {
+                                    ops = '@SL_Operator.lte';
+                                }
+                                else if (quickFilter.OperatorId == 5) {
+                                    ops = '@SL_Operator.eq';
+                                }
+                                else if (quickFilter.OperatorId == 6) {
+                                    ops = '@SL_Operator.neq';
+                                }
+                                else if (quickFilter.OperatorId == 8) {
+                                    ops = '@SL_Operator.contains'
+                                }
+                                else if (quickFilter.OperatorId == 9) {
+                                    ops = '@SL_Operator.startswith'
+                                }
+
+                                var valueOr = null;
+
+                                try {
+                                    var columnType = getFieldType(grid.dataSource, quickFilter.Field);
+
+                                    if (columnType == 'string') {
+                                        valueOr = quickFilter.Value.toString();
+                                    }
+                                    else if (columnType == 'number') {
+                                        valueOr = getNumber(quickFilter.Value, '0');
+                                    }
+                                    else
+                                    {
+                                        valueOr = quickFilter.Value;
+                                    }
+                                }
+                                catch (e) {
+                                    valueOr = quickFilter.Value;
+                                }
+                                console.log({ field: quickFilter.Field, operator: ops, value: valueOr });
+
+                                filterOr.filters.push({ field: quickFilter.Field, operator: ops, value: valueOr });
+                            }
+                        }
+
+                        if (filterAnd.filters.length > 0 && filterOr.filters.length == 0) {
+                            grid.dataSource.filter(filterAnd);
+                        }
+                        else if (filterAnd.filters.length == 0 && filterOr.filters.length > 0) {
+                            grid.dataSource.filter(filterOr);
+                        }
+                        else if (filterOr.filters.length > 0 && filterAnd.filters.length > 0) {
+                            filterInital.filters.push(filterAnd);
+                            filterInital.filters.push(filterOr);
+                            grid.dataSource.filter(filterInital);
+                        }
+                    }
+                    else {
+                        grid.dataSource.filter({});
+                    }
+                },
+                error: function (valid) {
+                    grid.dataSource.filter({});
+                }
+            })
+        }
+        catch (e) {
+            console.log(e);
+            grid.dataSource.filter({});
+        }
+    }
+
+    function getNumber(number, defaultNumber) {
+        return isNaN(parseFloat(number)) ? defaultNumber : parseFloat(number);
+    }
+
+    function getFieldType(dataSource, field) {
+        return dataSource.options.schema.model.fields[field].type;
+    }
+
+    function onQuickFilterDataBound(e) {
+        $("#SecurityPositionQuickDropdownList").data("kendoDropDownList").text('@LabelHelper.Text("OptionLabel")');
+    }
+
+    function onSecurityChange(e) {
+        $("#SecurityPositionDetails").data("kendoGrid").dataSource.read();
+    }
+
+    function onSecurityPositionSearchChange(e) {
+        e.preventDefault();
+
+        try {
+            var cusipTextBox = document.getElementById("SecurityPositionSearchTextBox").value;
+
+            QuickColumnGrid("#SecurityPositionDetails", cusipTextBox);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSecurityPositionSummaryDetailChange() {
+        var summaryType = $("#BoxCalculationSummaryDetailDropdownList").data("kendoDropDownList").value();
+
+        $("#SecurityPositionDetails").data("kendoGrid").dataSource.filter({});
+        $("#SecurityPositionDetails").show();
+        RefreshGrid("#SecurityPositionDetails");
+        $("#SecurityPositionDetails").data("kendoGrid").dataSource.read();
+    }
+
+    function onSecurityPositionDataBinding(e) {
+        if (_securityPositionSuspendRefresh == true) {
+            e.preventDefault();
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("SecurityPositionToolBar")
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("SecurityPositionCalander")
+                                .Format("yyyy-MM-dd")
+                                .HtmlAttributes(new { @class="width90" })
+                                .Value(DateTime.Now)
+                                .Events(events => events.Change("onSecurityPositionChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().MultiSelect()
+                       .Name("SecurityPositionDropdownList")
+                       .HtmlAttributes(new { @class= "minwidth50" })
+                       .AutoClose(false)
+                       .TagMode(TagMode.Multiple)
+                       .AutoWidth(true)
+                       .Enable(true)
+                       .Placeholder("No records selected")
+                       .AutoBind(true)
+                       .ItemTemplate("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                        "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                        "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                        .Events(e =>
+                        {
+                            e.DataBound("onSecurityPositionDefaultLoad");
+                            e.Close("onSecurityPositionChange");
+                        })
+                        .DataTextField("Custodian")
+                        .DataValueField("CompanyId")
+                        .DataSource(ds =>
+                        {
+                            ds.Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" }));
+                        }).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("QuickFilter").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("SecurityPositionQuickDropdownList")
+                    .HtmlAttributes(new { @class="width120" })
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .Value(LabelHelper.Text("OptionLabel"))
+                    .DataTextField("FilterName")
+                    .DataValueField("FilterName")
+                    .AutoBind(false)
+                    .AutoWidth(true)
+                                          .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.FilterName#</span> #}#")
+                    .Events(e => e.Change("onSecurityPositionFilterChange").DataBound("onQuickFilterDataBound"))
+                    .DataSource(dataSource => dataSource
+                    .Events(events => events.Error("onSecurityPositionError"))
+                    .Read(read => read.Action("LoadFiltersMulti", "BoxCalculation", new { area = "DomesticTrading" }).Data("onSecurityPositionFilterLoad")))
+                    .ToHtmlString());
+
+
+        items.Add().Template(Html.Kendo().Button().Name("SecurityPositionRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onSecurityChange")).ToHtmlString());
+
+        items.Add().Template(
+            "<table ID='SecurityPositionTable'><tr><td>"+
+            LabelHelper.LabelFor("TickerSearch", "SecurityPositionSearchTextBox").ToHtmlString() + "</td><td>" +
+            Html.Kendo().AutoComplete().Name("SecurityPositionSearchTextBox").HtmlAttributes(new { @class="width90" }).Events(eve => eve.Filtering("onSecurityPositionSearchChange")).Suggest(true).ToHtmlString() +"</td></tr></table>"
+            ).HtmlAttributes(new {@class="float-right" });
+    }))
+
+<hr class="hr-white">
+
+<div id="SecurityPositionContent" class="grid-div">
+   
+     @(Html.Kendo().Grid<SL_SecurityPositionExtendedProjection>()
+        .Name( "SecurityPositionDetails" )
+        .HtmlAttributes( new { @class = "grid" } )
+        .Sortable()
+        .Scrollable( scroll => scroll.Enabled(true).Virtual(true) )
+        .Filterable()
+        .NoRecords()
+        .ColumnMenu( columnMenu =>
+        {
+            columnMenu.Filterable( true );
+            columnMenu.Columns( true );
+            columnMenu.Sortable( true );
+            columnMenu.ComponentType( "modern" );
+        } )
+        .Reorderable( reorder =>
+        {
+            reorder.Columns( true );
+        } )
+        .Resizable( resize =>
+        {
+            resize.Columns( true );
+        } )
+        .AllowCopy( copy =>
+        {
+            copy.Enabled( true );
+        } )
+        .Pageable(pagable =>
+        {
+            pagable.Numeric(false);
+            pagable.PreviousNext(false);
+            pagable.Messages(config =>
+            {
+                config.Display("Showing {2} item(s)");
+            });
+        })
+        .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ).Type(GridSelectionType.Row ))
+        .Events( events =>
+        {
+            events.DataBinding("onSecurityPositionDataBinding");
+            events.Change("onSecurityPositionRowChange");
+            events.DataBound("onSecurityPositionCheckData");
+            events.ColumnHide("onSecurityPositionGridLayoutChange");
+            events.ColumnShow("onSecurityPositionGridLayoutChange");
+            events.ColumnResize("onSecurityPositionGridLayoutChange");
+            events.ColumnReorder("onSecurityPositionGridLayoutChange");
+        } )
+        .Columns( columns =>
+        {
+            columns.Bound( x => x.EntityId ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.IssueId ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound( x => x.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Ticker ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Isin ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Sedol ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound( x => x.Classification ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.RecordDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" );
+            columns.Bound( x => x.Price ).GetColumnFormat( ColumnTypeEnum.Money, false, "", "" );
+            columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound( x => x.NetPositionSettled).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(NetPositionSettled)#", "" );
+            columns.Bound( x => x.NetPositionSettledAmount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(NetPositionSettledAmount)#", "" );
+
+            columns.Bound( x => x.ExcessPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(ExcessPositionSettled)#", "" );
+            columns.Bound( x => x.ExcessPositionSettledAmount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(ExcessPositionSettledAmount)#", "" );
+
+            columns.Bound(x => x.IntradayLendingRate).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetRateDirection(IntradayLendingRate)#", "");
+            columns.Bound(x => x.StockBorrowAverageWeightedRate).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetRateDirection(StockBorrowAverageWeightedRate)#", "");
+            columns.Bound(x => x.StockLoanAverageWeightedRate).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetRateDirection(StockLoanAverageWeightedRate)#", "");
+
+
+            columns.Bound(x => x.SegregationReq).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(SegregationReq)#", "");
+
+            columns.Bound(x => x.DepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositorySettled)#", "");
+            columns.Bound(x => x.DepositoryAmountSettled).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DepositoryAmountSettled)#", "");
+
+
+            columns.Bound(x => x.StockBorrowNewSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowNewSettled)#", "");
+            columns.Bound(x => x.StockBorrowNewSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowNewSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowSettled)#", "");
+            columns.Bound(x => x.StockBorrowSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowReturnSettled)#", "");
+            columns.Bound(x => x.StockBorrowReturnSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowReturnSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowPendingReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowPendingReturnSettled)#", "");
+            columns.Bound(x => x.StockBorrowPendingReturnSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowPendingReturnSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowPendingReturnDepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowPendingReturnDepositorySettled)#", "");
+            columns.Bound(x => x.StockBorrowPendingReturnDepositorySettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowPendingReturnDepositorySettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowSameDayReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowSameDayReturnSettled)#", "");
+            columns.Bound(x => x.StockBorrowSameDayReturnSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowSameDayReturnSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowCallbackSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowCallbackSettled)#", "");
+            columns.Bound(x => x.StockBorrowCallbackSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowCallbackSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowRecallSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowRecallSettled)#", "");
+            columns.Bound(x => x.StockBorrowRecallSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowRecallSettledAmount)#", "");
+            columns.Bound(x => x.StockBorrowUnmatchedDepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowUnmatchedDepositorySettled)#", "");
+            columns.Bound(x => x.StockBorrowUnmatchedDepositorySettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockBorrowUnmatchedDepositorySettledAmount)#", "");
+
+            columns.Bound(x => x.StockLoanNewSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanNewSettled)#", "");
+            columns.Bound(x => x.StockLoanNewSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanNewSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanSettled)#", "");
+            columns.Bound(x => x.StockLoanSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanReturnSettled)#", "");
+            columns.Bound(x => x.StockLoanReturnSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanReturnSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanPendingReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanPendingReturnSettled)#", "");
+            columns.Bound(x => x.StockLoanPendingReturnSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanPendingReturnSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanPendingReturnDepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanPendingReturnDepositorySettled)#", "");
+            columns.Bound(x => x.StockLoanPendingReturnDepositorySettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanPendingReturnDepositorySettledAmount)#", "");
+            columns.Bound(x => x.StockLoanSameDayReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanSameDayReturnSettled)#", "");
+            columns.Bound(x => x.StockLoanSameDayReturnSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanSameDayReturnSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanCallbackSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanCallbackSettled)#", "");
+            columns.Bound(x => x.StockLoanCallbackSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanCallbackSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanRecallSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanRecallSettled)#", "");
+            columns.Bound(x => x.StockLoanRecallSettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanRecallSettledAmount)#", "");
+            columns.Bound(x => x.StockLoanUnmatchedDepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanUnmatchedDepositorySettled)#", "");
+            columns.Bound(x => x.StockLoanUnmatchedDepositorySettledAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(StockLoanUnmatchedDepositorySettledAmount)#", "");
+        } )
+        .DataSource( dataSource => dataSource
+        .Ajax()
+        .ServerOperation( false )
+        .PageSize(30)
+        .Read( read => read
+        .Action( "Read_SecurityPosition", "BoxCalculation", new { area = "DomesticTrading" } )
+        .Data( "additionalSecurityPositionData" ).Type( HttpVerbs.Post ) )
+        .Events( events =>
+        {
+            events.Error("onSecurityPositionGridError");
+            events.RequestStart( "onSecurityPositionRequestStart" );
+            events.RequestEnd( "onSecurityPositionRequestEnd" );
+        } )
+        .Sort(sort =>
+        {
+            sort.Add(x => x.IssueId).Descending();
+        })
+        .Model( model =>
+        {
+            model.Id( x => x.SecurityNumber );
+        } )
+        .Aggregates( agg =>
+        {
+            agg.Add(x => x.NetPositionSettled).Sum();
+            agg.Add(x => x.NetPositionSettledAmount).Sum();
+
+            agg.Add(x => x.ExcessPositionSettled).Sum();
+            agg.Add(x => x.ExcessPositionSettledAmount).Sum();
+
+            agg.Add(x => x.SegregationReq).Sum();
+
+            agg.Add(x => x.DepositorySettled).Sum();
+            agg.Add(x => x.DepositoryAmountSettled).Sum();
+
+            agg.Add(x => x.StockBorrowNewSettled).Sum();
+            agg.Add(x => x.StockBorrowNewSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowSettled).Sum();
+            agg.Add(x => x.StockBorrowSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowReturnSettled).Sum();
+            agg.Add(x => x.StockBorrowReturnSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowPendingReturnSettled).Sum();
+            agg.Add(x => x.StockBorrowPendingReturnSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowPendingReturnDepositorySettled).Sum();
+            agg.Add(x => x.StockBorrowPendingReturnDepositorySettledAmount).Sum();
+            agg.Add(x => x.StockBorrowSameDayReturnSettled).Sum();
+            agg.Add(x => x.StockBorrowSameDayReturnSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowCallbackSettled).Sum();
+            agg.Add(x => x.StockBorrowCallbackSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowRecallSettled).Sum();
+            agg.Add(x => x.StockBorrowRecallSettledAmount).Sum();
+            agg.Add(x => x.StockBorrowUnmatchedDepositorySettled).Sum();
+            agg.Add(x => x.StockBorrowUnmatchedDepositorySettledAmount).Sum();
+
+            agg.Add(x => x.StockLoanNewSettled).Sum();
+            agg.Add(x => x.StockLoanNewSettledAmount).Sum();
+            agg.Add(x => x.StockLoanSettled).Sum();
+            agg.Add(x => x.StockLoanSettledAmount).Sum();
+            agg.Add(x => x.StockLoanReturnSettled).Sum();
+            agg.Add(x => x.StockLoanReturnSettledAmount).Sum();
+            agg.Add(x => x.StockLoanPendingReturnSettled).Sum();
+            agg.Add(x => x.StockLoanPendingReturnSettledAmount).Sum();
+            agg.Add(x => x.StockLoanPendingReturnDepositorySettled).Sum();
+            agg.Add(x => x.StockLoanPendingReturnDepositorySettledAmount).Sum();
+            agg.Add(x => x.StockLoanSameDayReturnSettled).Sum();
+            agg.Add(x => x.StockLoanSameDayReturnSettledAmount).Sum();
+            agg.Add(x => x.StockLoanCallbackSettled).Sum();
+            agg.Add(x => x.StockLoanCallbackSettledAmount).Sum();
+            agg.Add(x => x.StockLoanRecallSettled).Sum();
+            agg.Add(x => x.StockLoanRecallSettledAmount).Sum();
+            agg.Add(x => x.StockLoanUnmatchedDepositorySettled).Sum();
+            agg.Add(x => x.StockLoanUnmatchedDepositorySettledAmount).Sum();
+        } )
+           .Events( events => events.Error( "onSecurityPositionGridError" ) )
+))
+
+
+
+
+
+@(Html.Kendo().ContextMenu()
+.Name( "SecurityPositionContextMenu" )
+.Orientation( ContextMenuOrientation.Vertical )
+    .Target( "#SecurityPositionDetails" )
+.Events( events => events.Select( "onSecurityPositionContextMenuSelect" ) )
+.Items( items =>
+{
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text( "Unsort" );
+    items.Add().Text( "Reset Filter" ).Enabled( true );
+    items.Add().Text( "Reset Grid" ).Enabled( true );
+    items.Add().Separator( true );
+    items.Add().Text("Select All");
+    items.Add().Text( "Copy" ).Enabled( true ).HtmlAttributes( new { ID = "SecurityPositionCalcButton" } );
+    items.Add().Text( "Export To Excel" );
+} ))
+  
+</div>

@@ -1,0 +1,537 @@
+﻿@using BondFire.Entities.Projections
+@using BondFire.Entities
+@using SLTrader.Enums
+@using SLTrader.Models.FailRelatedModels
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+
+<script type="text/javascript">
+    var _FailExposureSelectAll = false;
+    var _FailExposureDisableRowChangeEvents = false;
+    var _FailExposureSelectedRows = [];
+    var _FailExposureSummarySelectedRows = [];
+    var _FailExposureUpdateRows = [];
+    var _FailExposureSuspendRefresh = false;
+    var _originalFailExposureGrid = null;
+    var _originalFailExposureSummaryGrid = null;
+    var _FailExposureEditMode = false;
+    var _FailExposureInterval = false;
+
+    $(document).ready(function() {
+        setTimeout(function() {
+                _originalFailExposureGrid = $("#FailExposureGrid").data('kendoGrid').getOptions();
+                _originalFailExposureSummaryGrid = $("#FailExposureSummaryGrid").data('kendoGrid').getOptions();
+
+                LoadGridLayout("#FailExposureGrid");
+                LoadGridLayout("#FailExposureSummaryGrid");
+            },
+            5);
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("FailExposureSummaryButton"));
+
+        clientEvent1.on("ready",
+            function(readyEvent) {
+                clientEvent1.on("copy",
+                    function(event) {
+                        var data1 = KendoGridToText("#FailExposureSummaryGrid", "FailExposureSummaryGrid", false);
+                        clientEvent1.setText(data1);
+                    });
+            });
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("FailExposureButton"));
+
+        clientEvent2.on("ready",
+            function(readyEvent) {
+                clientEvent2.on("copy",
+                    function(event) {
+                        var data2 = KendoGridToText("#FailExposureGrid", "FailExposureGrid", _FailExposureSelectAll);
+                        clientEvent2.setText(data2);
+                    });
+            });
+    });
+
+    $('#FailExposureSummaryButton').hover(
+        function() { $(this).addClass('k-state-hover') },
+        function() { $(this).removeClass('k-state-hover') }
+    );
+
+    $('#FailExposureButton').hover(
+        function() { $(this).addClass('k-state-hover') },
+        function() { $(this).removeClass('k-state-hover') }
+    );
+
+
+    function onFailExposureSummaryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+        case 'AutoFit Columns':
+            resizeGridColumns("#FailExposureSummaryGrid");
+            break;
+
+        case "Reset Filter":
+            ResetFilter("#FailExposureSummaryGrid");
+            break;
+
+        case "Reset Grid":
+            ResetUserLayout("#FailExposureSummaryGrid");
+
+            $("#FailExposureSummaryGrid").data('kendoGrid').setOptions(_originalFailExposureSummaryGrid);
+            $('#FailExposureSummaryGrid').data("kendoGrid").dataSource.read();
+            break;
+        case 'Export To Excel':
+            exportToFailExposureSummaryExcel();
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#FailExposureSummaryGrid");
+                break;
+
+        }
+    }
+
+
+    function exportToFailExposureSummaryExcel() {
+
+        try {
+            KendoGridToCSVConvertor("#FailExposureSummaryGrid", 'FailExposureSummary', false);
+        } catch (e) {
+            DisplayControllerByStringError("Error", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onFailExposureSummaryLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function() {
+                UpdateGridLayout("#FailExposureSummaryGrid");
+            },
+            5);
+    }
+
+    function onFailExposureLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function() {
+                UpdateGridLayout("#FailExposureGrid");
+            },
+            5);
+    }
+
+    function onFailExposureContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+        case 'AutoFit Columns':
+            resizeGridColumns("#FailExposureGrid");
+            break;
+
+        case 'Unsort':
+            onFailExposureUnsortGrid("#FailExposureGrid");
+            break;
+
+        case "Reset Filter":
+            ResetFilter("#FailExposureGrid");
+            break;
+
+        case "Reset Grid":
+            ResetUserLayout("#FailExposureGrid");
+
+            $("#FailExposureGrid").data('kendoGrid').setOptions(_originalFailExposureGrid);
+            $('#FailExposureGrid').data("kendoGrid").dataSource.read();
+            break;
+
+        case 'Select All':
+            onFailExposureSelectAll(e);
+            break;
+
+        case 'Export To Excel':
+            exportToFailExposureExcel();
+            break;
+        }
+    }
+
+    function onFailExposureUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToFailExposureExcel() {
+        try {
+            KendoGridToCSVConvertor("#FailExposureGrid", 'FailExposure', _FailExposureSelectAll);
+        } catch (e) {
+            DisplayControllerByStringError("Error", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onFailExposureSummaryRowChange(e) {
+        $("#FailExposureGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onFailExposureRowChange(e) {
+        e.preventDefault();
+
+        if (_FailExposureDisableRowChangeEvents == false) {
+            try {
+                var entityGrid = $("#FailExposureGrid").data("kendoGrid");
+                var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                if (selectedItem != null) {
+                    var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                    var entityId = selectedItem["EntityId"];
+                    var effectiveDate = selectedItem["EffectiveDate"];
+                    var securityNumber = selectedItem["SecurityNumber"];
+                    var issueId = selectedItem["IssueId"];
+
+                    SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+                }
+            } catch (e) {
+                DisplayControllerByStringError("Error", e.message);
+            }
+        }
+    }
+
+    function onFailExposureDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#FailExposureDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#FailExposureSummaryGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onFailExposureError(e) {
+        console.log(e.message);
+    }
+
+    function onFailExposureChange() {
+        $('#FailExposureSummaryGrid').data("kendoGrid").dataSource.read();
+    }
+
+    $('#SharedLabelCheckBox').change(function() {
+        RefreshGrid("#FailExposureSummaryGrid");
+        RefreshGrid("#FailExposureGrid");
+    });
+
+
+    function additionalFailExposureSummaryData() {
+        var datepicker = $("#FailExposureCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#FailExposureDropdownList").data("kendoDropDownList").value();
+        var keyType = $("#FailExposureReportTypeDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entityId,
+            failExposureType: keyType
+        }
+    }
+
+    function additionalFailExposureData() {
+        var datepicker = $("#FailExposureCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#FailExposureDropdownList").data("kendoDropDownList").value();
+
+
+        var keyType = $("#FailExposureReportTypeDropdownList").data("kendoDropDownList").value();
+        var entityGrid = $("#FailExposureSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        return {
+            effectiveDate: value,
+            entityId: entityId,
+            failExposureType: keyType,
+            key: selectedItem["Key"]
+        }
+    }
+</script>
+    @(
+ Html.Kendo().ToolBar()
+    .Name("FailExposureHeaderToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("FailExposureCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "width90" })
+            .Events(events => events.Change("onFailExposureChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                .Name("FailExposureDropdownList")
+                .HtmlAttributes(new { @class = "width90" })
+                .DataTextField("Custodian")
+                .DataValueField("CompanyId")
+                .OptionLabel(LabelHelper.Text("OptionLabel"))
+                .AutoBind(true)
+                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                .Events(events => events.Change("onFailExposureChange").DataBound("onFailExposureDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                .DataSource(dataSource => dataSource
+                .Read(read => read
+                .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                .SelectedIndex(0).ToHtmlString());
+
+
+        items.Add().Template( Html.Kendo().DropDownListFor( m => m )
+            .Name( "FailExposureReportTypeDropdownList" )
+            .HtmlAttributes( new { @class = "width100", data_value_primitive = true } )
+            .BindTo( Enum.GetNames( typeof( FailExposureEnum ) ).AsEnumerable() )
+            .Events(ev => ev.Change("onFailExposureChange"))
+            .Value(FailExposureEnum.Classification.ToString() ).ToHtmlString() );
+    }))
+
+<hr class="hr-white">
+
+<div id="FailExposureSummaryContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("FailExposureSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        {
+            panes.Add()
+                .Collapsible(false)
+                .Size("30%")
+                .Scrollable(false)
+                .Content(@<text>
+    @(Html.Kendo().Grid<FailExposureByModel>()
+    .Name("FailExposureSummaryGrid")
+    .Sortable(sort =>
+    {
+        sort.AllowUnsort(true);
+        sort.Enabled(true);
+        sort.SortMode(GridSortMode.MultipleColumn);
+    })
+    .Scrollable()
+    .Filterable()
+    .Navigatable()
+    .NoRecords()
+    .AutoBind(false)
+     .HtmlAttributes(new { @class = "grid" })
+    .Reorderable(reorder => reorder.Columns(true))
+    .ColumnMenu(menu =>
+    {
+        menu.Columns(true);
+        menu.Filterable(true);
+        menu.Sortable(true);
+    })
+    .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))
+    .Events(events =>
+    {
+        events.Change("onFailExposureSummaryRowChange");
+        events.ColumnHide("onFailExposureSummaryLayoutChange");
+        events.ColumnShow("onFailExposureSummaryLayoutChange");
+        events.ColumnResize("onFailExposureSummaryLayoutChange");
+        events.ColumnReorder("onFailExposureSummaryLayoutChange");
+    })
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.Key).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        cols.Bound( x => x.FailToDeliverQuantity).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(FailToDeliverQuantity)#", "" );
+        cols.Bound( x => x.FailToDeliverAmount).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(FailToDeliverAmount)#", "" );
+        cols.Bound( x => x.FailToDeliverExposure).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(FailToDeliverExposure)#", "" );
+
+        cols.Bound(x => x.FailToRecieveQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(FailToRecieveQuantity)#", "");
+        cols.Bound(x => x.FailToRecieveAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(FailToRecieveAmount)#", "");
+        cols.Bound(x => x.FailToRecieveExposure).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(FailToRecieveExposure)#", "");
+
+        cols.Bound(x => x.TotalQuantity).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(TotalQuantity)#", "");
+        cols.Bound(x => x.TotalAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalAmount)#", "");
+        cols.Bound(x => x.TotalExposure).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalExposure)#", "");
+    })
+    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+    .DataSource(ds => ds.Ajax()
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Read(read => read.Action("LoadFailMasterExposureSummary", "FailMaster", new { area = "FailMaster" }).Data("additionalFailExposureSummaryData"))
+        .Aggregates(agg =>
+        {
+            agg.Add(x => x.FailToDeliverQuantity).Sum();
+            agg.Add(x => x.FailToDeliverAmount).Sum();
+            agg.Add(x => x.FailToDeliverExposure).Sum();
+            agg.Add(x => x.FailToRecieveQuantity).Sum();
+            agg.Add(x => x.FailToRecieveAmount).Sum();
+            agg.Add(x => x.FailToRecieveExposure).Sum();
+            agg.Add(x => x.TotalQuantity).Sum();
+            agg.Add(x => x.TotalAmount).Sum();
+            agg.Add(x => x.TotalExposure).Sum();
+        })))</text>);
+
+            panes.Add()
+                .Collapsible(false)
+                .Size("70%")
+                .Scrollable(false)
+                .Content(@<text>
+    @(
+ Html.Kendo().Grid<SL_FailMasterExtendedProjection>()
+    .Name( "FailExposureGrid" )
+    .HtmlAttributes(new { @class = "grid" })
+    .Sortable( sort =>
+    {
+        sort.AllowUnsort( true );
+        sort.Enabled( true );
+        sort.SortMode( GridSortMode.MultipleColumn );
+    } )
+    .Filterable()
+    .Scrollable(scroll => scroll.Virtual(true))
+    .NoRecords()
+    .Reorderable( reorder => reorder.Columns( true ) )
+    .ColumnMenu( menu =>
+    {
+        menu.Columns( true );
+        menu.Filterable( true );
+        menu.Sortable( true );
+    } )
+    .AutoBind( false )
+    .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ) )
+    .Events( events =>
+    {
+        events.Change( "onFailExposureRowChange" );
+        events.ColumnHide( "onFailExposureLayoutChange" );
+        events.ColumnShow( "onFailExposureLayoutChange" );
+        events.ColumnResize( "onFailExposureLayoutChange" );
+        events.ColumnReorder( "onFailExposureLayoutChange" );
+    } )
+    .Columns(columns =>
+    {
+        columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.DtccEligible).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.CountryIssued).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        columns.Bound(x => x.OriginalPrice).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetMoneyDirection(OriginalPrice)#", "");
+        columns.Bound(x => x.MarketPrice).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetMoneyDirection(MarketPrice)#", "");
+
+        columns.Bound(x => x.Branch).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.OfficeCodeRegisteredRep).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.AccountType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ShortName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.BuySellCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.TagNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.IdControl).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        columns.Bound(x => x.DepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositorySettled)#", "");
+        columns.Bound(x => x.DepositorySettledAmt).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(DepositorySettledAmt)#", "");
+
+        columns.Bound(x => x.OriginalQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(OriginalQuantity)#", "");
+        columns.Bound(x => x.CurrentQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CurrentQuantity)#", "");
+
+        columns.Bound(x => x.OriginalAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(OriginalAmount)#", "");
+        columns.Bound(x => x.CurrentAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(CurrentAmount)#", "");
+
+        columns.Bound(x => x.Exposure).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(Exposure)#", "");
+        columns.Bound(x => x.CostToCarry).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(CostToCarry)#", "");
+
+        columns.Bound(x => x.TradeDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound(x => x.SettleDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound(x => x.DeliveryDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound(x => x.Age).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+
+        columns.Bound(x => x.BlotterCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.BlotterCodeCategory).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        columns.Bound(x => x.LastStockBorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+        columns.Bound(x => x.LastStockBorrowDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound(x => x.CurrentDepoStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    } )
+    .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+    .DataSource( ds => ds.Ajax()
+        .ServerOperation( false )
+        .AutoSync( true )
+        .Read(read => read.Action("LoadFailMasterByCriteria", "FailMaster", new { area = "FailMaster" }).Data("additionalFailExposureData"))
+        .Aggregates( agg =>
+        {
+            agg.Add(x => x.DepositorySettled).Sum();
+            agg.Add(x => x.DepositorySettledAmt).Sum();
+
+            agg.Add( x => x.OriginalQuantity).Sum();
+            agg.Add(x => x.CurrentQuantity).Sum();
+
+            agg.Add(x => x.OriginalAmount).Sum();
+            agg.Add(x => x.CurrentAmount).Sum();
+
+            agg.Add(x => x.Exposure).Sum();
+            agg.Add(x => x.CostToCarry).Sum();
+        } )
+        .PageSize(100)
+         ))
+
+            </text>);
+        })
+)
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("FailExposureSummaryContextMenu")
+    .Target("#FailExposureSummaryGrid")
+    .Events(events => events.Select("onFailExposureSummaryContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "FailExposureSummaryButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    }))
+
+
+
+
+@(Html.Kendo().ContextMenu()
+.Name("FailExposureContextMenu")
+    .Target("#FailExposureGrid")
+    .Events(events => events.Select("onFailExposureContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Refresh Data").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "FailExposureButton" })  ;
+        items.Add().Text("Export To Excel").Enabled(true);
+
+    }))

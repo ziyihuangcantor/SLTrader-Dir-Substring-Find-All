@@ -1,0 +1,160 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">   
+    function onAccountCharterAutoAssign() {
+        try {           
+            $.ajax({
+                url: '/Admin/AccountCharter/AutoAssignAccounts',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {                   
+                },
+                error: function (valid) {              
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onAccountCharterCheckData() {
+        CheckGridData('#AccountCharterListGrid');
+    }
+
+    function onRuleError(e) {
+        DisplayControllerError(e);
+    }
+
+    function additionalAccountCharterData() {
+        var entity = $("#AccountCharterDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity
+        };
+    }
+
+
+    function onAccountCharterDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#AccountCharterDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#AccountCharterListGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onAccountCharterChange() {
+        $("#AccountCharterListGrid").data("kendoGrid").dataSource.read();
+    }
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+    });
+
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("AccountCharterToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("AccountCharterDropdownList")
+                            .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Events(events => events.Change("onAccountCharterChange").DataBound("onAccountCharterDefaultLoad"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("AutoAssignButton").Content("AutoAssign").Events(ev => ev.Click("onAccountCharterAutoAssign")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="AccountCharterListGridContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<SL_AccountCharter>()
+        .Name("AccountCharterListGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable(scroll => scroll.Enabled(true).Virtual(true))
+        .Filterable()
+        .NoRecords()
+        .Editable(e => e.Mode(GridEditMode.InCell).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLRule)))
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Events(events => events.DataBound("onAccountCharterCheckData"))
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLAccountCharter).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountRecordType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountCategory).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.ShortName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Command(x =>
+            {
+                x.Destroy();
+            });
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .AutoSync(true)
+            .ServerOperation(false)
+            .PageSize(100)
+            .Read(read => read.Action("GetAccountCharter", "AccountCharter", new { area = "Admin" }).Data("additionalAccountCharterData"))
+            .Update(update => update.Action("UpdateAccountCharter", "AccountCharter", new { area = "Admin" }))
+            .Destroy(destroy => destroy.Action("DestroyAccountCharter", "AccountCharter", new { area = "Admin" }))
+            .Model(model =>
+            {
+                model.Id(x => x.SLAccountCharter);
+                model.Field(x => x.EntityId).Editable(false);
+                model.Field(x => x.AccountNumber).Editable(false);
+                model.Field(x => x.AccountType).Editable(true);
+                model.Field(x => x.AccountType).Editable(true);
+                model.Field(x => x.AccountRecordType).Editable(true);
+                model.Field(x => x.AccountCategory).Editable(true);
+                model.Field(x => x.ShortName).Editable(true);
+            }))
+    )
+    </div>

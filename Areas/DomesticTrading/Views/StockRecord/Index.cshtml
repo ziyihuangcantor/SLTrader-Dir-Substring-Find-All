@@ -1,0 +1,19 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities
+
+@model List<SL_StockRecord>
+
+@(
+    Html.Kendo().Grid(Model)
+    .Name("StockRecordGrid")
+    .Resizable(resize => resize.Columns(true))
+    .Columns( columns => {
+        columns.Bound(s => s.AccountNumber);
+        columns.Bound(s => s.AccountType);
+        columns.Bound(s => s.TradedQuantity);
+        columns.Bound(s => s.SettledQuantity);
+    }))

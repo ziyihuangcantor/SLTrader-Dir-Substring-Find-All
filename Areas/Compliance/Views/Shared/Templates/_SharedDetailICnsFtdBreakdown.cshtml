@@ -1,0 +1,175 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model PartialViewModel
+<style scoped>
+    #SharedCnsftdBreakdownButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script type="text/javascript">
+    var _originalSharedCnsftdBreakdownGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSharedCnsftdBreakdownGrid = $('#SharedDetailCnsftdBreakdownGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#SharedDetailCnsftdBreakdownGrid");
+
+            $(".k-grid-toolbar", "#SharedDetailCnsftdBreakdownGrid").append("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+            $('#SharedDetailCnsftdBreakdownGrid').data('kendoGrid').dataSource.read();
+        }, 3);
+
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("SharedCnsftdBreakdownButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#SharedDetailCnsftdBreakdownGrid", "SharedDetailCnsftdBreakdownGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    function onSharedCnsftdBreakdownLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedDetailCnsftdBreakdownGrid");
+        }, 5);
+    }
+
+    function onSharedCnsftdBreakdownCheckData() {
+        CheckGridData('#SharedDetailCnsftdBreakdownGrid');
+    }
+
+    function onSharedCnsftdBreakdownAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            issueId: '@Model.IssueId'
+        };
+    }
+
+    function onSharedCnsftdBreakdownContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Unsort':
+                onSharedCnsftdBreakdownUnsortGrid("#SharedDetailCnsftdBreakdownGrid");
+                break;
+
+            case 'Select All':
+                onSharedCnsftdBreakdownSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedDetailCnsftdBreakdownGrid");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedDetailCnsftdBreakdownGrid");
+                $('#SharedDetailCnsftdBreakdownGrid').data('kendoGrid').setOptions(_originalSharedCnsftdBreakdownGrid);
+                $(".k-grid-toolbar", "#SharedDetailCnsftdBreakdownGrid").append("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                break;
+
+            case 'Export To Excel':
+                exportToSharedCnsftdBreakdownExcel();
+                break;
+        }
+    }
+
+    function onSharedCnsftdBreakdownSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedDetailCnsftdBreakdownGrid").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedCnsftdBreakdownUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedCnsftdBreakdownExcel() {
+        KendoGridToCSVConvertor("#SharedDetailCnsftdBreakdownGrid", 'SharedDetailCnsftdBreakdownGrid');
+    }
+</script>
+<div id="SharedDetailCnsftdBreakdownGridDiv" class="grid-div">
+               @(
+ Html.Kendo().Grid<SL_CnsFtdBreakdownProjection>()
+    .Name("SharedDetailCnsftdBreakdownGrid")
+.Navigatable()
+.Scrollable()
+.Sortable()
+ .ToolBar(t =>
+    {
+        t.Template("<label></label>");
+    })
+        .Editable(x => x.Enabled(false))
+        .HtmlAttributes(new { @class = "grid" })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+        .Filterable()
+        .AutoBind(false)
+        .NoRecords()
+        .Events(events =>
+        {
+            events.DataBound("onSharedCnsftdBreakdownCheckData");
+            events.ColumnHide("onSharedCnsftdBreakdownLayoutChange");
+            events.ColumnShow("onSharedCnsftdBreakdownLayoutChange");
+            events.ColumnResize("onSharedCnsftdBreakdownLayoutChange");
+            events.ColumnReorder("onSharedCnsftdBreakdownLayoutChange");
+        })
+        .Resizable(resize => resize.Columns(true))
+        .ColumnMenu(columnMenu =>
+        {
+            columnMenu.Columns(true);
+            columnMenu.Sortable(true);
+            columnMenu.Filterable(true);
+        })
+        .Reorderable(reorder =>
+        {
+            reorder.Columns(true);
+        })
+        .Navigatable().Columns(cols =>
+                {
+                    cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                    cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                    cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.CnsSodPosition).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(CnsSodPosition)#", "");
+                    cols.Bound(x => x.CnsSettledFtd).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(CnsSettledFtd)#", "");
+                    cols.Bound(x => x.CnsFtdDC).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(CnsFtdDC)#", "");
+                    cols.Bound(x => x.TradedBalance).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(TradedBalance)#", "");
+                    cols.Bound(x => x.FirmBalance).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(FirmBalance)#", "");
+                    cols.Bound(x => x.CnsSettledFtr).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(CnsSettledFtr)#", "");
+                })
+     .DataSource(ds =>
+        {
+            ds.Ajax()
+                .ServerOperation(false)
+                .Read(read =>
+                    {
+                        read.Action("Read_CnsFailToDeliverByIssue", "Main", new { area = "DomesticTrading" }).Data("onSharedCnsftdBreakdownAdditionalData");
+                    });
+        }))
+</div>
+@(Html.Kendo().ContextMenu()
+.Name("SharedCnsftdBreakdownContextMenu")
+            .Target("#SharedDetailCnsftdBreakdownGrid")
+        .Events(events => events.Select("onSharedCnsftdBreakdownContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedCnsftdBreakdownButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

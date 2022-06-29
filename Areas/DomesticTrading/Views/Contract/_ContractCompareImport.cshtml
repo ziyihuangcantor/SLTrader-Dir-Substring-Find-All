@@ -1,0 +1,454 @@
+﻿@using BondFire.Entities.Projections
+@using BondFire.Entities
+@using SLTrader.Enums
+@using SLTrader.Models.ContractRelatedModels
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+@model IEnumerable<ContractCompareImportModel>
+
+<script type="text/javascript">
+    var _originalContractCompareImportDisplayGrid = null;
+    var _originalContractCompareImportToolBar = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalContractCompareImportDisplayGrid = $("#ContractCompareImportDisplayGrid").data('kendoGrid').getOptions();
+            _originalContractCompareImportToolBar = $("#ContractCompareImportDisplayGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#ContractCompareImportDisplayGrid");
+
+            $("#ContractCompareImportDisplayGrid .k-grid-toolbar").html(_originalContractCompareImportToolBar);
+            $("#ContractCompareImportDisplayGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+
+        onContractCompareImportInit();
+    });
+
+    function onContractCompareImportInit(e) {
+        $.ajax({
+            url: '@Url.Action("ContractCompareImport_Init", "ContractCompareImport", new {Area = "DomesticTrading"})',
+            type: 'POST',
+            contentType: 'application/json;',
+            success: function (valid) {
+            },
+            error: function (valid) {
+            }
+        }).done(function ()
+        {
+        });
+    }
+
+    function onContractCompareImportLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ContractCompareImportDisplayGrid");
+        }, 5);
+    }
+
+    function onContractCompareImportCheckData(e) {
+        try {
+            CheckGridData('#ContractCompareImportDisplayGrid');
+        }
+        catch (err) {
+            LogError(err.message);
+        }
+
+        onCommandEnable(e);
+    }
+
+    function onCommandEnable(e) {
+        var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+        var columnIndex = GetCommandColumnIndex();
+
+        var dataView = grid.dataSource.view();
+        for (var i = 0; i < dataView.length; i++) {
+            var dataItem = dataView[i];
+            var cell = GetCommandCell(dataItem, columnIndex);
+
+            if ((dataItem.Status != @Convert.ToInt32(StatusMain.Ready)) ||
+                ((dataItem.Status == @Convert.ToInt32(StatusMain.Ready)) &&
+                    (dataItem.Amount == dataItem.ContractAmount) &&
+                    (dataItem.Quantity == dataItem.ContractQuantity) &&
+                    (dataItem.MarkParamterAmount == dataItem.ContractMarkParamterAmount) &&
+                    (dataItem.RebateRate == dataItem.ContractRebateRate)) ) {
+
+                cell.addClass("k-state-disabled");
+            }
+            else {
+                cell.removeClass("k-state-disabled");
+            }
+        }
+    }
+    function GetCommandColumnIndex() {
+        var index = -1;
+        var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+        var columns = grid.options.columns;
+
+        if (columns.length > 0) {
+            for (var i = 0; i < columns.length; i++) {
+                var column = columns[i];
+
+                if (column.command) {
+                    index = i;
+                }
+            }
+        }
+        return index;
+    }
+
+    function GetCommandCell(dataItem, columnIndex) {
+        var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+        var stmt = "tr[data-uid=" + dataItem.uid + "] td:eq(" + columnIndex + ")";
+        var cell = grid.tbody.find(stmt);
+        return cell;
+    }
+
+    function ReInitVirtualScroll(e) {
+        var grid = $(e).data("kendoGrid");
+        grid._rowHeight = undefined;
+        grid.virtualScrollable.refresh();
+    }
+
+    function onContractCompareImportContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Refresh Data':
+                $("#ContractCompareImportDisplayGrid").data("kendoGrid").dataSource.read();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#ContractCompareImportDisplayGrid");
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#ContractCompareImportDisplayGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ContractCompareImportDisplayGrid");
+                break;
+
+            case "Reset Grid":
+                onContractCompareImportResetGrid();
+                break;
+            case "Add/Update Data":
+                onContextPerformAction(e);
+                break;
+        }
+    }
+
+    function onContractCompareImportContextMenuOpen(e) {
+        var grid = $("#ContractCompareImportDisplayGrid").getKendoGrid();
+        var contextMenu = $("#ContractCompareImportContextMenu").data("kendoContextMenu");
+        var model = grid.dataItem(e.target);
+
+        if ( model && (model.Status == @Convert.ToInt32(StatusMain.Ready)) ) {
+            contextMenu.enable("#AddUpdateItem", true);
+        }
+        else {
+            contextMenu.enable("#AddUpdateItem", false);
+        }
+    }
+
+    function onContextPerformAction(e) {
+        var grid = $("#ContractCompareImportDisplayGrid").getKendoGrid();
+        var selectedData = grid.dataItem(e.target);
+
+        onPerformAction(selectedData);
+    }
+
+    function onContractCompareImportRefresh() {
+        $.ajax({
+            url: '@Url.Action("ContractCompareImport_Refresh", "ContractCompareImport", new {Area = "DomesticTrading"})',
+            type: 'POST',
+            contentType: 'application/json;',
+            success: function (valid) {
+            },
+            error: function (valid) {
+            }
+        }).done(function ()
+        {
+            var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+            grid.dataSource.read();
+        });
+    }
+
+    function onSimpleRefresh() {
+        $.ajax({
+            url: '@Url.Action( "ContractCompareImport_SimpleRefresh", "ContractCompareImport", new {Area = "DomesticTrading"})',
+            type: 'POST',
+            contentType: 'application/json;',
+            success: function (valid) {
+            },
+            error: function (valid) {
+            }
+        }).done(function ()
+        {
+            var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+            grid.dataSource.read();
+        });
+    }
+
+    function onContractCompareImportComplete() {
+        $.ajax({
+            url: '@Url.Action("ContractCompareImport_Complete", "ContractCompareImport", new {Area = "DomesticTrading"})',
+            type: 'POST',
+            contentType: 'application/json;',
+            success: function (valid) {
+            },
+            error: function (valid) {
+            }
+        }).done(function ()
+        {
+            onSimpleRefresh();
+        });
+    }
+
+    function onContractCompareImportResetGrid() {
+        ResetUserLayout("#ContractCompareImportDisplayGrid");
+
+        $("#ContractCompareImportDisplayGrid").data('kendoGrid').setOptions(_originalContractCompareImportDisplayGrid);
+        $("#ContractCompareImportDisplayGrid .k-grid-toolbar").html(_originalContractCompareImportToolBar);
+        $("#ContractCompareImportDisplayGrid .k-grid-toolbar").addClass("k-grid-top");
+        $('#ContractCompareImportDisplayGrid').data("kendoGrid").dataSource.read();
+    }
+
+    function onPerformAction(selectedData) {
+        if (selectedData) {
+            var columnIndex = GetCommandColumnIndex();
+            var cell = GetCommandCell(selectedData, columnIndex);
+            cell.addClass("k-state-disabled");
+
+            $.ajax({
+              url: '@Url.Action("ContractCompareImport_Action", "ContractCompareImport", new {Area = "DomesticTrading"})',
+              type: 'POST',
+              data: JSON.stringify(selectedData),
+              contentType: 'application/json;',
+              success: function (valid) {
+              },
+              error: function (valid) {
+              }
+            }).done(function ()
+            {
+                var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+                grid.dataSource.read();
+            });
+        }
+    }
+
+    function showQuantity(data) {
+        var template = kendo.format("<p style=\"color: Blue;\">{0}</p>", data.Quantity);
+
+        if (data.Contract) {
+            if (data.Quantity != data.Contract.Quantity) {
+                template = kendo.format("<p style=\"color: Red;\">{0}</p>", data.Quantity);
+            }
+        }
+
+        return template;
+    }
+    function showAmount(data) {
+        var template = kendo.format("<p style=\"color: Blue;\">{0}</p>", data.Amount);
+
+        if (data.Contract) {
+            if (data.Amount != data.Contract.Amount) {
+                template = kendo.format("<p style=\"color: Red;\">{0}</p>", data.Amount);
+            }
+        }
+        return template;
+    }
+    function showMark(data) {
+        var template = kendo.format("<p style=\"color: Blue;\">{0}</p>", data.MarkParamterAmount);
+
+        if (data.Contract) {
+            if (data.MarkParamterAmount != data.Contract.Mark) {
+                template = kendo.format("<p style=\"color: Red;\">{0}</p>", data.MarkParamterAmount);
+            }
+        }
+        return template;
+    }
+    function showRebateRate(data) {
+        var template = kendo.format("<p style=\"color: Blue;\">{0}</p>", data.RebateRate);
+
+        if (data.Contract) {
+            if (data.RebateRate != data.Contract.RebateRate) {
+                template = kendo.format("<p style=\"color: Red;\">{0}</p>", data.RebateRate);
+            }
+        }
+        return template;
+    }
+
+    $(function () {
+        $('#ContractCompareImportDisplayGrid').on('click', '.onPerformActionButton', function (e) {
+            var grid = $('#ContractCompareImportDisplayGrid').data('kendoGrid');
+            var selectedData = grid.dataItem($(e.currentTarget).closest("tr"));
+
+            onPerformAction(selectedData);
+        });
+    });
+</script>
+
+<div id="ContractCompareImportContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("ContractCompareImportSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        {
+            panes.Add()
+                .Collapsible(true)
+                .Size("30%")
+                .Scrollable(true)
+                .Content(@<text>
+                    @(Html.Kendo().Upload().Name( "ContractCompareImportFiles" )
+                        .HtmlAttributes( new { @class = "grid" } )
+                        .Async( a => a
+                            .Save( "Process_ContractCompareImportFiles", "ContractCompareImport", new { Area = "DomesticTrading" } )
+                            .Remove( "Remove_ContractCompareImportFiles", "ContractCompareImport", new { Area = "DomesticTrading" } )
+                            .AutoUpload( false )
+                        )
+                        .Validation( validation => validation.AllowedExtensions( new string[] { ".csv", ".xlsx" } ) )
+                        .Events( events => events
+                            .Remove( "onSimpleRefresh")
+                            //.Success( "onContractCompareImportRefresh" )
+                            .Complete( "onContractCompareImportComplete" )
+                        )
+                    )
+                </text>);
+
+                panes.Add()
+                .Collapsible(false)
+                .Size("65%")
+                .Scrollable(false)
+                .Content(@<text>
+                    @(Html.Kendo().Grid( Model ).Name( "ContractCompareImportDisplayGrid" )
+                        .HtmlAttributes( new { @class = "grid" } )
+                        .Sortable( sort =>
+                        {
+                            sort.AllowUnsort( true );
+                            sort.Enabled( true );
+                            sort.SortMode( GridSortMode.MultipleColumn );
+                        } )
+                        .Filterable()
+                        .Scrollable( scroll => scroll.Virtual( true ) )
+                        .NoRecords()
+                        .Reorderable( reorder => reorder.Columns( true ) )
+                        .ColumnMenu( menu =>
+                        {
+                            menu.Columns( true );
+                            menu.Filterable( true );
+                            menu.Sortable( true );
+                            menu.ComponentType( "modern" );
+                        } )
+                        .AutoBind( true )
+                        .Events( events =>
+                        {
+                            events.DataBound( "onContractCompareImportCheckData" );
+                            events.ColumnHide( "onContractCompareImportLayoutChange" );
+                            events.ColumnShow( "onContractCompareImportLayoutChange" );
+                            events.ColumnResize( "onContractCompareImportLayoutChange" );
+                            events.ColumnReorder( "onContractCompareImportLayoutChange" );
+                        } )
+                        //.Pageable( pager => pager.Refresh( true ) )
+                        .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+                        .Columns( columns =>
+                        {
+                            columns.Command( x =>
+                            {
+                                x.Custom( "ActionButton" ).Text( "Add/Update" )
+                                .HtmlAttributes( new { @class = "onPerformActionButton" } );
+                            } ).Width( 85 );
+
+                            columns.Bound( x => x.SourceFile ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.Status ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.StatusMessage ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.UpdateType ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                            columns.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" );
+                            columns.Bound( x => x.EntityLoanetId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Title( "Entity" );
+                            columns.Bound( x => x.ContraEntity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.TradeType ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.ContractNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                            columns.Bound( x => x.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                            columns.Bound( x => x.Quantity ).GetColumnFormat( ColumnTypeEnum.Position, false, "#=showQuantity(data)#", "" ).Title( "Quantity" );
+                            columns.Bound( x => x.ContractQuantity ).GetColumnFormat( ColumnTypeEnum.Position, false, "", "" ).Title( "Contract Quantity" );
+
+                            columns.Bound( x => x.Amount ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=showAmount(data)#", "" ).Title( "Amount" );
+                            columns.Bound( x => x.ContractAmount ).GetColumnFormat( ColumnTypeEnum.Money, false, "", "" ).Title( "Contract Amount" );
+
+                            columns.Bound( x => x.MarkParamterAmount ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=showMark(data)#", "" ).Title( "Mark" );
+                            columns.Bound( x => x.ContractMarkParamterAmount ).GetColumnFormat( ColumnTypeEnum.Money, false, "", "" ).Title( "Contract Mark" );
+
+                            columns.Bound( x => x.RebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=showRebateRate(data)#", "" ).Title( "RebateRate" );
+                            columns.Bound( x => x.ContractRebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "", "" ).Title( "Contract RebateRate" );
+
+                            columns.Bound( x => x.RebateRateCode ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.ProfitId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.TermDate ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                            columns.Bound( x => x.Comments ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                        } )
+                        .DataSource( ds => ds
+                            .Ajax()
+                            .Read( read => read.Action( "Read_ContractCompareImport", "ContractCompareImport", new { area = "DomesticTrading" } ) )
+                            .PageSize( 100 ) ))
+                </text>);
+
+                panes.Add()
+                .Collapsible(false)
+                .Size("05%")
+                .Scrollable(false)
+                .Resizable(false)
+                .Content(@<text>
+                        @(Html.Kendo().ToolBar().Name( "ContractCompareImportToolBar" )
+                           .Resizable( true )
+                           .Items( items =>
+                           {
+                               items.Add().Template( Html.Kendo().Button().Name( "RefreshContractCompareImportCommand" ).Content( "Refresh" ).Events( events => events.Click( "onContractCompareImportRefresh" ) ).ToHtmlString() );
+                               items.Add().Template( Html.Kendo().Button().Name( "ResetContractCompareImportCommand" ).Content( "Reset Grid" ).Events( events => events.Click( "onContractCompareImportResetGrid" ) ).ToHtmlString() );
+                           }) )
+                </text>);
+    }))
+    @(Html.Kendo().ContextMenu()
+    .Name("ContractCompareImportContextMenu")
+    .Target("#ContractCompareImportDisplayGrid")
+    .Filter("tr[role='row']")
+    .Events(events =>
+    {
+        events.Select( "onContractCompareImportContextMenuSelect" );
+        events.Open( "onContractCompareImportContextMenuOpen" );
+    } )
+    .Items(items =>
+    {
+        items.Add().Text("Refresh Data").Enabled(true);
+        items.Add().Text( "Add/Update Data" ).Enabled( true ).HtmlAttributes( new { @id = "AddUpdateItem" } );
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+    }))
+</div>
+
+@(Html.Kendo().ContextMenu()
+    .Name("ContractCompareImportContextMenu")
+    .Target("#ContractCompareImportDisplayGrid")
+    .Filter("tr[role='row']")
+    .Events(events =>
+    {
+        events.Select( "onContractCompareImportContextMenuSelect" );
+        events.Open( "onContractCompareImportContextMenuOpen" );
+    } )
+    .Items(items =>
+    {
+        items.Add().Text("Refresh Data").Enabled(true);
+        items.Add().Text( "Add/Update Data" ).Enabled( true ).HtmlAttributes( new { @id = "AddUpdateItem" } );
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+    }))
+

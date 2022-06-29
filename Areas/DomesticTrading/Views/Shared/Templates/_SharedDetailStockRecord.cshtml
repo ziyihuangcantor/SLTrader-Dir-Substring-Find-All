@@ -1,0 +1,214 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model  PartialViewModel
+<style scoped>
+    #SharedStockRecordButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script type="text/javascript">
+    var _originalSharedStockRecordGrid = null;
+
+    $(document).ready(function () {
+       
+        setTimeout(function () {
+            try {
+                _originalSharedStockRecordGrid = $('#SharedDetailStockRecordGrid').data('kendoGrid').getOptions();
+
+                LoadGridLayout("#SharedDetailStockRecordGrid");
+
+                $(".k-grid-toolbar", "#SharedDetailStockRecordGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedDetailStockRecordGrid').data('kendoGrid').dataSource.read();
+            }
+            catch (e) {
+
+            }
+        }, 3);
+       
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("SharedStockRecordButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#SharedDetailStockRecordGrid", "SharedDetailStockRecordGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    function onSharedStockRecordLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SharedDetailStockRecordGrid");
+        }, 5);
+    }
+
+    function onSharedStockRecordCheckData() {
+        CheckGridData('#SharedDetailStockRecordGrid');
+    }
+
+    function onSharedStockRecordAdditionalData(e) {
+        return {
+            entityId: '@Model.EntityId',
+            effectiveDate: '@Model.EffectiveDate',
+            issueId: '@Model.IssueId'
+        };
+    }
+
+    function onSharedStockRecordContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#SharedDetailStockRecordGrid");
+                break;
+
+            case 'Unsort':
+                onSharedStockRecordUnsortGrid("#SharedDetailStockRecordGrid");
+                break;
+
+            case 'Select All':
+                onSharedStockRecordSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SharedDetailStockRecordGrid");
+                break;
+
+
+            case 'Reset Grid':
+                ResetUserLayout("#SharedDetailStockRecordGrid");
+                $('#SharedDetailStockRecordGrid').data('kendoGrid').setOptions(_originalSharedStockRecordGrid);
+                $(".k-grid-toolbar", "#SharedDetailStockRecordGrid").prepend("<label style=\"font-weight:bold;\">Security: [@Model.SecurityNumber] @Model.Ticker For @Model.EffectiveDate.ToString("yyyy-MM-dd")</label>");
+                $('#SharedDetailStockRecordGrid').data('kendoGrid').dataSource.read();
+                break;
+
+            case 'Export To Excel':
+                exportToSharedStockRecordExcel();
+                break;
+        }
+    }
+
+    function onSharedStockRecordSelectAll(e) {
+        try {
+            var recallGrid = $("#SharedDetailStockRecordGrid").data("kendoGrid");
+            recallGrid.select(recallGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSharedStockRecordUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSharedStockRecordExcel() {
+        KendoGridToCSVConvertor("#SharedDetailStockRecordGrid", 'SharedDetailStockRecordGrid');
+    }
+</script>
+
+
+
+<div id="SharedDetailStockRecordDiv" class="grid-div">
+@(
+ Html.Kendo().Grid<SL_StockRecordProjection>()
+    .Name("SharedDetailStockRecordGrid")
+          .Navigatable()
+        .Scrollable(scroll => scroll.Virtual(true).Enabled(true))
+        .Sortable()
+        .AutoBind(false)
+             .ToolBar(t =>
+             {
+                 t.Template("<label></label>");
+             })
+                    .Editable(x => x.Enabled(false))
+                    .HtmlAttributes(new { @class = "grid" })
+                    .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                    .Filterable()
+                    .NoRecords()
+                    .Events(events =>
+                    {
+                        events.DataBound("onSharedStockRecordCheckData");
+                        events.ColumnHide("onSharedStockRecordLayoutChange");
+                        events.ColumnShow("onSharedStockRecordLayoutChange");
+                        events.ColumnResize("onSharedStockRecordLayoutChange");
+                        events.ColumnReorder("onSharedStockRecordLayoutChange");
+                    })
+                       .Pageable(pagable =>
+                       {
+                           pagable.Numeric(false);
+                           pagable.PreviousNext(false);
+                           pagable.Messages(config =>
+                           {
+                               config.Display("Showing {2} item(s)");
+                           });
+                       })
+                    .Resizable(resize => resize.Columns(true))
+                    .ColumnMenu(columnMenu =>
+                    {
+                        columnMenu.Columns(true);
+                        columnMenu.Sortable(true);
+                        columnMenu.Filterable(true);
+                        columnMenu.ComponentType( "modern" );
+                    } )
+                    .Reorderable(reorder =>
+                    {
+                        reorder.Columns(true);
+                    })
+                    .Navigatable()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.FirmId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ShortName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.AccountType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.RecordType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Category).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.SettledQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(SettledQuantity)#", "");
+        cols.Bound(x => x.TradedQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(TradedQuantity)#", "");
+        cols.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.LastActivityDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.IsOptedFPL).GetColumnFormat(ColumnTypeEnum.String, false, "<input disabled type = 'checkbox'   #= (IsOptedFPL) ? checked ='checked' : '' #/>", "");
+        cols.Bound(x => x.ContraEntityFPL).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    })
+    .DataSource(ds =>
+    {
+        ds.Ajax()
+            .ServerOperation(false)
+            .PageSize(30)
+            .Read(read =>
+            {
+                read.Action("Read_StockRecordByIssue", "Main", new { area = "DomesticTrading" }).Data("onSharedStockRecordAdditionalData");
+            })
+            .Aggregates(agg =>
+            {
+                agg.Add(x => x.SettledQuantity).Sum();
+                agg.Add(x => x.TradedQuantity).Sum();
+            });
+
+    }))
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("SharedStockRecordContextMenu")
+            .Target("#SharedDetailStockRecordGrid")
+        .Events(events => events.Select("onSharedStockRecordContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "SharedStockRecordButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

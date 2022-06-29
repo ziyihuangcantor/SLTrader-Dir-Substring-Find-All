@@ -1,0 +1,515 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Tools
+
+
+@*<style scoped>
+    #LocateHistoryToolBar .k-checkbox-label {
+        padding-left: 20px;
+    }
+
+    #LocateHistoryGrid .k-grid-content td {
+        height: 25px;
+    }
+</style>*@
+
+<script>
+    var _locateHistorySelectAll = false;
+    var _originalLocatesHistoryGrid = null;
+    
+   $(document).ready(function () {
+       $('#LocateHistoryClientCheckBox').change(function () {
+           $("#LocateHistoryClientDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+       })
+
+       setTimeout(function () {
+           _originalLocatesHistoryGrid = $('#LocateHistoryGrid').data('kendoGrid').getOptions();
+
+           LoadGridLayout("#LocateHistoryGrid");
+       }, 5);
+   });
+
+    $('#SharedLabelCheckBox').change(function () {
+        $("#LocateHistoryGrid").data("kendoGrid").refresh();
+    })
+
+    function onLocateHistoryLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#LocateHistoryGrid");
+        }, 5);
+    }
+
+    function onLocateHistorySelectAll() {
+        try {
+            var _locateHistorySelectAllGrid = $("#LocateHistoryGrid").data("kendoGrid");
+            _locateHistorySelectAllGrid.select(_locateHistorySelectAllGrid.tbody.find(">tr"));
+
+            _locateHistorySelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onLocateHistoryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#LocateHistoryGrid");
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#LocateHistoryGrid");
+                break;
+
+            case 'Select All':
+                onLocateHistorySelectAll();
+                break;
+
+            case 'Export To Excel':
+                KendoGridToCSVConvertor("#LocateHistoryGrid", 'LocateHistoryGrid', _locateHistorySelectAll);
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#LocateHistoryGrid");
+                $('#LocateHistoryGrid').data('kendoGrid').setOptions(_originalLocatesHistoryGrid);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#LocateHistoryGrid");
+                break;
+        }
+    }
+
+    function onLocateHistoryDefaultLoad() {
+        try {
+            var UserPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    UserPreference = valid;
+
+                    var dropdownList = $('#LocateHistoryDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == UserPreference.DefaultFirm;
+                    });
+                },
+                error: function (valid) {
+                    UserPreference = null;
+                }
+            })
+        }
+        catch (e) { }
+    }
+
+    function onLocateHistoryCheckData() {
+            try {
+                try {
+                    var grid = $("#LocateHistoryGrid").data("kendoGrid");
+                    var gridData = grid.dataSource.view();
+
+                    for (var i = 0; i < gridData.length; i++) {
+                        if (gridData[i].Comment == 'Restricted item') {
+                            grid.table.find("tr[data-uid='" + gridData[i].uid + "']").addClass("k-block k-error-colored");
+                        }
+                    }
+
+                    ReInitVirtualScroll("#LocateHistoryGrid");
+                }
+                catch (e)
+                { }                
+            }
+            catch (e)
+            { }
+    }
+
+    function onLocateTotalData() {
+        var startdatedatepicker = $("#LocateHistoryStartDateCalander").data("kendoDatePicker");
+        var startdatevalue = kendo.toString(startdatedatepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#LocateHistoryDropdownList").data("kendoDropDownList").value();
+
+        var entityGrid = $("#LocateHistoryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+        var issueId = selectedItem["IssueId"];
+
+        return {
+            effectiveDate: startdatevalue,
+            entityId: entity,
+            issueId: issueId
+        }
+    }
+    
+    function onLocateHistoryRowChange(e) {
+        try
+        {
+            var entityGrid = $("#LocateHistoryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+        }
+        catch (e)
+        {
+        }
+        _locateHistorySelectAll = false;
+
+        $('#LocateHistoryTotalGrid').data('kendoGrid').dataSource.read();
+        $('#InventoryLocateHistoryGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onInventoryLocateData() {
+        var entityGrid = $("#LocateHistoryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var effectiveDate = selectedItem["EffectiveDate"];
+        var entityId = selectedItem["EntityId"]
+        var issueId = selectedItem["SecurityNumber"];
+
+        return {
+            effectiveDate: effectiveDate,
+            entity: entityId,
+            criteria: issueId
+        }
+    }
+
+    function onLocateHistoryChange() {
+        $('#LocateHistoryGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onAdditionalLocateHistoryData() {
+        var startdatedatepicker = $("#LocateHistoryStartDateCalander").data("kendoDatePicker");
+        var startdatevalue = kendo.toString(startdatedatepicker.value(), 'yyyy-MM-dd');
+
+        var stopdatedatepicker = $("#LocateHistoryStopDateCalander").data("kendoDatePicker");
+        var stopdatevalue = kendo.toString(stopdatedatepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#LocateHistoryDropdownList").data("kendoDropDownList");
+        var criteria = document.getElementById("LocateHistoryCriteria").value;
+        var clientId = $("#LocateHistoryClientDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity.value(),
+            startDate: startdatevalue,
+            stopDate: stopdatevalue,
+            clientId: clientId,
+            criteria: criteria
+        };
+    }
+
+    function onAdditionalLocateHistoryClientData() {     
+        var entity = $("#LocateHistoryDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value()
+        };
+    }
+
+    function onLocateHistoryError(e) {
+        DisplayControllerError(e);
+    }
+
+
+    function onClientDropdownrDataBound(e) {
+        $("#LocateHistoryClientDropdownList").data("kendoDropDownList").text('@LabelHelper.Text("OptionLabel")');
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("LocateHistoryToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar" })
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("StartDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("LocateHistoryStartDateCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("StopDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("LocateHistoryStopDateCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("LocateHistoryDropdownList")
+                    .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                    .Animation(true)
+                    .DataTextField("Custodian")
+                    .DataValueField("CompanyId")
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .AutoBind(true)
+                    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                    .Events(e => e.DataBound("onLocateHistoryDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                    .DataSource(dataSource => dataSource
+                    .Read(read => read
+                    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                    .SelectedIndex(0).ToHtmlString());
+       
+        items.Add().Template(LabelHelper.Label("ClientId").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("LocateHistoryClientDropdownList")
+                    .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                    .Animation(true)
+                    .Enable(true)
+                    .DataTextField("Client")
+                    .DataValueField("Client")                 
+                    .AutoBind(false)
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .Value(LabelHelper.Text("OptionLabel"))
+                    .Events(e => e.DataBound("onClientDropdownrDataBound"))
+                    .DataSource(dataSource => dataSource
+                    .Read(read => read
+                    .Action("LoadLocateClientDropdown", "Locates", new { area = "Locates" }).Data("onAdditionalLocateHistoryClientData")))
+                    .ToHtmlString());
+        
+        items.Add().Template(LabelHelper.Label("Criteria").ToHtmlString());
+        items.Add().Template(Html.TextBox("LocateHistoryCriteria", "", new { @class = "k-textbox" }).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("LocateHistoryLookupButton").Content(LabelHelper.Text("HistoryLookup")).Events(ev => ev.Click("onLocateHistoryChange")).ToHtmlString());
+        
+    }))
+
+
+<hr class="hr-white">
+<div id="LocateHistoryDiv" class="grid-div">
+    @(Html.Kendo().Splitter()
+.Name("LocateHistorySplitter")
+.HtmlAttributes(new { @class = "grid" })
+.Orientation(SplitterOrientation.Vertical)
+.Panes(panes =>
+{
+    panes.Add()
+        .Scrollable(false)
+        .Content(@<text>
+            @(Html.Kendo().Grid<SL_LocateProjection>()
+            .Name("LocateHistoryGrid")
+            .HtmlAttributes(new { @class = "grid" })
+            .Scrollable(scroll =>
+            {
+                scroll.Virtual(true);
+                scroll.Enabled(true);
+            })
+            .ColumnMenu(menu =>
+            {
+                menu.Columns(true);
+                menu.Filterable(true);
+                menu.Sortable(true);
+                menu.ComponentType("modern");
+            })
+            .PersistSelection()
+            .Reorderable(reorder => reorder.Columns(true))
+            .Selectable(select =>
+            {
+                select.Enabled(true);
+                select.Mode(GridSelectionMode.Multiple);
+                select.Type(GridSelectionType.Row);
+            })
+            .Events(events =>
+            {
+                events.DataBound("onLocateHistoryCheckData");
+                events.Change("onLocateHistoryRowChange");
+                events.ColumnHide("onLocateHistoryLayoutChange");
+                events.ColumnShow("onLocateHistoryLayoutChange");
+                events.ColumnResize("onLocateHistoryLayoutChange");
+                events.ColumnReorder("onLocateHistoryLayoutChange");
+            })
+            .Pageable(pagable =>
+            {
+                pagable.Numeric(false);
+                pagable.PreviousNext(false);
+                pagable.Messages(config =>
+                {
+                    config.Display("Showing {2} locate(s)");
+                });
+            })
+            .NoRecords()
+            .Sortable()
+            .Filterable(filter =>
+            {
+                filter.Enabled(true);
+            })
+            .Resizable(resize =>
+            {
+                resize.Columns(true);
+            })
+            .Columns(cols =>
+            {
+                cols.Bound(x => x.LocateId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                cols.Bound(x => x.Clientid).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+                cols.Bound(x => x.RequestTime).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+                cols.Bound(x => x.RequestedBy).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.RequestQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(RequestQuantity)#", "");
+                cols.Bound(x => x.AllocatedQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(AllocatedQuantity)#", "DecimalNumber");
+                cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.AllocatedTime).GetColumnFormat(ColumnTypeEnum.Time, false, "", "").Hidden(true);
+                cols.Bound(x => x.AllocatedBy).GetColumnFormat(ColumnTypeEnum.Time, false, "", "").Hidden(true);
+                cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "Rate");
+                cols.Bound(x => x.RebateIncome).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RebateIncome)#", "");
+                cols.Bound(x => x.ExternalTradeXRef).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.ModifiedBy).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+                cols.Bound(x => x.LocateStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.ClientComment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.ParentLocateId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.StatusMain).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+            })
+            .DataSource(ds => ds.Ajax()
+                .PageSize(20)
+                .AutoSync(true)
+                .Sort(sort =>
+                {
+                    sort.Add(x => x.LocateId).Ascending();
+                })
+                .Events(events =>
+                {
+                    events.Error("onLocateHistoryError");
+                })
+                .ServerOperation(false)
+                .Read(read => read.Action("LoadLocateHistory", "Locates", new { area = "Locates" }).Data("onAdditionalLocateHistoryData"))
+                .Aggregates(agg =>
+                {
+                    agg.Add(x => x.RequestQuantity).Sum();
+                    agg.Add(x => x.AllocatedQuantity).Sum();
+                    agg.Add(x => x.RebateIncome).Sum();
+                })))
+        </text>);
+
+    panes.Add()
+         .Scrollable(false)
+      .Content(@<text>
+            @(Html.Kendo().Splitter()
+        .Name("LocateHistoryBottomSplitter")
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes =>
+        {
+            childPanes.Add()
+                  .Scrollable(false)
+                .Content(
+                    (Html.Kendo().Grid<SL_LocateInventorySummaryProjection>()
+                    .Name("InventoryLocateHistoryGrid")
+                    .AutoBind(false)
+                    .NoRecords()
+                    .HtmlAttributes(new { @class = "grid" })
+                    .ToolBar(t =>
+                    {
+                        t.Template(LabelHelper.Label("InventoryInformation").ToString());
+                    })
+                    .Columns(cols =>
+                    {
+                        cols.Bound(x => x.IssueId).Hidden(true);
+                        cols.Bound(x => x.MarkerColor).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(MarkerColor)#", "").HtmlAttributes(new { title = "#= OnColorPreviewDescription(MarkerDesceiption) #" });
+                        cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        cols.Bound(x => x.InventoryQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+                        cols.Bound(x => x.AllocatedQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+                        cols.Bound(x => x.TotalQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+                    })
+                    .Scrollable(scroll =>
+                    {
+                        scroll.Enabled(true);
+                        scroll.Virtual(true);
+                    })
+                    .DataSource(ds =>
+                    {
+                        ds.Ajax()
+                        .ServerOperation(false)
+                        .Events(ev => ev.Error("onLocateChildError"))
+                        .Read(r => r.Action("LoadLocateInventoryByIssue", "Inventory", new { area = "Locates" }).Data("onInventoryLocateData"))
+                        .Aggregates(agg =>
+                        {
+                            agg.Add(x => x.InventoryQuantity).Sum();
+                            agg.Add(x => x.AllocatedQuantity).Sum();
+                            agg.Add(x => x.TotalQuantity).Sum();
+                        });
+                    }).ToHtmlString()));
+
+            childPanes.Add()
+                .Scrollable(false)
+     .Content(
+         (Html.Kendo().Grid<LocateTotalModel>()
+         .Name("LocateHistoryTotalGrid")
+         .AutoBind(false)
+          .HtmlAttributes(new { @class = "grid" })
+          .ToolBar(t =>
+          {
+              t.Template(LabelHelper.Label("LocateTotalInformation").ToString());
+          })
+              .Columns(cols =>
+              {
+                  cols.Bound(x => x.IssueId).Hidden(true);
+                  cols.Bound(x => x.ClientId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                  cols.Bound(x => x.Requested).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+                  cols.Bound(x => x.Located).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+              })
+              .Scrollable(scroll =>
+              {
+                  scroll.Enabled(true);
+                  scroll.Virtual(true);
+              })
+              .NoRecords()
+              .DataSource(ds =>
+              {
+                  ds.Ajax()
+                      .ServerOperation(false)
+                      .Events(ev => ev.Error("onLocateChildError"))
+                      .Read(r => r.Action("LoadLocateTotal", "Locates", new { area = "Locates" }).Data("onLocateTotalData"))
+                      .Aggregates(agg =>
+                      {
+                          agg.Add(x => x.Located).Sum();
+                          agg.Add(x => x.Requested).Sum();
+                      });
+              }).ToHtmlString()));
+        }))
+    </text>);
+}));
+
+</div>
+
+@(Html.Kendo().ContextMenu()
+    .Name("LocateHistoryContextMenu")
+    .Target("#LocateHistoryGrid")
+    .Events(events => events.Select("onLocateHistoryContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns").Enabled(true);
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Export To Excel").Enabled(true);
+        
+        
+    }))
+
+

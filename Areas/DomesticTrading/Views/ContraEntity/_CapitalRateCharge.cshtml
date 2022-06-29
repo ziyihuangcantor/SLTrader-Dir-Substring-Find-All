@@ -1,0 +1,159 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+
+<script type="text/javascript">
+    var _originalCapitalRateChargeGrid = null;
+    var _originalCapitalRateChargeGridToolBar = null;
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#CapitalRateChargeGrid");
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalCapitalRateChargeGrid = $("#CapitalRateChargeGrid").data('kendoGrid').getOptions();
+            _originalCapitalRateChargeGridToolBar = $("#CapitalRateChargeGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#CapitalRateChargeGrid");
+
+            $("#CapitalRateChargeGrid .k-grid-toolbar").html(_originalCapitalRateChargeGridToolBar);
+            $("#CapitalRateChargeGrid .k-grid-toolbar").addClass("k-grid-top");
+
+            resizeGridColumns("#CapitalRateChargeGrid");
+        }, 5);
+    });
+
+    function onCapitalRateChargeListLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#CapitalRateChargeGrid");
+        }, 5);
+    }
+
+   
+    function onCapitalRateChargeEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () {
+            input.select();
+        }, 25);
+    }
+
+    function onCapitalRateChargeDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+                   
+                    $('#CapitalRateChargeGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onCapitalRateChargeError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onCapitalRateChargeChange() {
+        $("#CapitalRateChargeGrid").data("kendoGrid").dataSource.read();
+    }
+
+     function onCapitalRateChargeListContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#CapitalRateChargeGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#CapitalRateChargeGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#CapitalRateChargeGrid");
+
+                $("#CapitalRateChargeGrid").data('kendoGrid').setOptions(_originalCapitalRateChargeGrid);
+                $("#CapitalRateChargeGrid .k-grid-toolbar").html(_originalCapitalRateChargeGridToolBar);
+                $("#CapitalRateChargeGrid .k-grid-toolbar").addClass("k-grid-top");
+                $('#CapitalRateChargeGrid').data("kendoGrid").dataSource.read();
+                break;
+        }
+    }
+</script>
+
+<div id="FxRateContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<SL_CapitalRateCharge>()
+        .Name("CapitalRateChargeGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid", @style="width:500px;" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Editable(e => e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLRule)))
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .Resizable(resize => resize.Columns(true))
+        .Events(events =>
+        {            
+            events.Edit("onCapitalRateChargeEdit");
+            events.ColumnHide("onCapitalRateChargeListLayoutChange");
+            events.ColumnShow("onCapitalRateChargeListLayoutChange");
+            events.ColumnResize("onCapitalRateChargeListLayoutChange");
+            events.ColumnReorder("onCapitalRateChargeListLayoutChange");
+        })
+        .ToolBar(toolbar => toolbar.Create())
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLCapitalRateCharge).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.ChargeType).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.ChargeDescription).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Charge).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+          
+            columns.Command(x =>
+            {
+                    x.Edit();
+                    x.Destroy();
+            });
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .Events(events => events.Error("onCapitalRateChargeError"))
+            .Read(read => read.Action("Read_CapitalRateCharge", "ContraEntity", new { area = "DomesticTrading" }))
+            .Update(update => update.Action("Update_CapitalRateCharge", "ContraEntity", new { area = "DomesticTrading" }))
+            .Destroy(destroy => destroy.Action("Delete_CapitalRateCharge", "ContraEntity", new { area = "DomesticTrading" }))
+            .Create(create => create.Action("Create_CapitalRateCharge", "ContraEntity", new { area = "DomesticTrading" }))
+            .Model(model =>
+            {
+                model.Id(x => x.SLCapitalRateCharge);
+                model.Field(x => x.ChargeType).Editable(true);
+                model.Field(x => x.ChargeDescription).Editable(true).DefaultValue("");
+                model.Field(x => x.Charge).Editable(true);
+            }))
+    )
+</div>
+
+
+@(Html.Kendo().ContextMenu()
+.Name("CapitalRateChargeContextMenu")
+    .Target("#CapitalRateChargeGrid")
+    .Events(events => events.Select("onCapitalRateChargeListContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+    }))

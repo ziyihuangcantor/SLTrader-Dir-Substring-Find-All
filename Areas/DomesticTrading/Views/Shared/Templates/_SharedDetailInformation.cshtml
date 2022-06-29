@@ -1,0 +1,210 @@
+﻿@model InformationModel
+
+
+<table style="margin-left:25px;margin-top:0;">
+    <tr>
+        <td style="text-align:center;color:#1BA1E2;" colspan="2">
+            @if (string.IsNullOrEmpty(Model.Issue.Ticker))
+            {
+                <h1> @Html.Label("", "N.A.") </h1>
+            }
+            else
+            {
+                <h1> @Html.DisplayFor(model => model.Issue.Ticker, "String") </h1>
+            }
+        </td>
+        <td rowspan="3">
+             @(Html.Kendo().Chart(Model.ContractItems.Where(x => x.TradeType == TradeType.StockBorrow).ToList())
+                .Name("ContractBorrowChart")
+        .Title("Borrows")
+        .ChartArea(carea =>
+            {
+                carea.Background("transparent");
+                carea.Height(200);
+                carea.Width(200);
+                carea.Margin(5);
+                carea.Border(border =>
+                    {
+                        border.Color("white");
+                        border.DashType(ChartDashType.DashDot);
+                    });
+            })
+        
+        .Legend(legend => legend
+            .Position(ChartLegendPosition.Right)
+        )
+        .Series(series => series.Donut(x => x.Quantity, x => x.ContraEntity, null, null, null).StartAngle(270))
+        .Tooltip(tooltip => tooltip
+            .Visible(true)
+            .Template("Shares  #= value # [#= dataItem.ContraEntity #]")
+        ))
+            </td>
+         <td rowspan="3">
+                         @(Html.Kendo().Chart(Model.ContractItems.Where(x => x.TradeType == TradeType.StockLoan).ToList())
+                .Name("ContractLoanChart")
+        .Title("Loans")
+        .ChartArea(carea =>
+            {
+                carea.Background("transparent");
+                carea.Height(200);
+                carea.Width(200);
+                carea.Margin(5);
+                carea.Border(border =>
+                    {
+                        border.Color("white");
+                        border.DashType(ChartDashType.DashDot);
+                    });
+            })
+        
+        .Legend(legend => legend
+            .Position(ChartLegendPosition.Right)
+        )
+        .Series(series => series.Donut(x => x.Quantity, x => x.ContraEntity, null, null, null).StartAngle(270))
+        .Tooltip(tooltip => tooltip
+            .Visible(true)
+            .Template("Shares  #= value # [#= dataItem.ContraEntity #]")
+        ))
+        </td>
+        <td rowspan="3  ">
+                                     @(Html.Kendo().Chart(Model.InventoryItems)
+                .Name("InventoryChart")
+        .Title("Inventory")
+        .Transitions(true)
+        .ChartArea(carea =>
+            {
+                carea.Background("transparent");
+                carea.Height(200);
+                carea.Width(200);
+                carea.Margin(5);
+                carea.Border(border =>
+                    {
+                        border.Color("white");
+                        border.DashType(ChartDashType.DashDot);
+                    });
+            })
+        .Legend(legend => legend
+            .Position(ChartLegendPosition.Right)
+        )
+        .Series(series => series.Donut(x => x.Quantity, x => x.Source, null, null, null).StartAngle(270))
+        .Tooltip(tooltip => tooltip
+            .Visible(true)
+            .Template("Shares  #= value # [#= dataItem.Source #]")
+        ))
+        </td>
+    </tr>
+    <tr>
+        <td>
+            @if (string.IsNullOrEmpty(Model.Issue.Cusip))
+            {
+                <h4> @Html.Label("", "N.A.") </h4>
+            }
+            else
+            {
+                <h4> @Html.DisplayFor(model => model.Issue.Cusip, "String") </h4>
+            }
+        </td>
+         <td>
+         @if ((Model.IssuePrice.CurrentCashPrice == null))
+            {
+                <h4>@Html.Label("", "N.A.")</h4>
+            }
+            else
+            {
+                <h4>@Html.DisplayFor(model => model.IssuePrice.CurrentCashPrice, "Price")</h4>
+            }
+        </td>
+          <td>
+
+        </td>
+          <td>
+
+        </td>
+    </tr>
+    <tr>
+        <td>
+            @if (string.IsNullOrEmpty(Model.Issue.Description_1))
+            {
+                <h4> @Html.Label("", "N.A.") </h4>
+            }
+            else
+            {
+                <h4> @Html.DisplayFor(model => model.Issue.Description_1, "String") </h4>
+            }
+        </td>
+       <td>
+
+        </td>
+          <td>
+
+        </td>
+          <td>
+
+        </td>
+    </tr>
+      <tr>
+        <td>
+           
+        </td>
+          <td>
+           
+        </td>
+        <td>
+            @if (Model.TradingModel.BorrowAverageRate < 0)
+            {
+                <h3  style="text-align: center; color: indianred; font-weight: bold;">@Html.DisplayFor(model => Model.TradingModel.BorrowAverageRate, "RebateRate")</h3>
+            }
+            else
+            {
+                <h3  style="text-align: center; color: #1BA1E2; font-weight: bold;">@Html.DisplayFor(model => Model.TradingModel.BorrowAverageRate, "RebateRate")</h3>
+            }
+        </td>
+          <td>
+            @if (Model.TradingModel.LoanAverageRate < 0)
+            {
+                <h3  style="text-align: center; color: indianred; font-weight: bold;">@Html.DisplayFor(model => Model.TradingModel.LoanAverageRate, "RebateRate")</h3>
+            }
+            else
+            {
+
+                <h3  style="text-align: center; color: #1BA1E2; font-weight: bold;">@Html.DisplayFor(model => Model.TradingModel.LoanAverageRate, "RebateRate")</h3>
+            }
+        </td>
+          <td>
+
+        </td>
+    </tr>
+  
+    <tr>
+        <td>
+
+        </td>
+        <td>
+
+        </td>
+        <td>
+
+        </td>
+    </tr>
+    <tr>
+        <td>
+
+        </td>
+        <td>
+
+        </td>
+        <td>
+
+        </td>
+    </tr>
+    <tr>
+        <td>
+
+        </td>
+        <td>
+
+        </td>
+        <td>
+
+        </td>
+    </tr>
+</table>

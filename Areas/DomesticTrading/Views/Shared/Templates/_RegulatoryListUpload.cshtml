@@ -1,0 +1,87 @@
+﻿@using SLTrader.Tools
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+@model Company
+
+<script  type="text/javascript">
+    function onUploadError(e) {
+        DisplayControllerByStringError("Error", e.message);
+    }
+
+    function onRegulatoryListApply(e) {
+        kendo.ui.progress($("#LoadRegulatoryFile"), true);
+
+        $("#RegulatoryListApplyButton").data("kendoButton").enable(false);
+        $("#RegulatoryListCancelButton").data("kendoButton").enable(false);
+
+        $.ajax({
+            url: '@Url.Action( "RegulatoryListFileProcess", "List", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            success: function (valid) {
+                DisplayControllerByStringError("Info", valid.message);
+
+                $("#RegulatoryListApplyButton").data("kendoButton").enable(true);
+                $("#RegulatoryListCancelButton").data("kendoButton").enable(true);
+
+                $("#ListRegulatoryGrid").data("kendoGrid").dataSource.read();
+
+                kendo.ui.progress($("#LoadRegulatoryFile"), false);
+            },
+            error: function (valid) {
+                DisplayControllerByStringError("Error", valid.message);
+
+                $("#RegulatoryListCancelButton").data("kendoButton").enable(true);
+                $("#RegulatoryListApplyButton").data("kendoButton").enable(true);
+
+                kendo.ui.progress($("#LoadRegulatoryFile"), false);
+            }
+        });
+    }
+
+    function onRegulatoryListCancel(e) {
+
+        $('#LocalDetailWindow').data("kendoWindow").close();
+        $("#ListRegulatoryGrid").data("kendoGrid").dataSource.read();
+    }
+
+</script>
+<style scoped>
+    #RegListUploadNotesText {
+        max-width: 300px;
+        width: 300px;
+        font-style: normal;        
+        white-space: pre-wrap;
+        border: 1px solid #ccc;        
+    }
+</style>
+
+<div id="LoadRegulatoryFile" style="width:300px;">
+    @(Html.Kendo().Upload()
+            .Name( "RegulatoryListFiles" )
+            .Events( e => e.Error( "onUploadError" ) )
+            .ShowFileList(false)
+            .Validation(valid =>
+            {
+                valid.AllowedExtensions(new string[] { ".xlsx",".xls" });
+            })
+            .Async( a => a
+            .Save( "SaveRegulatoryListFile", "List", new { area = "DomesticTrading" } )
+            .AutoUpload( true ))
+    )
+    <table>
+        <tr>
+            <td colspan="2">@LabelHelper.Label("UserNotes")</td>
+            </tr>
+        <tr>
+            <td colspan="2">
+                <label id="RegListUploadNotesText">Process only supports .xlsx files, in order to uplaod data the excel spreadsheet needs a 'Cusip' column and a optional 'Quantity' Column.  The 'Cusip' column can use etiher a cusip number or a ticker.  </label>
+            </td>
+        </tr>
+        <tr>            
+            <td colspan="2" align="right">
+                @Html.Kendo().Button().Name( "RegulatoryListApplyButton" ).Enable( true ).Events(e => e.Click("onRegulatoryListApply")).Content("Apply")          
+                @Html.Kendo().Button().Name( "RegulatoryListCancelButton" ).Enable( true ).Events( e => e.Click( "onRegulatoryListCancel" ) ).Content("Cancel")
+            </td>
+        </tr>
+    </table>
+</div>      

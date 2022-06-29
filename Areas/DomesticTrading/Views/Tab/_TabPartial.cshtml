@@ -1,0 +1,29 @@
+﻿@model List<SLTraderUI_Razr.Models.TabModel>
+
+@{
+    Html.Kendo().TabStrip()
+        .Name("MainTabStrip")       
+        .Animation(true)        
+        .Render();
+}
+
+<link href="@Url.Content("~/Content/Site.css")" rel="stylesheet" type="text/css" />
+
+<div id="MainTabStrip">
+    <ul>
+        @foreach (var p in Model)
+         {
+             @RenderTab(p);
+         }
+    </ul>
+</div>
+
+@helper RenderTab(SLTraderUI_Razr.Models.TabModel tab)
+{
+   if (tab.Visible)
+   {
+       <li>
+           <a href ="@tab.Url">@tab.Name</a>
+       </li>
+   }
+}

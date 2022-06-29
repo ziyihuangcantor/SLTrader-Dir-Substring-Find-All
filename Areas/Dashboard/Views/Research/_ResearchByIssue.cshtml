@@ -1,0 +1,77 @@
+﻿@using SLTrader.Tools
+<script type="text/javascript">
+    function onIssueResearch() {        
+        var entityId = $("#ResearchByIssueDropdownList").data("kendoDropDownList").value();
+        var securityNumber = document.getElementById("IssueTextBox").value;        
+
+        var datePicker = $("#PLResearchStartDateCalander").data("kendoDatePicker");
+        var effectiveDate = kendo.toString(datePicker.value(), 'yyyy-MM-dd');
+
+
+        $.ajax({
+            url: '/Dashboard/Security/IssueInformationLookup',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                effectiveDate: effectiveDate,
+                entityId: entityId,
+                criteria: securityNumber
+            }),
+            success: function (valid) {
+                $("#IssueResultsDiv").html(valid);
+            },
+            error: function (valid) {
+                $("#IssueResultsDiv").html(valid);
+            }
+        })
+    }
+</script> 
+
+<div class="k-block div-size">
+<div class="k-header k-shadow div-header-size">@LabelHelper.Text("PLResearcHByIssue")</div>
+
+<div>
+<table>
+<tr>
+        <td class="no-margin">@LabelHelper.Label("EffectiveDate")</td>
+        <td class="no-margin">            
+        @(Html.Kendo().DatePicker()
+        .Name("PLResearchStartDateCalander")                
+        .Format("yyyy-MM-dd")
+        .Value(DateTime.Today)
+        .HtmlAttributes(new { @class="Toolbar-Cell" }))
+        </td> 
+        <td class="no-margin">@LabelHelper.Label("Entity")</td>
+        <td class="no-margin">            
+        @(Html.Kendo().DropDownList()
+        .Name("ResearchByIssueDropdownList")
+        .HtmlAttributes(new { @class="Toolbar-Cell" })
+        .DataTextField("Custodian")
+        .DataValueField("CompanyId")
+        .OptionLabel("Empty List")
+        .AutoBind(true)    
+        .DataSource(dataSource => dataSource
+        .Read(read => read
+        .Action("Read_EntityDropdown", "ContraEntity", new {area="DomesticTrading" })))
+        .SelectedIndex(0))
+        </td>    
+        <td class="no-margin">@LabelHelper.Label("Issue")</td>
+        <td class="no-margin">@Html.TextBox("IssueTextBox", "", new { @class="k-textbox" })</td>
+        <td class="no-margin">            
+            @(Html.Kendo().Button()
+                    .Name("IssueResultButton")
+                    .Content(LabelHelper.Text("ResearchByIssueLookup"))
+                    .Events(e => e.Click("onIssueResearch")))
+        </td>                                          
+</tr>
+</table>  
+<div id="IssueResultsDiv"></div>
+</div>
+</div>
+
+@*<style>
+    #IssueResultsDiv {
+        height:500px;
+    }
+</style>*@
+

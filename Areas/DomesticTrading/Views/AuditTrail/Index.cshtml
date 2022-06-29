@@ -1,0 +1,268 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+<style scoped>   
+    #AuditTrailButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+
+<script type="text/javascript">
+
+    var _originalAuditTrailGrid = null;
+   
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalAuditTrailGrid = $('#AuditTrailGrid').data('kendoGrid').getOptions();
+   
+            LoadGridLayout("#AuditTrailGrid");          
+        }, 5);
+
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("AuditTrailButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#AuditTrailGrid", "AuditTrailGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    $('#AuditTrailButton').hover(
+    function () { $(this).addClass('k-state-hover') },
+    function () { $(this).removeClass('k-state-hover') }
+    )
+
+    function onAuditTrailGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#AuditTrailGrid");
+        }, 5);
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#AuditTrailGrid");
+    });
+
+    function onAuditTrailContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#AuditTrailGrid");
+                break;
+
+            case 'Unsort':
+                onAuditTrailUnsortGrid("#AuditTrailGrid");
+                break;
+
+            case 'Reset Grid':
+                ResetUserLayout("#AuditTrailGrid");
+                $('#AuditTrailGrid').data('kendoGrid').setOptions(_originalAuditTrailGrid);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#AuditTrailGrid");
+                break;
+
+            case 'Select All':
+                onAuditTrailSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                exportToAuditTrailExcel("#AuditTrailGrid", "AuditTrailGrid");
+                break;
+        }
+    }
+
+    function onAuditTrailUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToAuditTrailExcel(gridName, spreadSheetName) {
+        KendoGridToCSVConvertor(gridName, spreadSheetName);
+    }
+
+    function onAuditTrailSelectAll() {
+        try {
+            var contraGrid = $("#AuditTrailGrid").data("kendoGrid");
+            contraGrid.select(contraGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onAuditTrailDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#AuditTrailDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#AuditTrailGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+    
+    function additionalAuditTrailData() {
+
+        var datepicker = $("#AuditTrailCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#AuditTrailDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value(),
+            effectiveDate: value
+        };
+    }
+
+    function onAuditTrailError(e) {
+        console.log(e.message);
+    }
+
+    function onAuditTrailCheckData() {
+        CheckGridData('#AuditTrailGrid');
+    }
+
+
+    function onAuditTrailChange() {
+        $("#AuditTrailGrid").data("kendoGrid").dataSource.read();
+    }
+
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+        .Name( "AuditTrailToolBar" )
+    .Resizable( true )
+    .Items( items =>
+    {
+        items.Add().Template( LabelHelper.Label( "EffectiveDate" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DatePicker()
+                                .Name( "AuditTrailCalander" )
+                                .Format( "yyyy-MM-dd" )
+                                .Value( DateTime.Now )
+                                .HtmlAttributes( new { @class = "width90" } )
+                                .Events( events => events.Change( "onAuditTrailChange" ) ).ToHtmlString() );
+
+        items.Add().Template( LabelHelper.Label( "Entity" ).ToHtmlString() );
+        items.Add().Template( Html.Kendo().DropDownList()
+                            .Name( "AuditTrailDropdownList" )
+                            .HtmlAttributes( new { @class = "width90" } )
+                            .DataTextField( "Custodian" )
+                            .DataValueField( "CompanyId" )
+                            .OptionLabel( LabelHelper.Text( "OptionLabel" ) )
+                            .AutoBind( true )
+                            .Template( "#if(data.Custodian == \"" + LabelHelper.Text( "OptionLabel" ) + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#" )
+                            .Events( events => events.Change( "onAuditTrailChange" ).DataBound( "onAuditTrailDefaultLoad" ).Open( "onContraEntityAutoCompleteResize" ) )
+                            .DataSource( dataSource => dataSource
+                            .Events( events => events.Error( "onAuditTrailError" ) )
+                            .Read( read => read
+                            .Action( "Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" } ) ) )
+                            .SelectedIndex( 0 ).ToHtmlString() );
+    } ))
+
+<hr class="hr-white">
+
+<div id="AuditTrailContent" class="grid-div">
+    @(   Html.Kendo().Grid<AuditTrailModel>()
+            .Name( "AuditTrailGrid" )
+            .HtmlAttributes( new { @class = "grid" } )
+            .Sortable()
+            .NoRecords()
+            .Scrollable( scrollable => scrollable.Virtual( true ) )
+            .Filterable()
+            .Navigatable()
+            .Events( events =>
+            {
+                events.DataBound( "onAuditTrailCheckData" );
+                events.ColumnHide( "onAuditTrailGridLayoutChange" );
+                events.ColumnShow( "onAuditTrailGridLayoutChange" );
+                events.ColumnResize( "onAuditTrailGridLayoutChange" );
+                events.ColumnReorder( "onAuditTrailGridLayoutChange" );
+            } )
+            .ColumnMenu( columnMenu =>
+            {
+                columnMenu.Filterable( true );
+                columnMenu.Columns( true );
+                columnMenu.Sortable( true );
+                columnMenu.ComponentType( "modern" );
+            } )            
+            .Reorderable( reorder =>
+            {
+                reorder.Columns( true );
+            } )
+            .Selectable( select => select.Mode( GridSelectionMode.Multiple ).Type( GridSelectionType.Row ) )
+            .Columns( columns =>
+                {
+                    columns.Bound( p => p.EffectiveDate ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( p => p.EntityId ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( p => p.EntityType ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( p => p.ContraEntity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );                    
+                    columns.Bound( p => p.IssueId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( p => p.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( p => p.Ticker ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.ForeignKey( x => x.TradeType, SLTrader.Tools.EnumExtensions.GetEnumTradeType(), "Value", "Text" ).GetColumnFormat( ColumnTypeEnum.String, false, "#=GetTradeTypeAlias('black', TradeType)#", "" ).Filterable( filter => filter.Extra( false ) );
+                    columns.Bound( p => p.Quantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "" );
+                    columns.Bound( p => p.Amount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(Amount)#", "" );
+                    columns.Bound( p => p.RebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "" );
+                    columns.Bound( p => p.ActionBy ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );             
+                } )
+                .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+                .DataSource( dataSource => dataSource
+                .Ajax()
+                .AutoSync( true )
+                        .Read( read => read.Action( "Read_AuditTrail", "AuditTrail", new { Area = "DomesticTrading" } ).Data( "additionalAuditTrailData" ) )               
+                    .Events( events => events
+                            .Error( "onAuditTrailError" ) )
+                    .ServerOperation( false )                
+                    .Aggregates( aggregates =>
+                    {
+                        aggregates.Add( p => p.Quantity ).Sum();
+                        aggregates.Add( p => p.Amount ).Sum();                    
+                    } )
+                )
+    )
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name( "AuditTrailContextMenu" )
+        .Target( "#AuditTrailGrid" )
+        .Events( events => events.Select( "onAuditTrailContextMenuSelect" ) )
+    .Items( items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text( "Unsort" ).Enabled( true );
+        items.Add().Text( "Reset Filter" ).Enabled( true );
+        items.Add().Text( "Reset Grid" ).Enabled( true );
+        items.Add().Separator( true );
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text( "Copy" ).Enabled( true ).HtmlAttributes( new { ID = "AuditTrailButton" } );
+        items.Add().Text( "Export To Excel" ).Enabled( true );
+    } )
+)
+
+

@@ -1,0 +1,50 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model IEnumerable<SL_InventoryProjection>
+
+<style scoped>
+    #InventorySnapshotGrid {
+        height:100%;
+        width: 100%;
+    }
+</style>
+
+    @{
+        if (Model != null)
+        {
+            Html.Kendo().Grid(Model)
+               .Name("InventorySnapshotGrid")               
+               .Sortable(sort =>
+               {
+                   sort.AllowUnsort(true);
+                   sort.Enabled(true);
+                   sort.SortMode(GridSortMode.MultipleColumn);
+               })
+                .ToolBar(t => t.Template(@<text>
+                @LabelHelper.Text("Inventory")
+                </text>))
+               .HtmlAttributes(new { @class = "grid" })
+               .Filterable()
+               .Scrollable()
+               .NoRecords()
+               .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+               .Navigatable()
+               .Columns(cols =>
+               {
+                   cols.Bound(x => x.MarkerColor).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(MarkerColor)#", "").HtmlAttributes(new { title = "#= OnColorPreviewDescription(MarkerDesceiption)#" }).Title("").Filterable(false).Hidden(!SessionService.UserPreference.ShowInventoryMarker);
+                   cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.ShortDate, false, "", "").Title("Date").Width(60);
+                   cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                   cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+                   cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "");                   
+               })
+               .DataSource(ds =>
+               {
+                   ds.Ajax().ServerOperation(false);
+               }).Render();
+        }
+    }

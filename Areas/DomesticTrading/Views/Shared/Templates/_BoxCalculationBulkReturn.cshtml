@@ -1,0 +1,1082 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+@using SLTrader.Models.ContractRelatedModels
+
+
+@model IEnumerable<ReturnTypeCalculationModel>
+
+<style scoped>
+    #BulkReturnToolBar .k-checkbox-label {
+        padding-left: 20px;
+    }
+
+    #BulkReturnSplitter {
+        height: 75%;
+        width: 100%;
+    }
+
+    #BulkReturnListTextBox {
+        width: 100%;
+        height: 100%;
+    }
+
+    #BoxCalculationBulkReturnGrid {
+        width: 100%;
+        height: 95%;
+    }
+
+    #BulkReturnDiv {
+        height: 80%;
+        width: 100%;
+    }
+
+
+    #BulkReturnToolBar td {
+        margin: 0px;
+        padding: 0px;
+        padding-left:5px;
+    }
+
+    #BulkReturnToolBar {        
+        margin-top: 10px;
+    }
+</style>
+
+
+<script type="text/javascript">
+    var _originalBulkReturn = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalBulkReturn = $("#BoxCalculationBulkReturnGrid").data('kendoGrid').getOptions();
+
+            LoadGridLayout("#BoxCalculationBulkReturnGrid");
+        }, 5);
+
+        var clientBulkReturnCopyButton = new ZeroClipboard(document.getElementById("BulkReturnCopyButton"));
+
+        clientBulkReturnCopyButton.on("ready", function (readyEvent) {
+            clientBulkReturnCopyButton.on("copy", function (event) {
+                var data = KendoGridToText("#BoxCalculationBulkReturnGrid", "BoxCalculationBulkReturnGrid", false);
+                clientBulkReturnCopyButton.setText(data);
+            });
+        });
+    });
+
+
+    function onError(e) {
+        console.log(e);
+    }
+
+    function onSharedBulkReturnEdit(e) {
+        e.container.find("input[name='ReturnBatchCode']").attr('maxlength', '1');
+
+        var entityGrid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if (selectedItem.SubmissionType == '@Convert.ToInt32(StatusDetail.Approved)') {
+            $('#BoxCalculationBulkReturnGrid').data("kendoGrid").closeCell();
+        }
+        else {
+            var input = e.container.find("input");
+            setTimeout(function () { input.select(); });
+        }
+    }
+
+    $(function() {
+        $('#BoxCalculationBulkReturnGrid').on('click', '.chkbx', function() {
+            var checked = $(this).is(':checked');
+            var grid = $('#BoxCalculationBulkReturnGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+            grid.select($(this).closest('tr'));
+
+            var entityGrid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            if (selectedItem.SubmissionType != '@Convert.ToInt32(StatusDetail.Approved)') {
+                dataItem['Enabled'] = checked;
+            }
+
+            var data = grid.dataSource.data();
+            
+            $("#BulkReturnAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {                    
+                    $("#BulkReturnAllButton").data("kendoButton").enable(true);
+                }
+            });
+        });
+    });
+
+    $(document).bind('keydown', 'alt+s', function (e) {
+        if (e.altkey && (e.which == 83)) {
+
+            e.preventDefault();
+            onProcessBulkReturn();
+            return false;
+        }
+    });
+
+    $(document).bind('keydown', 'alt+e', function (e) {
+        if (e.altkey && (e.which == 69)) {
+            e.preventDefault();
+            onSelectAll();
+            return false;
+        }
+    });
+
+
+    function onBulkReturnSearchType() {
+        $("#ParseBulkReturnList").data("kendoButton").enable(false);
+        $("#BulkReturnSearchTypeButton").data("kendoButton").enable(false);
+
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var entityId = $("#BulkReturnEntityDropdownList").data("kendoDropDownList").value();
+        var columnEnum = $("#BulkReturnSearchTypeDropdownList").data("kendoDropDownList").value();
+        var searchCriteriaVal = $('#BulkReturnSearchTypeTextBox').val();
+
+        var entityType = $("#BulkReturnEntityTypeDropdownList").data("kendoDropDownList").value();
+        var tradeType = $("#BulkReturnTradeTypeDropdownList").data("kendoDropDownList").value();
+        var batchCodeOverride = $("#BulkReturnBatchCodeCheckBox").is(':checked') ? $("#BulkReturnBatchCodeTextBox").val() : ""
+        var quantityType = $("#BulkReturnQuantityTypeDropdownList").data("kendoDropDownList").value();
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Searching list...');
+
+        $.ajax({
+            url: "@Url.Action("Load_ReturnExpandedOptionsBySuggestionBySearchCriteria", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                entityId: entityId,
+                columnEnum: columnEnum,
+                searchCriteria: searchCriteriaVal,
+                tradeType: tradeType,
+                entityType: entityType,
+                batchCodeOverride: batchCodeOverride,
+                quantityType: quantityType
+            }),
+            success: function (valid) {
+                var rowCount = 0;
+
+                $.each(valid, function (i, obj) {
+                    var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                    var valueDate = kendo.parseDate(obj['ValueDate']);
+
+                    obj['EffectiveDate'] = effectiveDate;
+                    obj['ValueDate'] = valueDate;
+
+                    rowCount++;
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                $("#ParseBulkReturnList").data("kendoButton").enable(true);
+                $("#BulkReturnSearchTypeButton").data("kendoButton").enable(true);
+                $('#ProgressLabel').html('Processed ' + rowCount + ' items.');
+            },
+            error: function (valid) {
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#ParseBulkReturnList").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+    function onBulkReturnEntityChange(e) {
+        var company = $('#BulkReturnEntityDropdownList').data("kendoDropDownList").dataItem();
+
+        $("#BulkReturnExecutingSystemDropdownList").data("kendoDropDownList").select(company.DefaultExecutionSystem);
+    }
+
+    function additionalBulkReturnExecutingSystem(e) {
+        var executingSystem = $("#BulkReturnExecutingSystemDropdownList").data("kendoDropDownList").value();
+
+        return {
+            executingSystem: executingSystem
+        }
+    }
+
+    function onSelectAllBulkReturn() {
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);        
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {
+            if (grid.dataSource.data()[index].ReturnPortionQuantity > 0) {
+                grid.dataSource.data()[index].Enabled = true;
+                processedRowCount = processedRowCount + 1;
+            }
+        }
+        grid.dataSource.sync();
+
+        $('#ProgressLabel').html('Selected ' + processedRowCount + ' items.');
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(true);        
+    }
+
+    function onAutoFillBulkReturn() {
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);        
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {
+            if (grid.dataSource.data()[index].ReturnPortionQuantity == 0) {
+                grid.dataSource.data()[index].ReturnPortionQuantity = grid.dataSource.data()[index].Quantity;
+                grid.dataSource.data()[index].ReturnPortionAmount = grid.dataSource.data()[index].Quantity * grid.dataSource.data()[index].Price;
+                grid.dataSource.data()[index].Enabled = true;
+
+                processedRowCount = processedRowCount + 1;
+            }
+        }
+        grid.dataSource.sync();
+
+        $('#ProgressLabel').html('Selected ' + processedRowCount + ' items.');
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(true);        
+    }
+
+    function getFormData($form) {
+        var unindexed_array = $form.serializeArray();
+        var indexed_array = {};
+
+        $.map(unindexed_array, function (n, i) {
+            indexed_array[n['name']] = n['value'];
+        });
+
+        indexed_array['IsPendingReturn'] = $("#IsPendingReturnCheckBox").is(':checked');
+
+        return indexed_array;
+    }
+
+    function onProcessBulkReturn() {
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);        
+        $("#BulkReturnSearchTypeButton").data("kendoButton").enable(false);
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled && row.SubmissionType != '@Convert.ToInt32(StatusDetail.Approved)') {
+                rowCount++;
+            }
+        });
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+        $.ajax({
+            url: "@Url.Action("ProcessBulkReturnCallbacks", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify(rows),
+            success: function(valid) {
+
+                $.each(valid, function(i, obj) {
+                    var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                    var valueDate = kendo.parseDate(obj['ValueDate']);
+
+                    obj['EffectiveDate'] = effectiveDate;
+                    obj['ValueDate'] = valueDate;
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                var _grid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+                var _data = _grid.dataSource.data();
+
+                $("#BulkReturnAllButton").data("kendoButton").enable(false);                
+                $("#BulkReturnSearchTypeButton").data("kendoButton").enable(true);
+
+
+                $.each(_data, function (i, row) {
+                    if (row.Enabled && row.SubmissionType == '@Convert.ToInt32(StatusDetail.Approved)') {
+                        $("#BulkReturnAllButton").data("kendoButton").enable(true);                        
+
+                        processedRowCount++;
+                    }
+                });
+
+                $('#ProgressLabel').html('Processed ' + rowCount + ' out of ' + processedRowCount+ ' items.');
+
+                if (processedRowCount == rowCount) {
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                }
+            },
+            error: function(valid) {
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#BulkReturnAllButton").data("kendoButton").enable(true);
+                $("#BulkReturnSearchTypeButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+    function onProcessBulkReturnOptionsCode() {
+               var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var batchCode = $('#BulkReturnBatchCodeTextBox').val();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);
+
+        var entityType = $("#BulkReturnEntityTypeDropdownList").data("kendoDropDownList").value();
+        var tradeType = $("#BulkReturnTradeTypeDropdownList").data("kendoDropDownList").value();
+        var batchCodeOverride = $("#BulkReturnBatchCodeCheckBox").is(':checked') ? $("#BulkReturnBatchCodeTextBox").val() : ""
+        var contraEntityId = $("#BulkReturnContraEntityCheckBox").is(':checked') ? $("#BulkReturnContraEntityDropdownList").data("kendoAutoComplete").value() : "";      
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled) {
+                rowCount++;
+            }
+        });
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+
+        $.ajax({
+            url: "@Url.Action("ProcessReturnExpandedOptions", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                items: rows,
+                batchCode: batchCodeOverride,
+                tradeType: tradeType,
+                entityType: entityType,
+                contraEntity: contraEntityId
+            }),
+            success: function (valid) {
+
+                $.each(valid, function (i, obj) {
+                    var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                    var valueDate = kendo.parseDate(obj['ValueDate']);
+
+                    obj['EffectiveDate'] = effectiveDate;
+                    obj['ValueDate'] = valueDate;
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                var _grid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+                var _data = _grid.dataSource.data();
+
+                $("#BulkReturnAllButton").data("kendoButton").enable(false);                
+
+                $.each(_data, function (i, row) {
+                    if (row.Enabled) {
+                        $("#BulkReturnAllButton").data("kendoButton").enable(true);                        
+
+                        processedRowCount++;
+                    }
+                });
+
+                $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+            },
+            error: function (valid) {
+                LogError(valid);
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#BulkReturnAllButton").data("kendoButton").enable(true);
+            }
+        });
+ 
+    }
+
+    function onProcessBulkReturnBatchCode() {
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var batchCode = $('#BulkReturnBatchCodeTextBox').val();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled) {
+                rowCount++;
+            }
+        });
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+
+        $.ajax({
+            url: "@Url.Action("ProcessReturnBatchCode", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                items: rows,
+                batchCode: batchCode
+            }),
+            success: function (valid) {
+
+                $.each(valid, function (i, obj) {
+                    var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                    var valueDate = kendo.parseDate(obj['ValueDate']);
+
+                    obj['EffectiveDate'] = effectiveDate;
+                    obj['ValueDate'] = valueDate;
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                var _grid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+                var _data = _grid.dataSource.data();
+
+                $("#BulkReturnAllButton").data("kendoButton").enable(false);                
+
+                $.each(_data, function (i, row) {
+                    if (row.Enabled) {
+                        $("#BulkReturnAllButton").data("kendoButton").enable(true);                        
+
+                        processedRowCount++;
+                    }
+                });
+
+                $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+            },
+            error: function (valid) {
+                LogError(valid);
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#BulkReturnAllButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+    function onProcessBulkReturnDeliveryCode() {
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var deliveryCode = $('#BulkReturnDeliveryCodeDropdown').val();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);                
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled) {
+                rowCount++;
+            }
+        });
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+
+        $.ajax({
+            url: "@Url.Action("ProcessReturnDeliveryCode", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+        contentType: 'application/json;',
+        data: JSON.stringify({
+            items: rows,
+            deliveryCode: deliveryCode
+        }),
+        success: function (valid) {
+
+            $.each(valid, function (i, obj) {
+                var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                var valueDate = kendo.parseDate(obj['ValueDate']);
+
+                obj['EffectiveDate'] = effectiveDate;
+                obj['ValueDate'] = valueDate;
+            });
+
+            grid.dataSource.data(valid);
+            grid.refresh();
+
+            var _grid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+            var _data = _grid.dataSource.data();
+
+            $("#BulkReturnAllButton").data("kendoButton").enable(false);
+
+            $.each(_data, function (i, row) {
+                if (row.Enabled) {
+                    $("#BulkReturnAllButton").data("kendoButton").enable(true);
+
+                    processedRowCount++;
+                }
+            });
+
+            $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+        },
+        error: function (valid) {
+            LogError(valid);
+            $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            $("#BulkReturnAllButton").data("kendoButton").enable(true);
+        }
+    });
+    }
+
+    function onContractBulkReturnDataBound(e) {
+        try {
+            var grid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+            var data = grid.dataSource.data();
+
+            $("#BulkReturnAllButton").data("kendoButton").enable(false);            
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                    $("#BulkReturnAllButton").data("kendoButton").enable(true);                    
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    $('#ReturnQuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#ReturnAmountTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#BulkReturnBatchCodeTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#ReturnQuantityTextBox').on('change', function () {
+        QtyChange();
+    });
+
+
+
+    function QtyChange() {
+        var price = $("#ReturnPriceTextBox").data("kendoNumericTextBox").value();
+        var quantity = $("#ReturnQuantityTextBox").data("kendoNumericTextBox").value();
+
+        var amount = quantity * price;
+        $("#ReturnAmountTextBox").data("kendoNumericTextBox").value(amount);
+    }
+
+    function onPendAllBulkReturn() {
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 0;
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(false);
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {
+            grid.dataSource.data()[index].IsPendingReturn = true;
+            grid.dataSource.data()[index].Enabled = true;
+
+            processedRowCount = processedRowCount + 1;
+        }
+
+        grid.dataSource.sync();
+
+        $("#BulkReturnAllButton").data("kendoButton").enable(true);
+
+        $('#ProgressLabel').html('Pended ' + processedRowCount + ' items.');
+    }
+
+    function onBulkReturnDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#BulkReturnEntityDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) { }
+    }
+
+    function bulkReturnResizeDropdown(e) {
+
+        var autoComplete = $("#BulkReturnContraEntityDropdownList").data("kendoAutoComplete");
+        autoComplete.list.width(200);
+    }
+
+
+    function additionalBulkReturnData() {
+        var entityId = $("#BulkReturnEntityDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+    function onBulkReturnListParse(e) {
+
+        $("#ParseBulkReturnList").data("kendoButton").enable(false);
+
+        var grid = $('#BoxCalculationBulkReturnGrid').data('kendoGrid');
+        var entityId = $("#BulkReturnEntityDropdownList").data("kendoDropDownList").value();
+        var contraEntityId = $("#BulkReturnContraEntityCheckBox").is(':checked') ? $("#BulkReturnContraEntityDropdownList").data("kendoAutoComplete").value() : "";
+
+        var entityType = $("#BulkReturnEntityTypeDropdownList").data("kendoDropDownList").value();
+        var tradeType = $("#BulkReturnTradeTypeDropdownList").data("kendoDropDownList").value();
+        var batchCodeOverride = $("#BulkReturnBatchCodeCheckBox").is(':checked') ? $("#BulkReturnBatchCodeTextBox").val() : ""
+        var quantityType = $("#BulkReturnQuantityTypeDropdownList").data("kendoDropDownList").value();
+
+        var allocateCallback = $("#BulkReturnAllocateCheckBox").is(':checked');
+
+        var items = $('#BulkReturnListTextBox').val();
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Parsing list...');
+
+        console.log(entityId);
+        console.log(items);
+        console.log(contraEntityId);
+        console.log(tradeType);
+        console.log(entityType);
+        console.log(batchCodeOverride);
+        console.log(quantityType);
+        console.log(allocateCallback);
+        $.ajax({
+            url: "@Url.Action("Load_ReturnCallbackBySuggestionByContractEntityId", "ContractRelated", new { area = "DomesticTrading" })",            
+        contentType: 'application/json;',
+        data: JSON.stringify({
+            entityId: entityId,
+            list: items,
+            contraEntityId: contraEntityId,
+            tradeType: tradeType,
+            entityType: entityType,
+            batchCodeOverride: batchCodeOverride,
+            quantityType: quantityType,
+            allocateCallback: allocateCallback
+        }),
+        success: function (valid) {
+            var rowCount = 0;
+
+            $.each(valid, function (i, obj) {
+                var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                var valueDate = kendo.parseDate(obj['ValueDate']);
+
+                obj['EffectiveDate'] = effectiveDate;
+                obj['ValueDate'] = valueDate;
+
+                rowCount ++;
+            });
+
+            grid.dataSource.data(valid);
+            grid.refresh();
+
+            $("#ParseBulkReturnList").data("kendoButton").enable(true);
+
+            $('#ProgressLabel').html('Processed ' + rowCount + ' items.');
+        },
+        error: function (valid) {
+            $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            $("#ParseBulkReturnList").data("kendoButton").enable(true);
+        }
+    });
+    }
+
+    function onMultipleContraCheckBoxChange(e) {
+        if ($("#MultipleContraCheckBox").is(':checked')) {
+            $("#BulkReturnContraEntityDropdownList").data("kendoAutoComplete").enable(false);
+        }
+        else
+        {
+            $("#BulkReturnContraEntityDropdownList").data("kendoAutoComplete").enable(true);
+        }
+    }
+
+    function onBulkReturnExecutingSystemChange(e) {
+        $("#BulkReturnTradeTypeDropdownList").data("kendoDropDownList").dataSource.read();
+
+    }
+    function onBulkReturnUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onBulkReturnContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Unsort':
+                onBulkReturnUnsortGrid('#BoxCalculationBulkReturnGrid');
+                break;
+
+            case 'Check All':
+                onSelectAllBulkReturn();
+                break;
+
+            case 'Select All':
+                onBulkReturnSelectAll(true);
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#BoxCalculationBulkReturnGrid");
+                $("#BoxCalculationBulkReturnGrid").data('kendoGrid').setOptions(_originalBulkReturn);
+                break;
+
+            case 'Export To Excel':
+                exportToBulkReturnExcel();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#BoxCalculationBulkReturnGrid");
+                break;
+        }
+    }
+
+    function exportToBulkReturnExcel() {
+        KendoGridToCSVConvertor("#BoxCalculationBulkReturnGrid", 'BoxCalculationBulkReturnGrid');
+    }
+
+
+    function onBulkReturnGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#BoxCalculationBulkReturnGrid");
+        }, 5);
+    }
+
+    function onBulkReturnSelectAll(e) {
+        try {
+            var bulkReturnGrid = $("#BoxCalculationBulkReturnGrid").data("kendoGrid");
+            bulkReturnGrid.select(bulkReturnGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onBulkReturnTrash(e) {
+        $("#BoxCalculationBulkReturnGrid").data("kendoGrid").dataSource.data([]);
+    }
+
+
+    $(document).ready(function () {
+        $('#BulkReturnEntityCheckBox').change(function () {
+            $("#BulkReturnEntityDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#BulkReturnContraEntityCheckBox').change(function () {
+            $("#BulkReturnContraEntityDropdownList").data("kendoAutoComplete").enable($(this).is(':checked'));
+        });
+
+        $('#BulkReturnEntityTypeCheckBox').change(function () {
+            $("#BulkReturnEntityTypeDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#BulkReturnExecutingSystemCheckBox').change(function () {
+            $("#BulkReturnExecutingSystemDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+
+        $('#BulkReturnTradeTypeCheckBox').change(function () {
+            $("#BulkReturnTradeTypeDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+        
+        $('#BulkReturnBatchCodeCheckBox').change(function () {
+            $("#BulkReturnBatchCodeTextBox").prop("readonly", !$(this).is(':checked'));            
+        });
+
+        $('#BulkReturnSearchTypeCheckBox').change(function () {
+            $("#BulkReturnSearchTypeTextBox").prop("readonly", !$(this).is(':checked'));            
+        });
+
+        $('#BulkReturnQuantityTypeCodeCheckBox').change(function () {
+            $("#BulkReturnQuantityTypeDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+        });
+    });
+</script>
+<div id="BulkReturnsItemsDiv" class="toolbar">
+    @(Html.Kendo().ToolBar()
+                .Name("SharedBulkReturnToolBar")
+                .Items(items =>
+                {
+                    items.Add().Template(Html.Kendo().Button().Name("ParseBulkReturnList").Events(e => e.Click("onBulkReturnListParse")).Content(@<text><i class="fa fa-pencil"></i>&nbsp;Parse List</text>).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("BulkReturnAutoFillButton").Content("Auto Fill Return").Events(e => e.Click("onAutoFillBulkReturn")).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("BulkReturnBulkReturnSelectAllButton").Content("Select All").Events(e => e.Click("onSelectAllBulkReturn")).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("BulkReturnAllButton").Content("Send Returns").Events(e => e.Click("onProcessBulkReturn")).Enable(false).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("BulkReturnApplyOptionsButton").Content("Apply Options").Events(e => e.Click("onProcessBulkReturnOptionsCode")).Enable(false).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("BulkReturnTrashTradesButton").HtmlAttributes(new { @class = "k-widget k-notification k-notification-error" }).Events(e => e.Click("onBulkReturnTrash")).Content(@<text> <i class="fa fa-trash-o"></i>&nbsp;Trash</text>).ToHtmlString());
+        }))
+
+    @(Html.Kendo().ToolBar()
+                     .Name("SharedBulkSecondaryReturnToolBar")
+                     .Items(items =>
+                     {
+                         items.Add().Template(LabelHelper.Label("SearchType").ToHtmlString());
+                         items.Add().Template(Html.Kendo().DropDownList()
+                                                        .Name("BulkReturnSearchTypeDropdownList")
+                                                        .HtmlAttributes(new { @style = "width:120px;", data_value_primitive = true })
+                                                        .Enable(true)
+                                                        .AutoWidth(true)
+                                                        .BindTo(Enum.GetNames(typeof(SL_ColumnType)).AsEnumerable())
+                                                        .Value(SL_ColumnType.CONTRAENTITY.ToString()).ToHtmlString());
+                         items.Add().Template(Html.TextBox("BulkReturnSearchTypeTextBox", "", new { @class = "k-textbox", style = "width:100px;" }).ToHtmlString());
+                         items.Add().Template(Html.Kendo().Button().Name("BulkReturnSearchTypeButton").Enable(true).Content(LabelHelper.Text("SearchType")).Events(ev => ev.Click("onBulkReturnSearchType")).ToHtmlString());
+                     }))
+
+    <table id="BulkReturnToolBar" class="toolbar">
+        <tr>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnEntityCheckBox").Label(LabelHelper.Text("Entity"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList()
+                        .Name("BulkReturnEntityDropdownList")
+                        .HtmlAttributes(new { @class = "Toolbar-Cell", @style = "width:90px;" })
+                        .DataTextField("Custodian")
+                        .DataValueField("CompanyId")
+                        .OptionLabel(LabelHelper.Text("OptionLabel"))
+                        .Animation(true)
+                        .AutoBind(true)
+                        .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                        "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                        "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                        .Events(events => events.Open("onContraEntityAutoCompleteResize").DataBound("onBulkReturnDefaultLoad").Change("onBulkReturnEntityChange"))
+                        .Enable(false)
+                        .DataSource(dataSource => dataSource
+                        .Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                        .SelectedIndex(1))
+            </td>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnContraEntityCheckBox").Label(LabelHelper.Text("ContraEntity"))
+            </td>
+            <td>
+                @(Html.Kendo().AutoComplete()
+                        .Name("BulkReturnContraEntityDropdownList")
+                        .DataTextField("ContraEntity")
+                        .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                        .Enable(false)
+                        .Events(events => events.Open("bulkReturnResizeDropdown"))
+                        .DataSource(source =>
+                        {
+                            source.Read(read => read.Action("Read_ContraEntityDropdown", "ContraEntity", new { area = "DomesticTrading" }).Data("additionalBulkReturnData"));
+                        })
+                        .HtmlAttributes(new { ID = "BulkReturnContraEntityDropdownList", @style = "width:90px;" })
+                        .Filter("startswith")
+                        .Template("<span class=\"k-state-default\">#:data.ContraEntity# #:data.AccountName# </span>"))
+            </td>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnEntityTypeCheckBox").Label(LabelHelper.Text("EntityType"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList()
+                            .Name("BulkReturnEntityTypeDropdownList")
+                            .DataValueField("Value")
+                            .DataTextField("Text")
+                            .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                            .AutoWidth(true)
+                            .Enable(false)
+                            .HtmlAttributes(new { @style = "width:120px;" })
+                            .Value(DataSystemValues.LoadSystemValue("BulkReturnDefaultEntityType", "Return"))
+                            .DataSource(dataSource =>
+                            {
+                                dataSource.Read(read => read.Action("Read_SLReturnCallback", "Enum", new { area = "DomesticTrading" }));
+                            }))
+            </td>
+        </tr>
+        <tr>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnExecutingSystemCheckBox").Label(LabelHelper.Text("ExecutingSystem"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList()
+                    .Name("BulkReturnExecutingSystemDropdownList")
+                    .HtmlAttributes(new { ID = "BulkReturnExecutingSystemDropdownList", @style = "width:120px;", @class = "Toolbar-Cell" })
+                    .SelectedIndex(0)
+                    .Enable(false)
+                    .AutoWidth(true)
+                    .Events(ev => ev.Change("onBulkReturnExecutingSystemChange"))
+                    .Value(SessionService.UserFirms.Where(x => x.CompanyId.ToString() == SessionService.UserPreference.DefaultFirm).First().DefaultExecutionSystem.ToString())
+                    .BindTo(Enum.GetNames(typeof(SL_ExecutionSystemType)).ToList()))
+            </td>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnTradeTypeCheckBox").Label(LabelHelper.Text("TradeType"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList()
+                        .Name("BulkReturnTradeTypeDropdownList")
+                        .DataValueField("Value")
+                        .DataTextField("Text")
+                        .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                        .AutoWidth(true)
+                        .Enable(false)
+                        .HtmlAttributes(new { @style = "width:120px;" })
+                        .Value(DataSystemValues.LoadSystemValue("BulkReturnDefaultTradeType", "StockBorrow"))
+                        .DataSource(dataSource =>
+                        {
+                            dataSource.Read(read => read.Action("Read_SLTradeTypeByExecutingSystem", "Enum", new { area = "DomesticTrading" }).Data("additionalBulkReturnExecutingSystem"));
+                        }))
+            </td>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnBatchCodeCheckBox").Label(LabelHelper.Text("ReturnBatchCode"))
+            </td>
+            <td>
+                @(Html.TextBox("BulkReturnBatchCodeTextBox", "", new { @class = "k-textbox,Toolbar-Cell", maxlength = "1", style = "width:50px;", @readonly = "readonly" }))
+            </td>
+        </tr>
+        <tr>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnQuantityTypeCodeCheckBox").Label(LabelHelper.Text("ReturnQuantityType"))
+            </td>
+            <td>
+                @(Html.Kendo().DropDownList()
+                                .Name("BulkReturnQuantityTypeDropdownList")
+                                .HtmlAttributes(new { ID = "BulkReturnQuantityTypeDropdownList", @style = "width:120px;", @class = "Toolbar-Cell" })
+                                .SelectedIndex(0)
+                                .Enable(false)
+                                .AutoWidth(true)
+                                .Value(ReturnQuantityTypeEnum.Intraday.ToString())
+                                .BindTo(Enum.GetNames(typeof(ReturnQuantityTypeEnum)).ToList()))
+            </td>
+            <td valign="middle">
+                @Html.Kendo().CheckBox().Name("BulkReturnAllocateCheckBox").Label(LabelHelper.Text("AllocateCallBackOnly"))
+            </td>
+        </tr>
+    </table>
+</div>
+                        @(Html.Kendo().Splitter()
+                        .HtmlAttributes(new { @style = "height:78%" })
+                        .Name("BulkReturnSplitter")                       
+                        .Orientation(SplitterOrientation.Vertical)
+                        .Panes(panes =>
+                        {
+                        panes.Add()
+                        .Collapsible(false)
+                        .Size("30%")
+                        .Scrollable(false)
+                        .Content(@<text>
+                        @Html.TextArea("BulkReturnListTextBox")
+                        </text>);
+
+                            panes.Add()
+                        .Collapsible(false)
+                        .Scrollable(false)
+                        .Content(@<text>
+                            @(Html.Kendo().Grid(Model)
+                                .Name("BoxCalculationBulkReturnGrid")
+                                .Scrollable()
+                                .NoRecords()
+                                .Selectable(select => select.Mode(GridSelectionMode.Multiple)
+                                .Enabled(true))
+                                .Sortable()
+                                .Resizable(cols => cols.Columns(false))
+                                .ColumnMenu(menu =>
+                                {
+                                    menu.Filterable(true);
+                                    menu.Sortable(true);
+                                    menu.ComponentType( "modern" );
+                                } )
+                                .Editable(edit => edit.Mode(GridEditMode.InCell).Enabled(true))
+                                .Events(e =>
+                                {
+                                    e.Edit("onSharedBulkReturnEdit");
+                                    e.DataBound("onContractBulkReturnDataBound");
+                                    e.ColumnHide("onBulkReturnGridLayoutChange");
+                                    e.ColumnShow("onBulkReturnGridLayoutChange");
+                                    e.ColumnResize("onBulkReturnGridLayoutChange");
+                                    e.ColumnReorder("onBulkReturnGridLayoutChange");
+                                })
+                                .Columns(columns =>
+                                {
+                                    columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "# if (SubmissionType == " + Convert.ToInt32(StatusDetail.Approved).ToString() + ") { #" + "<div style='text-align:center;' class='k-widget k-notification k-notification-success'><i class='fa  fa-check'></i></div>" + "# } else if (SubmissionType == " + Convert.ToInt32(StatusDetail.Rejected).ToString() + "){ #" + "<div style='text-align:center;' class='k-widget k-notification k-notification-error'><i class='fa fa-times' ></i></div>" + "# } else if (SubmissionType == " + Convert.ToInt32(StatusDetail.HeldLocal).ToString() + "){ #" + "<div style='text-align:center;' class='k-widget k-notification k-notification-warning'><i class='fa fa-pencil'></i></div>" + "# }#", ""); columns.Bound(x => x.Enabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='chkbx' #= (Enabled) ? checked ='checked' : '' #/>", "");
+                                    columns.Bound(x => x.ExecutingSystem).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.Entity).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                    columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                    columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(Price)#", "");
+                                    columns.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "QuantityDecimalNumber");
+                                    columns.Bound(x => x.Rate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(Rate)#", "");
+                                    columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "Date").Hidden();
+                                    columns.Bound(x => x.ReturnProfitCenter).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.ValueDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "Date");
+                                    columns.Bound(x => x.PortionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.IsPendingReturn).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='IsPendingReturnCheckBox' #= (IsPendingReturn) ? checked ='checked' : '' #/>", "");
+                                    columns.Bound(x => x.DeliveryCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.CallBack).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.ReturnBatchCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.ReturnPortionQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(ReturnPortionQuantity)#", "QuantityDecimalNumber");
+                                    columns.Bound(x => x.ReturnPortionAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(ReturnPortionAmount)#", "");
+                                    columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                    columns.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                })
+                                .DataSource(read => read.Ajax()
+                                .Model(model =>
+                                {
+                                    model.Id(x => x.ModelId);
+                                    model.Field(x => x.ExecutingSystem).Editable(false);
+                                    model.Field(x => x.EntityType).Editable(false);
+                                    model.Field(x => x.Entity).Editable(false);
+                                    model.Field(x => x.ContraEntity).Editable(false);
+                                    model.Field(x => x.ContractNumber).Editable(false);
+                                    model.Field(x => x.TradeType).Editable(false);
+                                    model.Field(x => x.IssueId).Editable(false);
+                                    model.Field(x => x.SecurityNumber).Editable(false);
+                                    model.Field(x => x.Ticker).Editable(false);
+                                    model.Field(x => x.Quantity).Editable(false);
+                                    model.Field(x => x.Rate).Editable(false);
+                                    model.Field(x => x.EffectiveDate).Editable(false);
+                                    model.Field(x => x.ReturnProfitCenter).Editable(true);
+                                    model.Field(x => x.ValueDate).Editable(false);
+                                    model.Field(x => x.PortionType).Editable(false);
+                                    model.Field(x => x.IsPendingReturn).Editable(false);
+                                    model.Field(x => x.DeliveryCode).Editable(false);
+                                    model.Field(x => x.DeliveryCode).Editable(false);
+                                    model.Field(x => x.CallBack).Editable(false);
+                                    model.Field(x => x.ReturnBatchCode).Editable(true);
+                                    model.Field(x => x.ReturnPortionQuantity).Editable(true);
+                                    model.Field(x => x.ReturnPortionAmount).Editable(true);
+                                    model.Field(x => x.SubmissionType).Editable(false);
+                                    model.Field(x => x.MemoInfo).Editable(false);
+                                })
+                                .Sort(sort =>
+                                {
+                                    sort.Add("IssueId").Ascending();
+                                    sort.Add("Rate").Ascending();
+                                })
+                                .Events(e => e.Error("onError")).ServerOperation(false).AutoSync(true).Update(update => update.Action("ReturnModel_Update", "ContractRelated", new { area = "DomesticTrading" })).Aggregates(agg => { agg.Add(x => x.Quantity).Sum(); agg.Add(x => x.ReturnPortionQuantity).Sum(); agg.Add(x => x.ReturnPortionAmount).Sum(); }).Model(model => { model.Id(x => x.ModelId); model.Field(x => x.ModelId).Editable(false); model.Field(x => x.Enabled).Editable(false); model.Field(x => x.Entity).Editable(false); model.Field(x => x.EntityType).Editable(false); model.Field(x => x.ContraEntity).Editable(false); model.Field(x => x.ContractNumber).Editable(false); model.Field(x => x.TradeType).Editable(false); model.Field(x => x.IssueId).Editable(false); model.Field(x => x.SecurityNumber).Editable(false); model.Field(x => x.Ticker).Editable(false); model.Field(x => x.Price).Editable(false); model.Field(x => x.Quantity).Editable(false); model.Field(x => x.Rate).Editable(false); model.Field(x => x.EffectiveDate).Editable(false); model.Field(x => x.ValueDate).Editable(false); model.Field(x => x.PortionType).Editable(false); model.Field(x => x.ReturnBatchCode).Editable(true); model.Field(x => x.ReturnPortionQuantity).Editable(true); model.Field(x => x.ReturnPortionAmount).Editable(false); model.Field(x => x.SubmissionType).Editable(false); model.Field(x => x.MemoInfo).Editable(false); model.Field(x => x.CallBack).Editable(false); model.Field(x => x.DeliveryCode).Editable(false); })))
+                            <label id='ProgressLabel'></label>
+                                            </text>);
+                                                                                                                            }))    
+                            @(Html.Kendo().ContextMenu()
+                            .Name("BulkReturnContextMenu")
+                            .Target("#BoxCalculationBulkReturnGrid")
+                            .Events(events => events.Select("onBulkReturnContextMenuSelect"))
+                            .Items(items =>
+                            {
+                                items.Add().Text("AutoFit Columns").Enabled(true);
+                                items.Add().Text("Unsort").Enabled(true);
+                                items.Add().Text("Reset Filter").Enabled(true);
+                                items.Add().Text("Reset Grid").Enabled(true);
+                                items.Add().Separator(true);
+                                items.Add().Text("Select All").Enabled(true);
+                                items.Add().Text("Check All").Enabled(true);
+                                items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "BulkReturnCopyButton" });
+                                items.Add().Text("Export To Excel").Enabled(true);
+                            }))

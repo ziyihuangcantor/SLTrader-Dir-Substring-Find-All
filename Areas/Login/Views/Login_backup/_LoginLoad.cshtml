@@ -1,0 +1,159 @@
+﻿@using SLTrader.Tools
+@model Helix.Core.SecurityContext
+
+<script type="text/javascript">
+    $(document).ready(function () {
+   
+    });
+   
+    function LoadUserSecurityProfile() {
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUserSecurityProfile',
+                type: 'POST',
+                async: false,
+                contentType: 'application/json;',
+                success: function (valid) {
+                    $("#LoadUserSecurityProfile").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                    $("#ContentArea").html(valid);
+                }
+            })
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function LoadApplication() {
+        try {
+            $.ajax({
+                url: '/Header/Header/LoadApplication',
+                type: 'POST',
+                async: false,
+                contentType: 'application/json;',
+                data: JSON.stringify({ application: null }),
+                success: function (valid) {
+                    $("#LoadApplication").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                    $("#ContentArea").html(valid);
+                }
+            })
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function LoadUser() {
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUser',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: null,
+                async: false,
+                success: function (valid) {
+                    $("#LoadUserInformation").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                },
+                error: function (valid) {
+                    alert(valid);
+                }
+            })
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function LoadUserPreference() {
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUserPreference',
+                type: 'POST',
+                async:false,
+                contentType: 'application/json;',
+                data: null,
+                success: function (valid) {
+                    $("#LoadUserPreferences").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                },
+                error: function (valid) {
+                    alert(valid);
+                }
+            })
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function LoadUserDictionary() {
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadDictionary',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: null,
+                async: false,
+                success: function (valid) {
+                    $("#LoadUserDictionary").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                },
+                error: function (valid) {
+                    alert(valid);
+                }
+            })
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function LoadUserFirms() {
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUserFirms',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: null,
+                async: false,
+                success: function (valid) {
+                    $("#LoadUserFirms").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                },
+                error: function (valid) {
+                    alert(valid);
+                }
+            })
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+</script>
+
+<div style="padding:20px;">
+<div class="form_wrapper">
+        <span></span>
+        <table>
+        <tr>
+            <td>@Html.Label("Loading User")</td>
+            <td style="color:black;font-weight:bold;">@LabelHelper.Label(Model.UserName)</td>
+        </tr>
+        <tr>
+            <td style="text-align:center;color:darkcyan;"><i id="LoadUserInformation" class="fa fa-spinner fa-spin fa-2x"></i></td>
+            <td>@Html.Label("Load User Infomration")</td>
+        </tr>
+        <tr>
+            <td style="text-align:center;color:darkcyan;"><i id="LoadUserFirms" class="fa fa-spinner fa-spin fa-2x"></i></td>
+            <td>@Html.Label("Load User Firms")</td>
+        </tr>
+        <tr>
+            <td style="text-align:center;color:darkcyan;"><i id="LoadUserPreferences" class="fa fa-spinner fa-spin fa-2x"></i></td>
+            <td>@Html.Label("Load User Preferences")</td>
+        </tr>
+        <tr>
+            <td style="text-align:center;color:darkcyan;"><i id="LoadUserDictionary" class="fa fa-spinner fa-spin fa-2x"></i></td>
+            <td>@Html.Label("Load User Dictionary")</td>
+        </tr>
+        <tr>
+            <td style="text-align:center;color:darkcyan;"><i id="LoadUserSecurityProfile" class="fa fa-spinner fa-spin fa-2x"></i></td>
+            <td>@Html.Label("Load User Security Profile")</td>
+        </tr>
+        <tr>
+            <td style="text-align:center;color:darkcyan;"><i id="LoadApplication" class="fa fa-spinner fa-spin fa-2x"></i></td>
+            <td>@Html.Label("Load Application")</td>
+        </tr>
+         </table>
+</div>
+</div>

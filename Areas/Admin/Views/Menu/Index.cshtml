@@ -1,0 +1,89 @@
+﻿<script type="text/javascript">
+    
+        function onAdminMenuSelect(e) {
+            e.preventDefault();
+
+            var item = e.item.firstChild.pathname;
+            var title = e.item.firstChild.textContent;
+
+            try
+            {
+                if (item != undefined) {
+                    AdminAddTab(item, title);
+                }
+            }
+            catch (e) {
+                alert(e.message);
+            }      
+        }
+
+    function AdminAddTab(targetUrl, title) {
+        var tabStrip = $("#AdminMainTabStrip").data("kendoTabStrip");
+        var tabId = title.replace(/\s/g, '').replace(':', '');
+
+        var innerText = title + "<i class='fa fa-times-circle' width='12px' height='12px' style='padding-left: 10px; border: 0px;' onclick='AdminDeleteTab(this);'></i><span id='" + tabId + "'/>";
+        var currentTab = $("#" + tabId).closest('.k-item');
+
+        if (currentTab.length) {
+            tabStrip.select(currentTab);
+            resizeTabs("#AdminMainTabStrip", 40);
+        } else {
+            $.ajax({
+                url: "@Url.Action("RetrievePartial", "Admin", new {Area = "Admin"})",
+                data: {
+                url: targetUrl
+                },
+            success: function (result) {
+
+                tabStrip.append({
+                    text: innerText,
+                    encoded: false,
+                    content: result,
+                });
+
+                resizeTabs("#AdminMainTabStrip", 40);
+
+                tabStrip.select((tabStrip.tabGroup.children("li").length - 1));
+            },
+            error: function (e) {
+                tabStrip.append({
+                    text: innerText,
+                    encoded: false,
+                    content: e.responseText,
+                });
+            }
+        });
+    }
+    }
+
+    function AdminDeleteTab(imgObj) {
+        var tabStrip = $("#AdminMainTabStrip").data("kendoTabStrip");
+
+        var deleteIndex = $(imgObj).closest("li").index();
+        tabStrip.remove(deleteIndex);
+
+        if (deleteIndex > 0) {
+            var nextTab = tabStrip.select(deleteIndex);
+
+            if (nextTab.length) {
+                tabStrip.select(deleteIndex);
+            } else {
+                tabStrip.select(deleteIndex - 1);
+            }
+        } else {
+            tabStrip.select(0);
+        }
+    }
+    </script>
+
+@(Html.Kendo().Menu()
+    .Name("AdminMenu")
+    .HoverDelay(100)
+    .OpenOnClick(true)
+    .CloseOnClick(true)
+    .Animation(ani => ani.Open(o => o.SlideIn(SlideDirection.Down)))
+    .Events(ev => ev.Select("onAdminMenuSelect"))
+    .Orientation(MenuOrientation.Horizontal)
+    .BindTo("AdminWebSiteMap"))
+
+<div id="AdminMenu" class="k-menu-vertical"></div>

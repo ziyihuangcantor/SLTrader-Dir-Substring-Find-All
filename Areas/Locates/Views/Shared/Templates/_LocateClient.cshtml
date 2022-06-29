@@ -1,0 +1,122 @@
+﻿@using SLTrader.Tools
+@using BondFire.Entities
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+
+@model SL_LocateClient
+
+
+@*<style scoped>
+    
+    #LocateClientTable th,
+    #LocateClientTable td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+</style>*@
+
+<script  type="text/javascript">
+    function onLocateClientSubmit() {
+        var form = $("#my-form");
+        var url = '';
+
+        if ('@Model.SLLocateClient' == '-1') {
+            url = "@Url.Action("AddLocateClient", "Locates", new { area = "Locates" })";
+        }
+        else {
+            url = "@Url.Action("UpdateLocateClient", "Locates", new { area = "Locates" })";
+        }
+        console.log();
+      $.ajax({
+            url: url,
+            data: { client: JSON.stringify(form.serializeArray()) },
+            type: "POST",
+            success: function (e) {
+                $("#LocateStatusLabel").text("Locate client updated.");
+            },
+            error: function (e) {               
+               $("#LocateStatusLabel").text("Locate client update failed.");
+            }
+        });
+    }
+
+    function onCancel(e) {
+
+    }
+</script>
+<div id="LocateClientAddDiv" class="table-form">
+@using (Html.BeginForm("Action", "ControllerName", FormMethod.Post, new { id = "my-form" }))
+{
+            <table id="LocateClientTable">
+            <tr>
+                <td>@LabelHelper.Label("ShortName")</td>
+                @if (!Model.SLLocateClient.Equals(-1))
+                {
+                    <td colspan="3">@Html.TextBoxFor(model => model.Client, new { @class = "k-textbox", @readonly = "readonly", @style = "width:100%;" })</td>
+                }
+                else
+                {
+                    <td colspan="3">@Html.TextBoxFor(model => model.Client, new { @class = "k-textbox", @style = "width:100%;" })</td>
+                }
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("Name")</td>
+                @if (!Model.SLLocateClient.Equals(-1))
+                {
+                    <td colspan="3">@Html.TextBoxFor(model => model.ClientName, new { @class = "k-textbox", @readonly = "readonly", @style = "width:100%;" })</td>
+                }
+                else
+                {
+                    <td colspan="3">@Html.TextBoxFor(model => model.ClientName, new { @class = "k-textbox", @style = "width:100%;" })</td>
+                }
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("AUTOAPPROVALQTY")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(model => model.AutoApprovalQty).HtmlAttributes(new { ID = "AutoApprovalNumbox" }).Spinners(false).Format("#,###0")
+                <td>@LabelHelper.Label("MINPRICE")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(model => model.MinPrice).HtmlAttributes(new { ID = "MinPriceNumbox" }).Spinners(false).Format("#,###0.00")
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("MINQTY")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(model => model.MinQty).HtmlAttributes(new { ID = "MinQuantitylNumbox" }).Spinners(false).Format("#,###0")</td>
+                <td>@LabelHelper.Label("ClientTypeId")</td>
+                <td>@Html.Kendo().DropDownListFor(model => model.ClientTypeId).HtmlAttributes(new { ID = "ClientTypeIdDropdown" }).BindTo(EnumExtensions.GetEnumSelectList<SL_LocateClientType>())</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("InventoryPercentage")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(model => model.InventoryPercentage).HtmlAttributes(new { ID = "InventoryPercentageNumbox" }).Spinners(false).Format("#,###0").Max(100)</td>
+                <td>@LabelHelper.Label("DecrementationTypeId")</td>
+                <td>@Html.Kendo().DropDownListFor(model => model.DecrementationTypeId).HtmlAttributes(new { ID = "DecrementationTypeIdDropdown" }).BindTo(EnumExtensions.GetEnumSelectList<SL_LocateDecrementationType>())</td>
+            </tr>
+            <tr>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <label id="LocateStatusLabel"></label>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" align="right">
+                    <a href="#" onclick="onLocateClientSubmit()" class="k-button">@LabelHelper.Text("PostLocateClientChange")</a>
+                </td>
+            </tr>
+        </table>
+    
+        @Html.HiddenFor(x => x.SLLocateClient);            
+        @Html.HiddenFor(x => x.EntityId);
+        @Html.HiddenFor(x => x.Client);
+        @Html.HiddenFor(x => x.ClientName);
+        @Html.HiddenFor(x => x.AutoApprovalQty);
+        @Html.HiddenFor(x => x.MinPrice);
+        @Html.HiddenFor(x => x.MinQty);
+        @Html.HiddenFor(x => x.ClientTypeId);
+        @Html.HiddenFor(x => x.InventoryPercentage);
+        @Html.HiddenFor(x => x.DecrementationTypeId);
+        @Html.HiddenFor(x => x.EmailAddress);
+        @Html.HiddenFor(x => x.AllowEasy);
+        @Html.HiddenFor(x => x.AllowNoLend);
+        @Html.HiddenFor(x => x.AllowRestricted); 
+        @Html.HiddenFor(x => x.AllowThreshold);
+        @Html.HiddenFor(x => x.DateTimeId);
+        @Html.HiddenFor(x => x.RowVersion);    
+}
+</div>

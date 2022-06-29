@@ -1,0 +1,188 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">   
+    var _accountCharterCodeExtendedSelectAll = false;
+
+    function onAccountCodeCharterExtendedCheckData() {
+        CheckGridData('#AccountCodeCharterExtendedListGrid');
+        resizeGridColumns("#AccountCodeCharterExtendedListGrid");
+    }
+
+    function onRuleError(e) {
+        DisplayControllerError(e);
+    }
+
+    function additionalAccountCodeCharterExtendedData() {
+        var entity = $("#AccountCodeCharterExtendedDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entity
+        };
+    }
+
+
+
+    function onAccountCodeCharterExtendedDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#AccountCodeCharterExtendedDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#AccountCodeCharterExtendedListGrid').data("kendoGrid").dataSource.read();
+                  
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onAccountCodeCharterExtendedChange() {
+        $("#AccountCodeCharterExtendedListGrid").data("kendoGrid").dataSource.read();
+    }
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+    });
+
+    function onAccountCharterCodeExtendedListContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+
+            case 'Select All':
+                onAccountCharterCodeExtendedListSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                KendoGridToCSVConvertor("#AccountCodeCharterExtendedListGrid", 'AccountCodeCharterExtendedListGrid', _accountCharterCodeExtendedSelectAll);
+                break;
+        }
+    }
+
+    function onAccountCharterCodeExtendedListSelectAll() {
+        try {
+            var contractBreakOutGrid = $("#AccountCodeCharterExtendedListGrid").data("kendoGrid");
+            contractBreakOutGrid.select(contractBreakOutGrid.tbody.find(">tr"));
+
+            _accountCharterCodeExtendedSelectAll = true;
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("AccountCodeCharterExtendedToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("AccountCodeCharterExtendedDropdownList")
+                            .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Events(events => events.Change("onAccountCodeCharterExtendedChange").DataBound("onAccountCodeCharterExtendedDefaultLoad"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="AccountCodeCharterExtendedListGridContent" class="grid-div">
+    @(
+         Html.Kendo().Grid<BondFire.Entities.Projections.SL_AccountCodeCharterExtendedProjection>()
+                .Name("AccountCodeCharterExtendedListGrid")
+                .Sortable()
+                .HtmlAttributes(new { @class = "grid" })
+                .Scrollable(scroll => scroll.Enabled(true).Virtual(true))
+                .Filterable()
+                .NoRecords()
+                .Editable(e => e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLRule)))
+                .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                .Navigatable()
+                .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+                .Events(events => events.DataBound("onAccountCodeCharterExtendedCheckData"))
+                .ToolBar(tbar => tbar.Create())
+                .Columns(columns =>
+                {
+                    columns.Command(x =>
+                    {
+                        x.Edit();
+                        x.Destroy();
+                    }).Width(200);
+                    columns.Bound(x => x.SLAccountCodeCharterExtendedId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                    columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                    columns.Bound(x => x.AccountCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.AccountCodeName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.AccountNumberOffset).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.CreditDebitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "_AccountCharterCodeCreditDebitDropdown");
+                    columns.Bound(x => x.LongShortId).GetColumnFormat(ColumnTypeEnum.String, false, "", "_AccountCharterCodeLongShortDropdown");
+                    columns.Bound(x => x.UserName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                })
+                 .DataSource(dataSource => dataSource
+                    .Ajax()
+                    .ServerOperation(false)
+                    .PageSize(100)
+                    .Read(read => read.Action("GetAccountCodeCharterExtended", "AccountCharter", new { area = "Admin" }).Data("additionalAccountCodeCharterExtendedData"))
+                    .Create(create => create.Action("AddAccountCodeCharterExtended", "AccountCharter", new { area = "Admin" }).Data("additionalAccountCodeCharterExtendedData"))
+                    .Update(update => update.Action("UpdateAccountCodeCharterExtended", "AccountCharter", new { area = "Admin" }))
+                    .Destroy(destroy => destroy.Action("DestroyAccountCodeCharterExtended", "AccountCharter", new { area = "Admin" }))
+                    .Model(model =>
+                    {
+                        model.Id(x => x.SLAccountCodeCharterExtendedId);
+                        model.Field(x => x.EntityId).Editable(false);
+                        model.Field(x => x.AccountCode).Editable(true);
+                        model.Field(x => x.AccountCodeName).Editable(true);
+                        model.Field(x => x.AccountNumberOffset).Editable(true);
+                        model.Field(x => x.CreditDebitId).Editable(true);
+                        model.Field(x => x.LongShortId).Editable(true);
+                        model.Field(x => x.UserName).Editable(false);
+                    }))
+    )
+
+
+
+    @(
+                Html.Kendo().ContextMenu()
+                .Name("AccountCharterCodeExtendedContextMenu")
+                    .Target("#AccountCodeCharterExtendedListGrid")
+                        .Events(events => events.Select("onAccountCharterCodeExtendedListContextMenuSelect"))
+                    .Items(items =>
+                    {
+                        items.Add().Text("Select All").Enabled(true);
+                        items.Add().Text("Export To Excel").Enabled(true);
+                    })
+    )
+</div>

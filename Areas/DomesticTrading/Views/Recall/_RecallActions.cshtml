@@ -1,0 +1,27 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities
+
+@model IEnumerable<SL_RecallAction>
+
+<div id="RecallActionsDiv">
+@(Html.Kendo().Grid(Model)
+    .Name("RecallActionGrid")
+    .Navigatable()
+    .NoRecords()
+    .Columns(cols =>
+        {
+            cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            cols.Bound(x => x.RecallNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            cols.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            cols.Bound(x => x.Action).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        })
+    .DataSource(ds => ds.Ajax().ServerOperation(false))
+)
+
+
+</div>

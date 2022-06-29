@@ -1,0 +1,702 @@
+﻿@using BondFire.Entities.Projections
+@using BondFire.Entities
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<style scoped>
+    #MarkToMarketHeaderToolBar.k-widget .k-multiselect input {
+        display: none;
+    }
+</style>
+
+<script type="text/javascript">
+    var _MarkToMarketSelectAll = false;
+    var _MarkToMarketDisableRowChangeEvents = false;
+    var _MarkToMarketSelectedRows = [];
+    var _MarkToMarketSummarySelectedRows = [];
+    var _MarkToMarketUpdateRows = [];
+    var _MarkToMarketSuspendRefresh = false;
+    var _originalMarkToMarketGrid = null;
+    var _originalMarkToMarketSummaryGrid = null;
+    var _MarkToMarketEditMode = false;
+    var _MarkToMarketInterval = false;
+
+    var _originalMarkToMarketGridSelectAll = false;
+    var _originalMarkToMarketSummaryGridSelectAll = false;
+
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalMarkToMarketGrid = $("#MarkToMarketGrid").data('kendoGrid').getOptions();
+            _originalMarkToMarketSummaryGrid = $("#MarkToMarketSummaryGrid").data('kendoGrid').getOptions();
+
+            LoadGridLayout("#MarkToMarketGrid");
+            LoadGridLayout("#MarkToMarketSummaryGrid");
+        }, 5);  
+    });
+
+    $('#MarkToMarketSummaryButton').hover (
+        function() { $(this).addClass('k-state-hover')},
+        function () { $(this).removeClass('k-state-hover') }
+        )
+
+    $('#MarkToMarketButton').hover(
+    function () { $(this).addClass('k-state-hover') },
+    function () { $(this).removeClass('k-state-hover') }
+    )
+
+    function BackupMarkToMarketRowSelection() {
+        try
+        {
+            var grid = $("#MarkToMarketGrid").data("kendoGrid");
+
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                _MarkToMarketSelectedRows.push(selectedItem);
+            });
+        }
+        catch (e)
+        {
+
+        }
+    }
+   
+  
+
+    function onMarkToMarketSelectAll(e) {
+        try {
+            var MarkToMarketGrid = $("#MarkToMarketGrid").data("kendoGrid");
+            MarkToMarketGrid.select(MarkToMarketGrid.tbody.find(">tr"));
+
+            _originalMarkToMarketGridSelectAll = true;
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+
+    function onMarkToMarketSummarySelectAll(e) {
+        try {
+            var MarkToMarketGrid = $("#MarkToMarketSummaryGrid").data("kendoGrid");
+            MarkToMarketGrid.select(MarkToMarketGrid.tbody.find(">tr"));
+
+            _originalMarkToMarketSummaryGridSelectAll = true;
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+ 
+
+    function onMarkToMarketSummaryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Send':
+                onMarkToMarketSummarySend(true);
+                break;
+            case 'Cancel Pending':
+                onMarkToMarketSummaryCancel(true);
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#MarkToMarketSummaryGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#MarkToMarketSummaryGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#MarkToMarketSummaryGrid");
+
+                $("#MarkToMarketSummaryGrid").data('kendoGrid').setOptions(_originalMarkToMarketSummaryGrid);
+                $('#MarkToMarketSummaryGrid').data("kendoGrid").dataSource.read();
+                break;
+            case "Select All":
+                onMarkToMarketSummarySelectAll(e);
+                break;
+            case 'Export To Excel':
+                exportToMarkToMarketSummaryExcel();
+                break;
+
+            case 'Unsort':
+                onMarkToMarketUnsortGrid("#MarkToMarketSummaryGrid");
+                break;
+
+        }
+    }
+
+ 
+
+    function exportToMarkToMarketSummaryExcel() {
+
+        try {
+            KendoGridToCSVConvertor("#MarkToMarketSummaryGrid", 'MarkToMarketSummary', _originalMarkToMarketSummaryGridSelectAll);
+        }
+        catch (e) {            
+            console.log(e.message);
+        }
+    }
+
+    function onMarkToMarketSummaryLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#MarkToMarketSummaryGrid");
+        }, 5);
+    }
+
+    function onMarkToMarketLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#MarkToMarketGrid");
+        }, 5);
+    }
+
+    function onMarkToMarketContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Send':
+                onMarkToMarketSend(true);
+                break;
+
+            case 'Cancel':
+                onMarkToMarketCancel(true);
+                break;
+
+            case 'Clone':
+                onMarkToMarketMirror(true);
+                break;
+
+            case 'Bulk Update':
+                onMarkToMarketBulkUpdate(true);
+                break;
+
+            case 'Refresh Data':
+                onMarkToMarketChange();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#MarkToMarketGrid");
+                break;
+
+            case 'Unsort':
+                onMarkToMarketUnsortGrid("#MarkToMarketGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#MarkToMarketGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#MarkToMarketGrid");
+
+                $("#MarkToMarketGrid").data('kendoGrid').setOptions(_originalMarkToMarketGrid);
+                $('#MarkToMarketGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Select All':
+                onMarkToMarketSelectAll(e);
+                break;
+
+            case 'Export To Excel':
+                exportToMarkToMarketExcel();
+                break;
+        }
+    }
+
+    function onMarkToMarketUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToMarkToMarketExcel() {
+        try {
+            KendoGridToCSVConvertor("#MarkToMarketGrid", 'MarkToMarket', _originalMarkToMarketGridSelectAll);
+        }
+        catch (e) {
+            DisplayControllerByStringError("Error", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onMarkToMarketChange() {
+        _MarkToMarketSelectedRows = [];
+        _MarkToMarketSelectAll = false;
+
+        $("#MarkToMarketSummaryGrid").data("kendoGrid").dataSource.read();     
+    }
+
+    function onMarkToMarketSummaryRowChange(e) {
+        _MarkToMarketSummarySelectedRows = [];
+
+        $("#MarkToMarketGrid").data("kendoGrid").dataSource.read();
+
+        _originalMarkToMarketSummaryGridSelectAll = false;
+        BackupMarkToMarketSummaryRowSelection();
+    }
+
+    function onMarkToMarketRowChange(e) {
+        e.preventDefault();
+
+        _MarkToMarketSelectedRows = [];
+
+
+        _originalMarkToMarketGridSelectAll = false;
+
+        if (_MarkToMarketDisableRowChangeEvents == false) {
+            try {
+                var entityGrid = $("#MarkToMarketGrid").data("kendoGrid");
+                var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                if (selectedItem != null) {
+                    var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                    var entityId = selectedItem["EntityId"];
+                    var effectiveDate = selectedItem["EffectiveDate"];
+                    var securityNumber = selectedItem["SecurityNumber"];
+                    var issueId = selectedItem["IssueId"];
+
+                    SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+
+                    if (selectedItem.BorrowStatus == '@Convert.ToInt32(StatusMain.Pending)') {
+                        EnableContextMenuItem("#MarkToMarketContextMenu", "Send", true);
+                        EnableContextMenuItem("#MarkToMarketContextMenu", "Cancel", true);
+                    }
+                    else {
+                        EnableContextMenuItem("#MarkToMarketContextMenu", "Send", false);
+                        EnableContextMenuItem("#MarkToMarketContextMenu", "Cancel", false);
+                    }
+
+                    _MarkToMarketSelectAll = false;
+                    BackupMarkToMarketRowSelection();
+                }
+            }
+            catch (e) {
+                DisplayControllerByStringError("Error", e.message);
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onMarkToMarketDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreferenceMultiple',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#MarkToMarketDropdownList').data("kendoMultiSelect");
+
+                    dropdownList.value(userPreference);
+
+
+                    $('#MarkToMarketSummaryGrid').data("kendoGrid").dataSource.read();                    
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onMarkToMarketError(e) {
+        console.log(e.message);
+    }
+
+    function clickMarkToMarketCheck(e) {
+        var $cb = $(e);
+        var checked = $cb.is(':checked');
+
+        var grid = $("#MarkToMarketGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["IncomeTracked"] = checked;
+    }
+
+    function onMarkToMarketCheckData(e) {
+        try {
+            CheckGridData('#MarkToMarketGrid');
+        }
+        catch (err) {
+            LogError(err.message);
+        }
+
+        ReInitVirtualScroll("#MarkToMarketGrid");
+        RestoreMarkToMarketRowSelection();
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#MarkToMarketSummaryGrid");
+        RefreshGrid("#MarkToMarketGrid");
+    });
+
+    function onMarkToMarketSummaryCheckData() {
+        try {
+            CheckGridData('#MarkToMarketSummaryGrid');
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+
+        RestoreMarkToMarketSummaryRowSelection();
+    }
+
+    function additionalMarkToMarketSummaryData() {
+        var datepicker = $("#MarkToMarketCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#MarkToMarketDropdownList").data("kendoMultiSelect").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entityId
+        }
+    }
+
+    function additionalMarkToMarketData() {
+        var datepicker = $("#MarkToMarketCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#MarkToMarketDropdownList").data("kendoMultiSelect").value();
+
+        try
+        {
+            var entityGrid = $("#MarkToMarketSummaryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            entityId = selectedItem["EntityId"];
+            contraEntityId = selectedItem["ContraEntityId"];
+            collateralType = selectedItem["CollateralType"];
+        }
+        catch (e) {
+            contraEntityId = "";
+            poolType = 'C'
+        }
+
+        return {
+            effectiveDate: value,
+            entityId: entityId,
+            contraEntityId: contraEntityId,
+            type: collateralType
+        }
+    }
+
+    function additionalMarkToMarketEntityData() {
+        var entityId = $("#MarkToMarketDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+
+
+
+    function ReInitVirtualScroll(e) {
+        var grid = $(e).data("kendoGrid");
+        grid._rowHeight = undefined;
+        grid.virtualScrollable.refresh();
+    }
+
+    function onMarkToMarketRowChange(e) {
+        try {
+            var entityGrid = $("#MarkToMarketGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+
+            if ((securityNumber == null) || (securityNumber == '')) {
+                securityNumber = selectedItem["Sedol"];
+            }
+
+            var issueId = selectedItem["IssueId"];
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+            ReInitVirtualScroll("#MarkToMarketGrid");
+
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+</script>
+    @(
+ Html.Kendo().ToolBar()
+    .Name("MarkToMarketHeaderToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("MarkToMarketCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class="width90"})
+            .Events(events => events.Change("onMarkToMarketChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().MultiSelect()
+          .Name("MarkToMarketDropdownList")           
+                           .TagMode(TagMode.Multiple)
+                   .AutoWidth(true)
+                   .Enable(true)
+                   .DownArrow(true)
+                   .Size(ComponentSize.Small)
+                   .ClearButton(false)
+                   .HtmlAttributes(new { @style = "width:100%" })
+                       .Placeholder("No records selected")
+                       .AutoBind(true)
+                    .ItemTemplate("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                     "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                     "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                     .Events(e =>
+                     {
+                         e.DataBound("onMarkToMarketDefaultLoad");
+                         e.Change("onMarkToMarketChange");
+                     })
+                     .DataTextField("Custodian")
+                     .DataValueField("CompanyId")
+                     .DataSource(ds =>
+                     {
+                         ds.Read(read => read.Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" }));
+                     }).ToHtmlString());
+
+
+        /*items.Add().Template(Html.Kendo().DropDownList()
+                .Name("MarkToMarketDropdownList")
+                .HtmlAttributes(new { @style = "width: 90px" })
+                .DataTextField("Custodian")
+                .DataValueField("CompanyId")
+                .OptionLabel(LabelHelper.Text("OptionLabel"))
+                .AutoBind(true)
+                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                .Events(events => events.Change("onMarkToMarketChange").DataBound("onMarkToMarketDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                .DataSource(dataSource => dataSource
+                .Read(read => read
+                .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                .SelectedIndex(0).ToHtmlString());
+                */
+    }))
+
+<hr class="hr-white">
+
+<div id="MarkToMarketSummaryContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("MarkToMarketSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        {
+            panes.Add()
+                .Collapsible(false)
+                .Size("30%")
+                .Scrollable(false)
+                .Content(@<text>
+    @(Html.Kendo().Grid<SL_MarkToMarketSummaryExtendedProjection>()
+    .Name("MarkToMarketSummaryGrid")
+    .Sortable(sort =>
+    {
+        sort.AllowUnsort(true);
+        sort.Enabled(true);
+        sort.SortMode(GridSortMode.MultipleColumn);
+    })
+    .Scrollable()
+    .Filterable()
+    .Navigatable()
+    .NoRecords()
+     .HtmlAttributes(new { @class = "grid" })
+    .Reorderable(reorder => reorder.Columns(true))
+    .ColumnMenu(menu =>
+    {
+        menu.Columns(true);
+        menu.Filterable(true);
+        menu.Sortable(true);
+        menu.ComponentType( "modern" );
+    } )
+    .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))
+    .Events(events =>
+    {
+        events.Change("onMarkToMarketSummaryRowChange");
+        events.DataBound("onMarkToMarketSummaryCheckData");
+        events.ColumnHide("onMarkToMarketSummaryLayoutChange");
+        events.ColumnShow("onMarkToMarketSummaryLayoutChange");
+        events.ColumnResize("onMarkToMarketSummaryLayoutChange");
+        events.ColumnReorder("onMarkToMarketSummaryLayoutChange");
+    })
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.ContraEntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ContraEntityAccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.CollateralType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        cols.Bound(x => x.CurrentAmount).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ExecutingSystemType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        cols.Bound(x => x.RecommendedMoneyInAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RecommendedMoneyInAmount)#", "");
+        cols.Bound(x => x.RecommendedMoneyOutAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RecommendedMoneyOutAmount)#", "");
+        cols.Bound(x => x.TotalMoneyAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RecommendedMoneyOutAmount)#", "");
+    })
+    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+    .DataSource(ds => ds.Ajax()
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Read(read => read.Action("Read_MarkToMarketSummary", "Contract", new { area = "DomesticTrading" }).Data("additionalMarkToMarketSummaryData"))
+        .Aggregates(agg =>
+        {
+            agg.Add(x => x.RecommendedMoneyInAmount).Sum();
+            agg.Add(x => x.RecommendedMoneyOutAmount).Sum();
+
+            agg.Add(x => x.TotalMoneyAmount).Sum();
+        })))</text>);
+
+            panes.Add()
+                .Collapsible(false)
+                .Size("70%")
+                .Scrollable(false)
+                .Content(@<text>
+    @(
+ Html.Kendo().Grid<SL_MarkToMarketExtendedProjection>()
+    .Name( "MarkToMarketGrid" )
+    .HtmlAttributes(new { @class = "grid" })
+    .Sortable( sort =>
+    {
+        sort.AllowUnsort( true );
+        sort.Enabled( true );
+        sort.SortMode( GridSortMode.MultipleColumn );
+    } )
+    .Filterable()
+    .Scrollable(scroll => scroll.Virtual(true))
+    .NoRecords()
+    .Reorderable( reorder => reorder.Columns( true ) )
+    .ColumnMenu( menu =>
+    {
+        menu.Columns( true );
+        menu.Filterable( true );
+        menu.Sortable( true );
+        menu.ComponentType( "modern" );
+    } )
+    .AutoBind( false )
+    .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ) )
+    .Events( events =>
+    {
+        events.Change("onMarkToMarketRowChange");
+        events.DataBound( "onMarkToMarketCheckData" );
+        events.ColumnHide( "onMarkToMarketLayoutChange" );
+        events.ColumnShow( "onMarkToMarketLayoutChange" );
+        events.ColumnResize( "onMarkToMarketLayoutChange" );
+        events.ColumnReorder( "onMarkToMarketLayoutChange" );
+    } )
+    .Columns(columns =>
+    {
+        columns.Bound(x => x.EffectiveDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        columns.Bound(x => x.SLMarkToMarket).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ContraEntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ContraEntityAccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.IssueId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.CollateralType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ContractQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(ContractQuantity)#", "");
+        columns.Bound(x => x.CurrentAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(CurrentAmount)#", "");
+        columns.Bound(x => x.CurrentAmountCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        columns.Bound(x => x.MarketPrice).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetMoneyDirection(MarketPrice)#", "");
+        columns.Bound(x => x.MarketPriceCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+        columns.Bound(x => x.RecommenedCollateralPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(RecommenedCollateralPrice)#", "");
+        columns.Bound(x => x.RecommendAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RecommendAmount)#", "");
+        columns.Bound(x => x.RecommendAmountCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "");
+        columns.Bound(x => x.MarkAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(MarkAmount)#", "");
+    } )
+    .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+    .DataSource( ds => ds.Ajax()
+        .ServerOperation( false )
+        .AutoSync( true )
+        .Sort(sort =>
+        {
+            sort.Add( x => x.Ticker );
+        })
+        .Read( read => read.Action( "Read_MarkToMarket", "Contract", new { area = "DomesticTrading" } ).Data( "additionalMarkToMarketData" ) )
+        .Aggregates( s =>
+        {
+            s.Add(x => x.ContractQuantity).Sum();
+            s.Add(x => x.CurrentAmount).Sum();
+            s.Add(x => x.RecommendAmount).Sum();
+            s.Add(x => x.MarkAmount).Sum();
+            s.Add(x => x.RebateRate).Average();
+        } )
+        .PageSize(100)))
+
+            </text>);
+        })
+)
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("MarkToMarketSummaryContextMenu")
+    .Target("#MarkToMarketSummaryGrid")
+    .Events(events => events.Select("onMarkToMarketSummaryContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Export To Excel").Enabled(true);
+    }))
+
+
+
+
+@(Html.Kendo().ContextMenu()
+.Name("MarkToMarketContextMenu")
+    .Target("#MarkToMarketGrid")
+    .Events(events => events.Select("onMarkToMarketContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Refresh Data").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Export To Excel").Enabled(true);
+
+    }))

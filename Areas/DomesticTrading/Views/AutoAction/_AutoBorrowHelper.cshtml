@@ -1,0 +1,311 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Tools
+@model IEnumerable<BorrowOrderSuggestionModel>
+
+<script type="text/javascript">
+
+    function clickAutoBorrowHelperCheck(e) {
+        var $cb = $(e);
+        var checked = $cb.is(':checked');
+
+        var grid = $("#AutoBorrowHelperGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["Enabled"] = checked;
+    }
+
+    $(document).ready(function () {
+
+        $('#AutoBorrowHelperContraEntityCheckBox').change(function () {
+            $("#AutoBorrowHelperContraEntityDropdownList").data("kendoAutoComplete").enable($(this).is(':checked'));
+        });
+
+        $('#AutoBorrowHelperRebateRateCheckBox').change(function () {
+            $("#AutoBorrowHelperRebateRateTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+        });
+
+        $('#AutoBorrowHelperMarkCheckBox').change(function () {
+            $("#AutoBorrowHelperMarkTextBox").data("kendoNumericTextBox").enable($(this).is(':checked'));
+        });
+    });
+
+    function processAutoBorrowHelperData() {
+
+        try {
+
+            var contraEntityId = ($("#AutoBorrowHelperContraEntityCheckBox").is(':checked')) ? $("#AutoBorrowHelperContraEntityDropdownList").data("kendoAutoComplete").value() : "";
+
+            var rebateRate = ($("#AutoBorrowHelperRebateRateCheckBox").is(':checked')) ? $("#AutoBorrowHelperRebateRateTextBox").data("kendoNumericTextBox").value() : null;
+            var mark = ($("#AutoBorrowHelperMarkCheckBox").is(':checked')) ? $("#AutoBorrowHelperMarkTextBox").data("kendoNumericTextBox").value() : null;
+
+            var grid = $('#AutoBorrowHelperGrid').data('kendoGrid');
+            var rows = grid.dataSource.data();
+
+            $('#StatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+            $.ajax({
+                url: '@Url.Action("ProcessHelperLcorOptions", "AutoAction", new { area = "DomesticTrading" })',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    list: rows,
+                    contraEntityId: contraEntityId,
+                    rebateRate: rebateRate,
+                    mark: mark
+                }),
+                success: function (valid) {
+
+                    grid.dataSource.data(valid);
+                    grid.refresh();
+
+                    $("#StatusLabel").text("Sucessfully applied changes to " + (valid.length) + " items.");
+                },
+                error: function (valid) {
+                    $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                }
+            })
+        }
+        catch (e) {
+            $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            LogError(e.message);
+        }
+    }
+
+
+    function onAutoBorrowHelperSend() {
+        var grid = $('#AutoBorrowHelperGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+
+        $('#StatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+        $("#AutoBorrowHelperSaveTradesButton").data("kendoButton").enable(false);
+
+        try {
+            $.ajax({
+                url: '@Url.Action("ProcessHelperSaveBorrowOrder", "AutoAction", new { area = "DomesticTrading" })',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({ list: rows }),
+                success: function (valid) {
+
+                    grid.dataSource.data(valid);
+                    grid.refresh();
+
+                    $("#StatusLabel").text("Sucessfully added " + (rows.length - valid.length) + " lcor items.");
+                    $("#AutoBorrowHelperSaveTradesButton").data("kendoButton").enable(true);
+                },
+                error: function (valid) {
+                    $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                    $("#AutoBorrowHelperSaveTradesButton").data("kendoButton").enable(true);
+                }
+            })
+        }
+        catch (e) {
+            $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            LogError(e.message);
+        }
+    }
+
+    function onAutoBorrowHelperSelectAll() {
+        var grid = $('#AutoBorrowHelperGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+
+        $('#StatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+        try {
+            $.ajax({
+                url: '@Url.Action("ProcessHelperSelectAll", "AutoAction", new { area = "DomesticTrading" })',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({ list: rows }),
+                success: function (valid) {
+
+                    grid.dataSource.data(valid);
+                    grid.refresh();
+
+                    $("#StatusLabel").text("Sucessfully selected " + (valid.length) + " items.");
+                },
+                error: function (valid) {
+                    $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                }
+            })
+        }
+        catch (e) {
+            $('#StatusLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            LogError(e.message);
+        }
+    }
+
+    function additionalAutoBorrowHelperData() {
+        var entityId = "";
+
+        try {
+            if ('@Model.ToList().Count()' > 0) {
+                entityId = "@Model.ToList().Distinct().First().EntityId";
+            }
+        }
+        catch (e) {
+            entityId = "";
+        }
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+    function onAutoBorrowHelperEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () { input.select(); });
+    }
+</script>
+
+@if (Model.ToList().Count == 0)
+{
+     <div style="padding:20px;font-size:small;">
+       <h2>No Data Selected / Processed</h2>
+   </div>
+}
+else
+{
+    <div class="toolbar">
+    <table class="toolbar">
+        <tr>
+            <td>
+                @(Html.Kendo()
+                                .Button()
+                                .Enable(true)
+                                .Name("AutoBorrowApplyHelperChangesButton")
+                                .HtmlAttributes(new { style = "width:90px" })
+                                                .Events(e => e.Click("processAutoBorrowHelperData"))
+                                .Content(@<text>
+                                    <i class="fa fa-repeat"></i>&nbsp;Apply Options
+                                </text>))
+            </td>
+            <td>
+                @(Html.Kendo()
+                                .Button()
+                                        .Enable(true)
+                                .Name("AutoBorrowHelperSaveTradesButton")
+                                .HtmlAttributes(new { style = "width:90px" })
+                               .Events(e => e.Click("onAutoBorrowHelperSend"))
+                                .Content(@<text>
+                                    <i class="icon-check" style="color:green;"></i>&nbsp;Accept LCOR
+                                </text>))
+            </td>
+            <td>
+                @(Html.Kendo()
+                                .Button()
+                                        .Enable(true)
+                                .Name("AutoBorrowHelperSelectAllButton")
+                                .HtmlAttributes(new { style = "width:90px" })
+                                        .Events(e => e.Click("onAutoBorrowHelperSelectAll"))
+                                .Content(@<text>
+                                            <i class="icon-check" style="color:green;"></i>&nbsp;Select All
+                                </text>))
+            </td>
+        </tr>
+    </table>
+    <table class="toolbar">
+        <tr>
+            <td>
+                @Html.Kendo().CheckBox().Name("AutoBorrowHelperContraEntityCheckBox").HtmlAttributes(new { style = "float:left" })
+            </td>
+            <td>
+                @LabelHelper.Label("ContraEntity")
+            </td>
+            <td>
+                @(Html.Kendo().AutoComplete()
+                        .Name("AutoBorrowHelperContraEntityDropdownList")
+                        .DataTextField("ContraEntityId")
+                        .Enable(false)
+                        .DataSource(source => source.Read(read => read.Action("Read_ContraEntityDropdown", "ContraEntity", new { area = "DomesticTrading" }).Data("additionalAutoBorrowHelperData")))
+                                .HtmlAttributes(new { ID = "AutoBorrowHelperContraEntityDropdownList" })
+                        .Filter("startswith"))
+            </td>
+
+            <td>
+                @Html.Kendo().CheckBox().Name("AutoBorrowHelperRebateRateCheckBox").HtmlAttributes(new { style = "float:left" })
+            </td>
+            <td>
+                @LabelHelper.Label("RebateRate")
+            </td>
+            <td>
+                @Html.Kendo().NumericTextBox().Name("AutoBorrowHelperRebateRateTextBox").Spinners(false).Value(0).Enable(false)
+            </td>
+            <td>
+                @Html.Kendo().CheckBox().Name("AutoBorrowHelperMarkCheckBox").HtmlAttributes(new { style = "float:left" })
+            </td>
+            <td>
+                @LabelHelper.Label("Mark")
+            </td>
+            <td>
+                @Html.Kendo().NumericTextBox().Name("AutoBorrowHelperMarkTextBox").Spinners(false).Value(1.02).Format("#,##0.00").Enable(false)
+            </td>
+        </tr>
+    </table>
+</div>
+
+<hr class="hr-white">
+
+<div id="AutoBorrowContent" class="grid-div">
+    @(
+ Html.Kendo().Grid(Model)
+    .Name("AutoBorrowHelperGrid")
+    .HtmlAttributes(new { @style = "grid" })
+    .Sortable(sort =>
+               {
+                   sort.AllowUnsort(true);
+                   sort.Enabled(true);
+                   sort.SortMode(GridSortMode.MultipleColumn);
+               })
+    .Scrollable()
+    .Filterable()
+    .Navigatable()
+    .Events(events => events.Edit("onAutoBorrowHelperEdit"))
+    .Editable(edit => edit.Mode(GridEditMode.InCell).Enabled(true))
+    .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))   
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.Enabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox' onClick='clickAutoBorrowHelperCheck(this)' #= (Enabled) ? checked ='checked' : '' #/>", "");
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.ContraEntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "_AutoBorrowHelperContraEntityAutoComplete");
+        cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.MaxPrice).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "DecimalNumber");
+        cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "QuantityDecimalNumber");
+        cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "DecimalNumber");
+        cols.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "DecimalNumber");
+        cols.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Command(c => c.Destroy()).Width(80);
+    })
+    .Resizable(resize => resize.Columns(true))
+    .DataSource(ds => ds.Ajax()
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Create(create => create.Action("UpdateAutoBorrowHelper", "AutoAction", new { area = "DomesticTrading" }))
+        .Update(update => update.Action("UpdateAutoBorrowHelper", "AutoAction", new { area = "DomesticTrading" }))
+        .Destroy(destroy => destroy.Action("UpdateAutoBorrowHelper", "AutoAction", new { area = "DomesticTrading" }))
+        .Aggregates(agg => agg.Add(x => x.Quantity).Sum())
+        .Model(model =>
+        {
+            model.Id(x => x.ModelId);
+            model.Field(x => x.ModelId).Editable(false);
+            model.Field(x => x.Enabled).Editable(false);
+            model.Field(x => x.EntityId).Editable(false);
+            model.Field(x => x.IssueId).Editable(false);
+            model.Field(x => x.SecurityNumber).Editable(false);
+            model.Field(x => x.Ticker).Editable(false);
+            model.Field(x => x.MemoInfo).Editable(false);
+            model.Field(x => x.SubmissionType).Editable(false);
+        })))
+</div>
+<table>
+    <tr>
+        <td>
+            <label id="StatusLabel" style="color: white;"></label>
+        </td>
+    </tr>
+</table>
+}
+

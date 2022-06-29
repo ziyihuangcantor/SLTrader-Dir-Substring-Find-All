@@ -1,0 +1,494 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+<style scoped>
+    #SmarteRouteSplitter {
+        height: 100%;
+    }
+</style>
+
+
+<script type="text/javascript">
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#SmartRouteListGrid");
+        RefreshGrid("#SmartRouteListItemGrid");
+    });
+
+    var _originalSmartRouteListItemGrid = null;
+    var _originalSmartRouteListItemGridToolBar = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalSmartRouteListItemGrid = $('#SmartRouteListItemGrid').data('kendoGrid').getOptions();
+            _originalSmartRouteListItemGridToolBar = $("#SmartRouteListItemGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#SmartRouteListItemGrid");
+
+            $("#SmartRouteListItemGrid .k-grid-toolbar").html(_originalSmartRouteListItemGridToolBar);
+            $("#SmartRouteListItemGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onSmartRouteListItemGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#SmartRouteListItemGrid");
+        }, 5);
+    }
+
+    function onSmartRouteAutoBorrowDefaultOptions() {
+        try {
+            HelperPartialWindow(
+                null,
+                'Auto Borrow Defaults',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoBorrowDefaultOptionsPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onSmartRouteListData() {
+        var entityId = $("#SmartRouteDropdownList").data("kendoDropDownList").value();
+
+        return {            
+            entityId: entityId,
+        }
+    }
+
+    function onSmartRouteListCreateData(e) {
+        var entityId = $("#SmartRouteDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+    function onSmartRouteAdditionalData(e) {
+        var entityId = "";
+        var smartRouteList = -1;
+
+
+        var entityGrid = $("#SmartRouteListGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if (entityGrid.select().length > 0)
+        {
+            entityId = selectedItem["EntityId"];
+            smartRouteList = selectedItem["SLSmartRouteList"];
+        }
+
+        return {
+            entityId: entityId,
+            smartRouteList: smartRouteList
+        }
+    }
+
+    function onSmartRouteCreateData(e) {
+        var entityGrid = $("#SmartRouteListGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var entityId = selectedItem["EntityId"];
+        var smartRouteList = selectedItem["SLSmartRouteList"];
+
+        return {
+            entityId: entityId,
+            smartRouteList: smartRouteList
+        }
+    }
+
+    function onSmartRouteDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#SmartRouteDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#SmartRouteListGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function() {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSmartRouteListRowChange() {
+        $("#SmartRouteListItemGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onSmartRouteChange() {
+        $("#SmartRouteListGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onSmartRouteEdit(e) {
+        if (e.model.isNew()) {
+            var parentData = $("#SmartRouteListGrid").data("kendoGrid").dataItem(e.sender.element.closest("tr").prev());
+
+            console.log(parentData);
+        }
+    }
+
+    function onSmartRouteListError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onSmartRouteError(e) {
+        DisplayControllerError(e);
+    }
+
+    function clickSmartRouteIncomeTrackedCheck(e) {
+        var $cb = $(e);
+        var checked = $cb.is(':checked');
+
+        var grid = $("#SmartRouteListItemGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["IncomeTracked"] = checked;
+    }
+
+    function onSmartRouteListEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () { input.select(); });
+
+        if (e.model.isNew() && !e.model.dirty) {
+            var update = $(e.container).parent().find(".k-grid-update");
+            $(update).html('<span class="k-icon k-update"></span>Add');
+        }
+    }
+
+    function onSmartRouteListItemEdit(e) {
+        var batchCode = LoadSystemValue("AutoBorrowBatchCode");
+        var divRate = LoadSystemValue("AutoBorrowDivRate");
+        var incomeTracked = LoadSystemValue("AutoBorrowIncomeTracked");
+        var profitId = LoadSystemValue("AutoBorrowProfitId");
+        var mark = LoadSystemValue("AutoBorrowMark");
+        var markId = LoadSystemValue("AutoBorrowMarkId");
+        var timeOut = LoadSystemValue("AutoBorrowTimeOut");
+        var addToLoanet = LoadSystemValue("AutoBorrowAddToLoanet");
+
+
+        if (e.model.isNew() && !e.model.dirty) {
+            var update = $(e.container).parent().find(".k-grid-update");
+            $(update).html('<span class="k-icon k-update"></span>Add');
+            
+            e.container
+                .find("input[name=BatchCode]")
+                .val(batchCode)
+                .change();
+
+            e.container
+                .find("input[name=DividendRate]")
+                .val(divRate)
+                .change();
+
+            e.container
+                .find("input[name=IncomeTracked]")
+                .val(incomeTracked)
+                .change();
+
+            e.container
+                .find("input[name=ProfitId]")
+                .val(profitId)
+                .change();
+
+            e.container
+                .find("input[name=Mark]")
+                .val(mark)
+                .change();
+
+            e.container
+                .find("input[name=MarkParameterId]")
+                .val(markId)
+                .change();
+
+            e.container
+                .find("input[name=TimeOut]")
+                .val(timeOut)
+                .change();
+
+            e.container
+                .find("input[name=AddToLoanetIndicator]")
+                .val(addToLoanet)
+                .change();
+        }
+
+
+        var input = e.container.find("input");
+        setTimeout(function () { input.select(); });
+    }
+
+    function onSmartRouteListItemUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToSmartRouteListItemExcel() {
+        KendoGridToCSVConvertor("#SmartRouteListItemGrid", 'SmartRouteListItemGrid');
+    }
+
+    function onSmartRouteListItemSelectAll() {
+        try {
+            var contraGrid = $("#SmartRouteListItemGrid").data("kendoGrid");
+            contraGrid.select(contraGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onSmartRouteListItemContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#SmartRouteListItemGrid");
+                break;
+
+            case 'Unsort':
+                onSmartRouteListItemUnsortGrid("#SmartRouteListItemGrid");
+                break;
+
+            case 'Reset Grid':
+                ResetUserLayout("#SmartRouteListItemGrid");
+                $('#SmartRouteListItemGrid').data('kendoGrid').setOptions(_originalSmartRouteListItemGrid);
+                $("#SmartRouteListItemGrid .k-grid-toolbar").html(_originalSmartRouteListItemGridToolBar);
+                $("#SmartRouteListItemGrid .k-grid-toolbar").addClass("k-grid-top");
+
+                $('#SmartRouteListItemGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Select All':
+                onSmartRouteListItemSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                exportToSmartRouteListItemExcel();
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#SmartRouteListItemGrid");
+                break;
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("SmartRouteToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar" })
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+    .Name("SmartRouteDropdownList")                            
+    .Animation(true)
+    .DataTextField("Custodian")
+    .DataValueField("CompanyId")
+    .OptionLabel("Empty List")
+    .AutoBind(true)
+    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+    .Events(events => events.Change("onSmartRouteChange").DataBound("onSmartRouteDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+    .DataSource(dataSource => dataSource
+    .Read(read => read
+    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+    .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button()
+                          .Name("SmartRouteDefaultOptionButton")
+                  .Events(e => e.Click("onSmartRouteAutoBorrowDefaultOptions"))
+                  .Content(LabelHelper.Text("DefaultOptions")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+<div id="SmartRouteListContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+          .Name("SmarteRouteSplitter")
+          .Orientation(SplitterOrientation.Vertical)
+          .Panes(panes =>
+          {
+              panes.Add()
+                  .Collapsible(false)
+                  .Scrollable(false)
+                  .Size("40%")
+                  .Content(@<text>
+                               @(Html.Kendo().Grid<SL_SmartRouteList>()
+                                     .Name("SmartRouteListGrid")
+                                     .Editable(editable =>
+                                     {
+                                         editable.Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+                                         editable.Mode(GridEditMode.InLine);
+                                         editable.DisplayDeleteConfirmation(false);
+                                         editable.CreateAt(GridInsertRowPosition.Bottom);
+                                     })
+                                     .ToolBar(bar => bar.Create().Text("Create New Route"))
+                                     .Navigatable()
+                                     .HtmlAttributes(new {@class = "grid"})
+                                     .Scrollable()
+                                     .NoRecords()
+                                     .Columns(columns =>
+                                     {
+                                         columns.Bound(x => x.SLSmartRouteList).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                         columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                         columns.Bound(x => x.Name);
+                                         columns.Command(x =>
+                                         {
+                                             x.Edit();
+                                             x.Destroy();
+                                         });
+                                     })
+                                     .Events(events => events.Change("onSmartRouteListRowChange").Edit("onSmartRouteListEdit"))
+                                     .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+                                     .DataSource(ds => ds.Ajax()
+                                         .ServerOperation(false)
+                                         .Model(model =>
+                                         {
+                                             model.Id(x => x.SLSmartRouteList);
+                                             model.Field(x => x.EntityId).Editable(false);
+                                             model.Field(x => x.Name).Editable(true);
+                                         })
+                                         .Events(events => events.Error("onSmartRouteListError"))
+                                         .Read(read => read.Action("Read_SmartRouteLists", "SmartRoute", new {area = "DomesticTrading"}).Data("onSmartRouteListData"))
+                                         .Create(create => create.Action("Create_SmartRouteList", "SmartRoute", new {area = "DomesticTrading"}).Data("onSmartRouteListCreateData"))
+                                         .Destroy(destroy => destroy.Action("Delete_SmartRouteList", "SmartRoute", new {area = "DomesticTrading"}))
+                                         .Update(update => update.Action("Update_SmartRouteList", "SmartRoute", new {area = "DomesticTrading"}))))
+                            </text>);
+
+              panes.Add()
+                  .Collapsible(false)
+                  .Scrollable(false)
+                  .Size("60%")
+                  .Content(@<text>
+                               @(Html.Kendo().Grid<SL_SmartRoute>()
+                                     .Name("SmartRouteListItemGrid")
+                                     .Resizable(resize => resize.Columns(false))
+                                     .Scrollable()
+                                     .Filterable()
+                                     .HtmlAttributes(new {@class = "grid"})
+                                     .AutoBind(false)
+                                     .Selectable(select =>
+                                     {
+                                         select.Enabled(true);
+                                         select.Mode(GridSelectionMode.Multiple);
+                                         select.Type(GridSelectionType.Row);
+                                     })
+                                     .Editable(edit =>
+                                     {
+                                         edit.Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+                                         edit.Mode(GridEditMode.InLine);
+                                         edit.DisplayDeleteConfirmation(false);
+                                     })
+                                     .ToolBar(toolbar => toolbar.Create())
+                                     .Events(events =>
+                                     {
+                                         events.Edit("onSmartRouteListItemEdit");
+                                         events.ColumnHide("onSmartRouteListItemGridLayoutChange");
+                                         events.ColumnShow("onSmartRouteListItemGridLayoutChange");
+                                         events.ColumnResize("onSmartRouteListItemGridLayoutChange");
+                                         events.ColumnReorder("onSmartRouteListItemGridLayoutChange");
+                                     })
+                                     .ColumnMenu(columnMenu =>
+                                     {
+                                         columnMenu.Filterable(true);
+                                         columnMenu.Columns(true);
+                                         columnMenu.Sortable(true);
+                                         columnMenu.ComponentType( "modern" );
+                                     } )
+                                     .Reorderable(reorder =>
+                                     {
+                                         reorder.Columns(true);
+                                     })
+                                     .NoRecords()
+                                     .Columns(columns =>
+                                     {
+                                         columns.Bound(x => x.SLSmartRoute).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                         columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                         columns.Bound(x => x.SmartRouteList).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                                         columns.Bound(x => x.ExecutionSystemType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_SmartRouteExecutionSystemTypeDropdown");
+                                         columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "_SmartRouteContraEntityAutoComplete");
+                                         columns.Bound(x => x.ExecuteOrder).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.AddToLoanetIndicator).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.BatchCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.DividendRate).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.IncomeTracked).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox' onClick='clickSmartRouteIncomeTrackedCheck(this)' #= (IncomeTracked) ? checked ='checked' : '' #/>", "");
+                                         columns.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.MarkParameterId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.MinRebateRate).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.MinRebateRateId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.ProfitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Bound(x => x.TimeOut).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                         columns.Command(x =>
+                                         {
+                                             x.Edit();
+                                             x.Destroy();
+                                         });
+                                     })
+                                     .DataSource(dataSource => dataSource
+                                         .Ajax()
+                                         .ServerOperation(false)
+                                         .Events(events => events.Error("onSmartRouteError"))
+                                         .Read(read => read.Action("Read_SmartRoutes", "SmartRoute", new {area = "DomesticTrading"}).Data("onSmartRouteAdditionalData"))
+                                         .Create(create => create.Action("Create_SmartRoute", "SmartRoute", new {area = "DomesticTrading"}).Data("onSmartRouteCreateData"))
+                                         .Update(update => update.Action("Update_SmartRoute", "SmartRoute", new {area = "DomesticTrading"}))
+                                         .Destroy(destroy => destroy.Action("Delete_SmartRoute", "SmartRoute", new {area = "DomesticTrading"}))
+                                         .Model(model =>
+                                         {
+                                             model.Id(x => x.SLSmartRoute);
+                                             model.Field(x => x.EntityId);
+                                             model.Field(x => x.SmartRouteList).Editable(false);
+                                             model.Field(x => x.MinRebateRateId).Editable(true).DefaultValue(" ");
+                                             model.Field(x => x.BatchCode).Editable(true);
+                                             model.Field(x => x.DividendRate).Editable(true);
+                                             model.Field(x => x.IncomeTracked).Editable(true);
+                                             model.Field(x => x.ProfitId).Editable(true);
+                                             model.Field(x => x.Mark).Editable(true);
+                                             model.Field(x => x.MarkParameterId).Editable(true);
+                                             model.Field(x => x.TimeOut).Editable(true);
+                                             model.Field(x => x.AddToLoanetIndicator).Editable(true);
+                                         })
+                                     )
+                                     .Sortable())
+                            </text>);
+          })
+          )
+
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("SmartRouteListItemContextMenu")
+        .Target("#SmartRouteListItemGrid")
+    .Events(events => events.Select("onSmartRouteListItemContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Details").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLContraEntity));
+        items.Add().Text("People").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLContraEntity));
+        items.Add().Text("Contracts").Enabled(SessionSecurityService.IsEditable(ManagerTask.ViewSLContract));
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)

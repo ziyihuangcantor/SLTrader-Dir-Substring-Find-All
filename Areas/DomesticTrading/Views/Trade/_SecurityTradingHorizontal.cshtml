@@ -1,0 +1,38 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model List<SLTrader.Models.SecurityTradingModel>
+
+
+<style>
+    #SecurityTradingModelGrid {
+        height:100%;
+    }
+</style>
+@(
+    Html.Kendo().Grid(Model)
+    .Name("SecurityTradingModelGrid")
+    .NoRecords()
+    .Scrollable()
+    .HtmlAttributes(new { @class = "grid" })
+    .ToolBar(t => t.Template(@<text>
+    @LabelHelper.Text("Trading")
+    </text>))
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.ST_IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.ST_EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ST_TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ST_Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+        cols.Bound(x => x.ST_Amount).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+        cols.Bound(x => x.ST_AverageRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(ST_AverageRate)#", "");
+    })
+    .DataSource(ds =>
+    {
+        ds.Ajax().ServerOperation(false);
+    })
+)

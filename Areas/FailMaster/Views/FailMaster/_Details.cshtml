@@ -1,0 +1,388 @@
+﻿@using Excel.Log
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+
+    var _FailMasterSelectAll = false;
+    var _originalFailMasterGrid = null;
+
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#FailMasterGrid");
+    });
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+
+        setTimeout(function () {
+            _originalFailMasterGrid = $('#FailMasterGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#FailMasterGrid");
+        }, 5);
+    });
+
+    function onFailMasterCheckData() {
+        CheckGridData('#FailMasterGrid');
+    }
+
+    function onFailMasterGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#FailMasterGrid");
+        }, 5);
+    }
+
+    function additionaFailMasterData() {
+        var datepicker = $("#FailMasterCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#FailMasterDropdownList").data("kendoDropDownList").value();      
+
+        return {
+            effectiveDate: value,
+            entityId: entity
+        };
+    }
+
+    function onFailMasterDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#FailMasterDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $("#FailMasterGrid").data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onFailMasterError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onFailMasterChange() {
+        $("#FailMasterGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onFailMasterRowChange(e) {
+        e.preventDefault();
+
+        try {
+            var entityGrid = $("#FailMasterGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+
+
+            UpdateIssue(entityId, securityNumber);
+            UpdateBox(effectiveDate, entityId, issueId);
+            UpdateTrading(entityId, issueId);
+            UpdateSharedView(entityId, securityNumber);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+
+        _FailMasterSelectAll = false;
+    }
+
+
+    function onFailMasterSecurityLookup(e) {
+        $("#FailMasterGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onFailMasterContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case "Refresh Data":
+                onFailMasterChange();
+                break;
+
+            case "Reset Filter":             
+                ResetFilter("#FailMasterGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#FailMasterGrid");
+                $('#FailMasterGrid').data('kendoGrid').setOptions(_originalFailMasterGrid);		
+                break;
+
+            case "Unsort":
+                onFailMasterUnsortGrid("#FailMasterGrid");
+                break;
+
+            case "Select All":
+                FailMasterSelectAll(true);
+                break;
+
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#FailMasterGrid");
+                break;
+
+            case "Export To Excel":
+                exportToFailMasterExcel();
+                break;
+        }
+    }
+
+    function onFailMasterUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToFailMasterExcel() {
+        try {
+            KendoGridToCSVConvertor("#FailMasterGrid", 'FailMasterGrid', _FailMasterSelectAll);
+
+            _FailMasterSelectAll = false;
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+
+    function FailMasterSelectAll(e) {
+        try {
+            var boxGrid = $("#FailMasterGrid").data("kendoGrid");
+            boxGrid.select(boxGrid.tbody.find(">tr"));
+
+            _FailMasterSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+ function onFailMasterSearchChange(e) {
+        e.preventDefault();
+
+        try {
+            var grid = $("#FailMasterGrid").data("kendoGrid").dataSource;
+          
+            var cusipTextBox = document.getElementById("FailMasterSecuritySearchTextBox").value;
+
+            QuickColumnFilter(grid, 'Ticker', cusipTextBox);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("FailMasterToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("FailMasterCalander")
+                                .Format("yyyy-MM-dd")
+                                .HtmlAttributes(new { @class = "width90" })
+                                .Value(DateTime.Now)
+                                .Events(events => events.Change("onFailMasterChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("FailMasterDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Events(events => events.DataBound("onFailMasterDefaultLoad").Open("onContraEntityAutoCompleteResize").Change("onFailMasterChange"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(
+          "<table><tr>" +
+          "<td>" + LabelHelper.LabelFor("TickerSearch", "FailMasterSecuritySearchTextBox").ToHtmlString() + "</td>" +
+          "<td>" + Html.Kendo().AutoComplete().Name("FailMasterSecuritySearchTextBox").HtmlAttributes(new { @class = "width90" }).Events( eve => eve.Filtering("onFailMasterSearchChange") ).Suggest( true ).ToHtmlString() + "</td>" + "</tr></table>"                    
+          ).HtmlAttributes(new { @class = "float-right" });  
+    }))
+
+<hr class="hr-white">
+
+<div id="CnsBuyInContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<BondFire.Entities.Projections.SL_FailMasterExtendedProjection>()
+        .Name("FailMasterGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable(scroll =>
+        {
+            scroll.Virtual(true);
+        })
+        .Filterable()
+        .Pageable(page =>
+        {
+            page.PageSizes(false);
+            page.Enabled(true);
+            page.Numeric(false);
+            page.PreviousNext(false);
+            page.Info(false);
+        })
+        .AutoBind(true)
+        .Reorderable(reorder => reorder.Columns(true))
+        .ColumnMenu(menu =>
+        {
+            menu.Columns(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+        })
+            .Events(events =>
+            {
+                events.Change("onFailMasterRowChange");
+                events.DataBound("onFailMasterCheckData");
+                events.ColumnHide("onFailMasterGridLayoutChange");
+                events.ColumnShow("onFailMasterGridLayoutChange");
+                events.ColumnResize("onFailMasterGridLayoutChange");
+                events.ColumnReorder("onFailMasterGridLayoutChange");
+            })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+        .Navigatable()
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.DtccEligible).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.CountryIssued).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.OriginalPrice).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetMoneyDirection(OriginalPrice)#", "");
+            columns.Bound(x => x.MarketPrice).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetMoneyDirection(MarketPrice)#", "");
+
+            columns.Bound(x => x.Branch).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.OfficeCodeRegisteredRep).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.AccountType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.ShortName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.BuySellCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.TagNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.IdControl).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.DepositorySettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositorySettled)#", "");
+            columns.Bound(x => x.DepositorySettledAmt).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(DepositorySettledAmt)#", "");
+
+            columns.Bound(x => x.OriginalQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(OriginalQuantity)#", "");
+            columns.Bound(x => x.CurrentQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CurrentQuantity)#", "");
+
+            columns.Bound(x => x.OriginalAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(OriginalAmount)#", "");
+            columns.Bound(x => x.CurrentAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(CurrentAmount)#", "");
+
+            columns.Bound(x => x.DeliveryQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DeliveryQuantity)#", "");
+            columns.Bound(x => x.DeliveryAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(DeliveryAmount)#", "");
+
+            columns.Bound(x => x.Exposure).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(Exposure)#", "");
+            columns.Bound(x => x.CostToCarry).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(CostToCarry)#", "");
+
+            columns.Bound(x => x.TradeDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.SettleDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.DeliveryDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.Age).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+
+            columns.Bound(x => x.BlotterCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.BlotterCodeCategory).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.LastStockBorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+            columns.Bound(x => x.LastStockBorrowDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound(x => x.CurrentDepoStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+
+            columns.Bound(p => p.IsDeliveryBreak).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'   #= (IsDeliveryBreak) ? checked ='checked' : '' #/>", "");
+            columns.Bound(p => p.IsRadApproval).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'   #= (IsRadApproval) ? checked ='checked' : '' #/>", "");
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .PageSize(100)
+            .ServerOperation(false)
+            .Events(events => events.Error("onFailMasterError"))
+            .Aggregates(agg =>
+            {
+                agg.Add(x => x.DepositorySettled).Sum();
+                agg.Add(x => x.DepositorySettledAmt).Sum();
+
+                agg.Add( x => x.OriginalQuantity).Sum();
+                agg.Add(x => x.CurrentQuantity).Sum();
+                agg.Add(x => x.DeliveryQuantity).Sum();
+
+                agg.Add(x => x.OriginalAmount).Sum();
+                agg.Add(x => x.CurrentAmount).Sum();
+                agg.Add(x => x.DeliveryAmount).Sum();
+
+                agg.Add(x => x.Exposure).Sum();
+                agg.Add(x => x.CostToCarry).Sum();
+            }).Sort(sort =>
+            {
+                sort.Add( "EffectiveDate" ).Ascending();
+            })
+                .Read(read => read.Action("LoadFailMaster", "FailMaster", new { area = "FailMaster" }).Data("additionaFailMasterData")))
+    )
+</div>
+
+
+@(Html.Kendo().ContextMenu()
+.Name("BuyInAllocationIntradayContextMenu")
+.Orientation(ContextMenuOrientation.Vertical)
+        .Target("#FailMasterGrid")
+    .Events(events => events.Select("onFailMasterContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("Refresh Data");
+    items.Add().Separator(true);
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text("Unsort");
+    items.Add().Text( "Reset Filter" );
+    items.Add().Text("Reset Grid");
+    items.Add().Separator(true);
+    items.Add().Text("Select All");
+    items.Add().Text("Export To Excel");
+}))

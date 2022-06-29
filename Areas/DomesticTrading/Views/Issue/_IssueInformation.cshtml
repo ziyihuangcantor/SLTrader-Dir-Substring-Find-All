@@ -1,0 +1,399 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Enums
+
+
+<style scoped>
+    .label {
+        padding-left:5px;
+    }
+</style>
+<script>
+    $(document).ready(function () {
+        setTimeout(function () {
+            if (localStorage["IssuePane1"] != null) {
+                $("#InformationPane1Dropdown").data("kendoDropDownList").value(localStorage["IssuePane1"]);               
+            }
+            
+            if (localStorage["IssuePane2"] != null) {
+                $("#InformationPane2Dropdown").data("kendoDropDownList").value(localStorage["IssuePane2"]);               
+            }
+
+            if (localStorage["IssuePane3"] != null) {
+                $("#InformationPane3Dropdown").data("kendoDropDownList").value(localStorage["IssuePane3"]);                
+            }
+
+            if (localStorage["IssuePane4"] != null) {
+                $("#InformationPane4Dropdown").data("kendoDropDownList").value(localStorage["IssuePane4"]);                
+            }
+
+            $("#InformationPane1Dropdown").data("kendoDropDownList").trigger("change");
+            $("#InformationPane2Dropdown").data("kendoDropDownList").trigger("change");
+            $("#InformationPane3Dropdown").data("kendoDropDownList").trigger("change");
+            $("#InformationPane4Dropdown").data("kendoDropDownList").trigger("change");         
+        }, 5);
+    });
+
+
+    function onInformationDefaultLoad(e) {
+        try {
+            var userPreference;
+            
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $("#InformationDropdownList").data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });                 
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    $("#InformationToolBar").bind("keypress", function (e) {
+        if (e.keyCode == 13) {
+            $("#InfoButton").click();
+        }
+    });
+
+    function issueRefresh() {
+        try {
+            var datepicker = $("#InformationCalander").data("kendoDatePicker");
+            var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+            var entityId = $("#InformationDropdownList").data("kendoDropDownList").value();
+            var criteria = document.getElementById('IssueInformationSecuritySearchTextBox').value;
+
+
+            SidePanelUpdate(value, entityId, criteria, criteria);
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onInfoSearchChange(e) {
+        try { $('#IssueInformationRecallsDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationInventoryGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#InfoAutoBorrowGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationContractSummaryDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationActivityByTickerGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationReturnActionDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+    }
+
+    function onInfoIssueLookup(e) {
+        try { issueRefresh(); } catch (e) { }
+        try { $('#IssueInformationRecallsDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationInventoryGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#InfoAutoBorrowGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationContractSummaryDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationActivityByTickerGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationReturnActionDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+    }
+    
+    function onInformationChange(e) {
+        try { $('#IssueInformationRecallsDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationInventoryGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#InfoAutoBorrowGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationContractSummaryDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationActivityByTickerGrid').data("kendoGrid").dataSource.read(); } catch (e) { }
+        try { $('#IssueInformationReturnActionDetails').data("kendoGrid").dataSource.read(); } catch (e) { }
+    }
+
+    function onPane2Change(e) {
+        try {
+            var partialView = $("#InformationPane2Dropdown").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/Issue/GetIssueInformationPartial',
+                type: 'POST',
+                data:JSON.stringify({
+                    selectedItem: partialView
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+                    $("#IssuePane2Div").html(valid);
+                    localStorage["IssuePane2"] = partialView;
+                },
+                error: function (valid) {
+                    $("#IssuePane2Div").html(valid);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+    function onPane1Change(e) {
+        try {
+            var partialView = $("#InformationPane1Dropdown").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/Issue/GetIssueInformationPartial',
+                type: 'POST',
+                data: JSON.stringify({
+                    selectedItem: partialView
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+                    $("#IssuePane1Div").html(valid);
+                    localStorage["IssuePane1"] = partialView;
+               },
+                error: function (valid) {
+                    $("#IssuePane1Div").html(valid);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+    function onPane3Change(e) {
+        try {
+            var partialView = $("#InformationPane3Dropdown").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/Issue/GetIssueInformationPartial',
+                type: 'POST',
+                data: JSON.stringify({
+                    selectedItem: partialView
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+                    $("#IssuePane3Div").html(valid);
+                    localStorage["IssuePane3"] = partialView;
+              },
+                error: function (valid) {
+                    $("#IssuePane3Div").html(valid);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+    function onPane4Change(e) {
+        try {
+            var partialView = $("#InformationPane4Dropdown").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/Issue/GetIssueInformationPartial',
+                type: 'POST',
+                data: JSON.stringify({
+                    selectedItem: partialView
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+                    $("#IssuePane4Div").html(valid);
+                    localStorage["IssuePane4"] = partialView;
+              },
+                error: function (valid) {
+                    $("#IssuePane4Div").html(valid);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onIssueInformationUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onPane1Select(e) {
+        var pane2 = $("#InformationPane2Dropdown").data("kendoDropDownList").value();
+        var pane3 = $("#InformationPane3Dropdown").data("kendoDropDownList").value();
+        var pane4 = $("#InformationPane4Dropdown").data("kendoDropDownList").value();
+
+        
+        var dataItem = this.dataItem(e.item.index());
+
+        if (dataItem.Value === '@Convert.ToInt32(SecurityBrowserPanelEnum.None)')
+        {
+           
+        }
+        else if ((dataItem.Value === pane2) ||
+            (dataItem.Value === pane3) ||
+            (dataItem.Value === pane4)) {
+            DisplayControllerByStringError('Error', 'Cannot display a pane more than once');
+            e.preventDefault();
+        }
+    }
+
+    function onPane2Select(e) {
+        var pane1 = $("#InformationPane1Dropdown").data("kendoDropDownList").value();
+        var pane3 = $("#InformationPane3Dropdown").data("kendoDropDownList").value();
+        var pane4 = $("#InformationPane4Dropdown").data("kendoDropDownList").value();
+
+        var dataItem = this.dataItem(e.item.index());
+        if (dataItem.Value === '@Convert.ToInt32(SecurityBrowserPanelEnum.None)') {
+
+        }
+        else if ((dataItem.Value === pane1) ||
+            (dataItem.Value === pane3) ||
+            (dataItem.Value === pane4)) {
+            DisplayControllerByStringError('Error', 'Cannot display a pane more than once');
+            e.preventDefault();
+        }
+    }
+
+    function onPane3Select(e) {
+        var pane1 = $("#InformationPane1Dropdown").data("kendoDropDownList").value();
+        var pane2 = $("#InformationPane2Dropdown").data("kendoDropDownList").value();
+        var pane4 = $("#InformationPane4Dropdown").data("kendoDropDownList").value();
+
+        var dataItem = this.dataItem(e.item.index());
+        if (dataItem.Value === '@Convert.ToInt32(SecurityBrowserPanelEnum.None)') {
+
+        }
+        else if ((dataItem.Value === pane1) ||
+            (dataItem.Value === pane2) ||
+            (dataItem.Value === pane4)) {
+            DisplayControllerByStringError('Error', 'Cannot display a pane more than once');
+            e.preventDefault();
+        }
+    }
+
+    function onPane4Select(e) {
+        var pane1 = $("#InformationPane1Dropdown").data("kendoDropDownList").value();
+        var pane2 = $("#InformationPane2Dropdown").data("kendoDropDownList").value();
+        var pane3 = $("#InformationPane3Dropdown").data("kendoDropDownList").value();
+
+        var dataItem = this.dataItem(e.item.index());
+        if (dataItem.Value === '@Convert.ToInt32(SecurityBrowserPanelEnum.None)') {
+
+        }
+        else if ((dataItem.Value === pane1) ||
+            (dataItem.Value === pane2) ||
+            (dataItem.Value === pane3)) {
+            DisplayControllerByStringError('Error', 'Cannot display a pane more than once');
+            e.preventDefault();
+        }
+    }
+
+    function onIssueInformationResize(e) {
+       localStorage["IssuePane1Size"] = $('#IssuePane1Div').width();
+       localStorage["IssuePane2Size"] = $('#IssuePane2Div').width();
+       localStorage["IssuePane3Size"] = $('#IssuePane3Div').width();
+       localStorage["IssuePane4Size"] = $('#IssuePane4Div').width();
+    }
+</script>
+
+@(Html.Kendo().ToolBar()
+        .Name("IssueInformationToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("InformationCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "width90" })
+            .Events(events => events.Change("onInformationChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+    .Name("InformationDropdownList")
+    .HtmlAttributes(new { @class = "width90" })
+    .Animation(true)
+    .DataTextField("Custodian")
+    .DataValueField("CompanyId")
+    .OptionLabel("Empty List")
+    .AutoBind(true)
+    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+    .Events(events => events.Change("onInformationChange").DataBound("onInformationDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+    .DataSource(dataSource => dataSource
+    .Read(read => read
+    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+    .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("InfoTickerSearch").ToHtmlString());
+        items.Add().Template(Html.TextBox("IssueInformationSecuritySearchTextBox", "", new { @class = "k-textbox width90"  }).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("InfoButton").Content(LabelHelper.Text("IssueLookup")).Events(ev => ev.Click("onInfoIssueLookup")).ToHtmlString());
+
+        items.Add().Template("<label></label>");
+
+        items.Add().Template("<table id = 'IssueInformationTable'><tr><td>" + LabelHelper.Label("Pane1Label").ToHtmlString() + Html.Kendo().DropDownList().Name("InformationPane1Dropdown").HtmlAttributes(new { style = "width:70px;" }).Events(ev => ev.Change("onPane1Change").Select("onPane1Select")).BindTo(EnumExtensions.GetEnumSelectList<SecurityBrowserPanelEnum>()).Value(SecurityBrowserPanelEnum.None.ToString()).ToHtmlString() + "</td><td>"
+            + LabelHelper.Label("Pane2Label").ToHtmlString() + Html.Kendo().DropDownList().Name("InformationPane2Dropdown").HtmlAttributes(new { style = "width:70px;" }).Events(ev => ev.Change("onPane2Change").Select("onPane2Select")).BindTo(EnumExtensions.GetEnumSelectList<SecurityBrowserPanelEnum>()).Value(SecurityBrowserPanelEnum.None.ToString()).ToHtmlString() + "</td><td>"
+            + LabelHelper.Label("Pane3Label").ToHtmlString() + Html.Kendo().DropDownList().Name("InformationPane3Dropdown").HtmlAttributes(new { style = "width:70px;" }).Events(ev => ev.Change("onPane3Change").Select("onPane3Select")).BindTo(EnumExtensions.GetEnumSelectList<SecurityBrowserPanelEnum>()).Value(SecurityBrowserPanelEnum.None.ToString()).ToHtmlString() + "</td><td>"
+            + LabelHelper.Label("Pane4Label").ToHtmlString() + Html.Kendo().DropDownList().Name("InformationPane4Dropdown").HtmlAttributes(new { style = "width:70px;" }).Events(ev => ev.Change("onPane4Change").Select("onPane4Select")).BindTo(EnumExtensions.GetEnumSelectList<SecurityBrowserPanelEnum>()).Value(SecurityBrowserPanelEnum.None.ToString()).ToHtmlString() + "</td></tr></table>");
+    }))
+<hr class="hr-white">
+<div id="InformationSummaryContent" style="height:85%;width:100%;">
+    @(Html.Kendo().Splitter()
+        .Name("InformationSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Events(events => events.Resize("onIssueInformationResize"))
+        .Panes(panes =>
+        {
+            panes.Add()
+                .Collapsible(false)
+                .Size("70%")
+                .Scrollable(false)
+                .Content(@<text>
+
+                 @(Html.Kendo().Splitter()
+        .Name("IssueInformationSplitter")
+        .Events(events => events.Resize("onIssueInformationResize"))
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes =>
+        {
+            childPanes.Add()
+                 .Scrollable(false)
+                 .HtmlAttributes(new { ID = "IssuePane1Sizeable"})
+                 .Size("80%")
+               .Content("<div id=\"IssuePane1Div\" class =\"height100p width100p\"></div>");
+
+            childPanes.Add()
+                .Scrollable(false)
+                .Content("<div id=\"IssuePane2Div\" class =\"height100p width100p\"></div>");
+        })) 
+        </text>);
+        
+
+            panes.Add()
+                .Collapsible(false)
+                .Size("20%")
+                .Scrollable(false)
+                .Content(@<text>
+            @(Html.Kendo().Splitter()
+        .Name("IssueBottomInformationSplitter")
+                .Events(events => events.Resize("onIssueInformationResize"))
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes =>
+        {
+            childPanes.Add()
+                 .Scrollable(false)
+                 .Size("60%")
+               .Content("<div id=\"IssuePane3Div\" class =\"height100p width100p\"></div>");
+
+            childPanes.Add()
+                .Scrollable(false)
+                .Content("<div id=\"IssuePane4Div\" class =\"height100p width100p\"></div>");
+        }))
+    </text>);
+        }))
+
+
+</div>

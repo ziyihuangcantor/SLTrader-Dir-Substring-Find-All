@@ -1,0 +1,861 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<style scoped>
+    #DepoManagementTable td {
+        margin: 0px;
+        padding: 0px;
+    }
+</style>
+
+<script type="text/javascript">
+    var _depoSelectedRows = [];
+
+    var _depoSelectAll = false;
+   
+
+    var _originalDepoGrid = null;
+   
+    var lastRefresh = null;
+    var scrolling = true;
+
+    var _DepoManagementSuspendRefresh = false;
+    var DepoManagementInterval;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalDepoGrid = $('#DepoManagementDetails').data('kendoGrid').getOptions();            
+
+            LoadGridLayout("#DepoManagementDetails");            
+        }, 5);
+        
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("DepoCalcButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#DepoManagementDetails", "DepoManagementDetails", _depoSelectAll);
+                clientEvent2.setText(data2);
+            });
+        });
+    });
+
+    $('#DepoCalcButton').hover(
+    function () { $(this).addClass('k-state-hover') },
+    function () { $(this).removeClass('k-state-hover') }
+    )
+
+    function onDepoManagementGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#DepoManagementDetails");
+        }, 5);
+    }
+
+
+    function BackupBoxRowSelection() {
+        var grid = $("#DepoManagementDetails").data("kendoGrid");
+
+        var rows = grid.select();
+
+        rows.each(function (index, row) {
+            var selectedItem = grid.dataItem(row);
+            _depoSelectedRows.push(selectedItem);
+        });
+    }
+
+    function RestoreDepoRowSelection() {
+        if (_depoSelectedRows.length !== 0) {
+            try {
+                for (var i = 0; i < _depoSelectedRows.length; i++) {
+                    var currId = _depoSelectedRows[i].uid;
+
+                    $('#DepoManagementDetails').data("kendoGrid").tbody.find("tr[data-uid='" + currId + "']").addClass("k-state-selected");
+                }
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function onBankLoanPledgeData(e) {
+        if (e) {
+            try {
+                var dataItems = [];
+
+                var grid = $('#DepoManagementDetails').data('kendoGrid');
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        pledgeItems: dataItems
+                    }),
+                    'BankLoan Pledge',
+                    1100,
+                    450,
+                    '/CashSourcing/BankLoan/BankLoanPledgePartial'
+                    );
+            }
+            catch (e) {
+                console.log(e);
+            }
+        }
+    }
+
+    function onBankLoanReleaseData(e,element) {
+        if (e) {
+            try {
+                var dataItems = [];
+
+                var grid = $('#DepoManagementDetails').data('kendoGrid');
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        releaseItems: dataItems,
+                        element:element
+                    }),
+                    'BankLoan Release',
+                    1100,
+                    450,
+                    '/DomesticTrading/ContractRelated/Load_BankLoanPositionByBox'
+                    );
+            }
+            catch (e) {
+                console.log(e);
+            }
+        }
+    }
+
+
+    function onDepoManagementContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case "Refresh Data":
+                onDepoManagementChange();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#DepoManagementDetails");
+                break;
+
+            case "Unsort":
+                onDepoManagementUnsortGrid("#DepoManagementDetails");
+                break;
+
+            case "Select All":
+                depoSelectAll(true);
+                break;
+
+            case "Reset Filter":
+                $("#DepoSecuritySearchTextBox").val("");
+                ResetFilter("#DepoManagementDetails");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#DepoManagementDetails");
+                $('#DepoManagementDetails').data('kendoGrid').setOptions(_originalDepoGrid);
+                break;
+
+            case "Export To Excel":
+                exportToDepoExcel();
+                break;
+
+            default:
+                console.log($(e.item).children(".k-link").text());
+                break;
+        }
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        try {       
+                RefreshGrid("#DepoManagementDetails");
+            }
+        catch (e) { }
+    });
+
+
+    function onDepoManagementUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToDepoExcel() {
+        try {
+            KendoGridToCSVConvertor("#DepoManagementDetails", 'DepoManagementDetails', _depoSelectAll);
+
+            _depoSelectAll = false;
+            _depoSelectedRows = [];
+            RestoreDepoRowSelection();
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+
+
+    function depoSelectAll(e) {
+        try {
+            var boxGrid = $("#DepoManagementDetails").data("kendoGrid");
+            boxGrid.select(boxGrid.tbody.find(">tr"));
+
+            _depoSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onDepoManagementDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#DepoDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });                    
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onDepoManagementCheckData(e) {
+        CheckGridData('#DepoManagementDetails');
+    }
+    
+    function onDepoManagementReturn(e) {
+        if (e) {
+            try {
+                var grid = $("#DepoManagementDetails").data("kendoGrid");
+                var dataItems = [];
+                var rows = grid.select();
+
+                rows.each(function (index, row) {
+                    var selectedItem = grid.dataItem(row);
+                    dataItems.push(selectedItem);
+                });
+
+                HelperPartialWindow(
+                    JSON.stringify({
+                        items: dataItems,
+                        useTraded: false,
+                    }),
+                    'Book Returns',
+                    1100,
+                    450,
+                    '/DomesticTrading/ContractRelated/Load_ReturnBySuggestion'
+                    );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+        }
+    }
+
+    function additionalDepoManagementData() {
+        var datepicker = $("#DepoCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#DepoDropdownList").data("kendoDropDownList");
+        var portfolio = $("#DepoPortfolioDropdownList").data("kendoDropDownList");
+        return {
+            entityId: entity.value(),
+            effectiveDate: value,
+            portfolioId:portfolio.value()
+       };
+    }
+
+    function onDepoManagementGridError(e) {
+        ErrorGridData("#DepoManagementDetails");
+    }
+
+    function onDepoManagementError(e) {
+        console.log(e.message);
+    }
+
+
+    function getNumber(number, defaultNumber) {
+        return isNaN(parseFloat(number)) ? defaultNumber : parseFloat(number);
+    }
+
+    function getFieldType(dataSource, field) {
+        return dataSource.options.schema.model.fields[field].type;
+    }
+
+  
+    function onDepoSearchChange(e) {
+        e.preventDefault();
+
+        try {        
+            var cusipTextBox = document.getElementById("DepoSecuritySearchTextBox").value;
+
+            QuickColumnGrid("#DepoManagementDetails", cusipTextBox);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onDepoManagementChange(e) {
+        $("#DepoManagementDetails").data("kendoGrid").dataSource.read();
+        $("#DepoManagementFilterDropdownList").data("kendoGrid").dataSource.read();
+    }
+
+    function onDepoManagement() {
+        try {
+            var entity = $("#DepoDropdownList").data("kendoDropDownList");
+
+
+            HelperPartialWindow(
+                JSON.stringify({ entityId: entity.value() }),
+                'Manage Depo(s)',
+                1100,
+                450,
+                '/DomesticTrading/DepoManagement/Load_DepoManagementPartial'
+                );
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onDepoManagementPortfolioMgt() {
+        try {
+            var entity = $("#DepoDropdownList").data("kendoDropDownList");
+
+
+            HelperPartialWindow(
+                JSON.stringify({ entityId: entity.value() }),
+                'Manage Portfolio(s)',
+                1100,
+                450,
+                '/DomesticTrading/Portfolio/LoadPortfolioPartial'
+                );
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function onDepoManagementPortfolioChange() {
+        var entity = $("#DepoDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value(),
+        }
+    }
+
+    function onDepoManagementPortfolioDataBound(e) {
+        $("#DepoPortfolioDropdownList").data("kendoDropDownList").text('@LabelHelper.Text("OptionLabel")');
+    }
+
+
+    function onDepoManagementRowChange(e) {
+        _contractSelectedRows = [];
+
+        try {
+            var entityGrid = $("#DepoManagementDetails").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+
+
+            var securityNumber = selectedItem["Cusip"];
+
+            if (securityNumber == '') {
+                securityNumber = selectedItem["Isin"];
+
+                if (securityNumber == '') {
+                    securityNumber = selectedItem["Sedol"];
+                }
+            }
+
+            var issueId = selectedItem["IssueId"];
+            console.log(issueId + ' ' + securityNumber);
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+        }
+        catch (e) {
+        }
+    }
+
+    function onDepoManagementFilterChange() {
+        try {
+            var grid = $("#DepoManagementDetails").data("kendoGrid");
+            var entityId = $("#DepoDropdownList").data("kendoDropDownList").value();;
+            var filterDropDown = $('#DepoManagementFilterDropdownList').data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '/DomesticTrading/BoxCalculation/QuickFilterLookup',
+                type: 'POST',
+                data: JSON.stringify({
+                    entityId: entityId,
+                    gridName: 'DepoManagementDetails',
+                    filterName: filterDropDown
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+                    if ((valid != null) && (valid.length > 0)) {
+                        $("#DepoSecuritySearchTextBox").val("");
+
+                        var filterInital = { logic: "and", filters: [] };
+                        var filterAnd = { logic: "and", filters: [] };
+                        var filterOr = { logic: "or", filters: [] };
+
+                        for (i = 0; i < valid.length; i++) {
+
+                            var quickFilter = valid[i];
+                            console.log(quickFilter.Logic);
+
+                            if (quickFilter.Logic == "and") {
+                                var ops = null;
+
+                                if (quickFilter.OperatorId == 1) {
+                                    ops = '@SL_Operator.gte';
+                                }
+                                else if (quickFilter.OperatorId == 2) {
+                                    ops = '@SL_Operator.gt';
+                                }
+                                else if (quickFilter.OperatorId == 3) {
+                                    ops = '@SL_Operator.lt';
+                                }
+                                else if (quickFilter.OperatorId == 4) {
+                                    ops = '@SL_Operator.lte';
+                                }
+                                else if (quickFilter.OperatorId == 5) {
+                                    ops = '@SL_Operator.eq';
+                                }
+                                else if (quickFilter.OperatorId == 6) {
+                                    ops = '@SL_Operator.neq';
+                                }
+                                else if (quickFilter.OperatorId == 8) {
+                                    ops = '@SL_Operator.contains'
+                                }
+                                else if (quickFilter.OperatorId == 9) {
+                                    ops = '@SL_Operator.startswith'
+                                }
+
+
+                                var valueAnd = null;
+
+                                try {
+                                    var columnType = getFieldType(grid.dataSource, quickFilter.Field);
+
+
+                                    if (columnType == 'string') {
+                                        valueOr = quickFilter.Value.toString();
+                                    }
+                                    else if (columnType == 'number') {
+                                        valueAnd = getNumber(quickFilter.Value, '0');
+                                    }
+                                    else {
+                                        valueOr = quickFilter.Value;
+                                    }
+                                }
+                                catch (e) {
+                                    valueAnd = quickFilter.Value;
+                                }
+                                console.log({ field: quickFilter.Field, operator: ops, value: valueAnd });
+
+                                filterAnd.filters.push({ field: quickFilter.Field, operator: ops, value: valueAnd });
+                            }
+
+                            if (quickFilter.Logic == "or") {
+                                var ops = null;
+
+                                if (quickFilter.OperatorId == 1) {
+                                    ops = '@SL_Operator.gte';
+                                }
+                                else if (quickFilter.OperatorId == 2) {
+                                    ops = '@SL_Operator.gt';
+                                }
+                                else if (quickFilter.OperatorId == 3) {
+                                    ops = '@SL_Operator.lt';
+                                }
+                                else if (quickFilter.OperatorId == 4) {
+                                    ops = '@SL_Operator.lte';
+                                }
+                                else if (quickFilter.OperatorId == 5) {
+                                    ops = '@SL_Operator.eq';
+                                }
+                                else if (quickFilter.OperatorId == 6) {
+                                    ops = '@SL_Operator.neq';
+                                }
+                                else if (quickFilter.OperatorId == 8) {
+                                    ops = '@SL_Operator.contains'
+                                }
+                                else if (quickFilter.OperatorId == 9) {
+                                    ops = '@SL_Operator.startswith'
+                                }
+
+                                var valueOr = null;
+
+                                try {
+                                    var columnType = getFieldType(grid.dataSource, quickFilter.Field);
+
+                                    if (columnType == 'string') {
+                                        valueOr = quickFilter.Value.toString();
+                                    }
+                                    else if (columnType == 'number') {
+                                        valueOr = getNumber(quickFilter.Value, '0');
+                                    }
+                                    else {
+                                        valueOr = quickFilter.Value;
+                                    }
+                                }
+                                catch (e) {
+                                    valueOr = quickFilter.Value;
+                                }
+                                console.log({ field: quickFilter.Field, operator: ops, value: valueOr });
+
+                                filterOr.filters.push({ field: quickFilter.Field, operator: ops, value: valueOr });
+                            }
+                        }
+
+                        if (filterAnd.filters.length > 0 && filterOr.filters.length == 0) {
+                            grid.dataSource.filter(filterAnd);
+                        }
+                        else if (filterAnd.filters.length == 0 && filterOr.filters.length > 0) {
+                            grid.dataSource.filter(filterOr);
+                        }
+                        else if (filterOr.filters.length > 0 && filterAnd.filters.length > 0) {
+                            filterInital.filters.push(filterAnd);
+                            filterInital.filters.push(filterOr);
+                            grid.dataSource.filter(filterInital);
+                        }
+                    }
+                    else {
+                        grid.dataSource.filter({});
+                    }
+                },
+                error: function (valid) {
+                    grid.dataSource.filter({});
+                }
+            })
+        }
+        catch (e) {
+            console.log(e);
+            grid.dataSource.filter({});
+        }
+    }
+
+    function onDepoManagementQuickFilterDataBound(e) {
+        $("#DepoManagementFilterDropdownList").data("kendoDropDownList").text('@LabelHelper.Text("OptionLabel")');
+    }
+
+    function onDepoManagementFilterLoad() {
+        var entity = $("#DepoDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value(),
+            gridName: 'DepoManagementDetails'
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("DepoCalcToolBar")
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("DepoCalander")
+                                .Format("yyyy-MM-dd")
+                                .HtmlAttributes(new { @class = "width90" })
+                                .Value(DateTime.Now)
+                                .Events(events => events.Change("onDepoManagementChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("DepoDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                   "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                   "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onDepoManagementChange").DataBound("onDepoManagementDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Events(events => events.Error("onDepoManagementError"))
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Type(CommandType.Button).Text(LabelHelper.Text("DepoManage")).Click("onDepoManagement");
+
+        items.Add().Template(Html.Kendo().Button().Name("DepoManagementRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onDepoManagementChange")).ToHtmlString());
+
+
+        items.Add().Template(LabelHelper.Label("Portfolio").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("DepoPortfolioDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Name")
+                            .DataValueField("SLPortfolio")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .Value(LabelHelper.Text("OptionLabel"))
+                            .Value(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(false)
+                            .Events(events => events.DataBound("onDepoManagementPortfolioDataBound"))
+                            .DataSource(dataSource => dataSource
+                            .Events(events => events.Error("onDepoManagementError"))
+                            .Read(read => read
+                            .Action("LoadPortfolioDropdown", "Portfolio", new { area = "DomesticTrading" }).Data("onDepoManagementPortfolioChange")))
+                            .ToHtmlString());
+
+        items.Add().Type(CommandType.Button).Text(LabelHelper.Text("Portfolio")).Click("onDepoManagementPortfolioMgt");
+
+        items.Add().Template(LabelHelper.Label("QuickFilter").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("DepoManagementFilterDropdownList")
+                    .HtmlAttributes(new { @class = "width90" })
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .Value(LabelHelper.Text("OptionLabel"))
+                    .AutoBind(false)
+                    .Events(e => e.Change("onDepoManagementFilterChange").DataBound("onDepoManagementQuickFilterDataBound").Open("onContraEntityAutoCompleteResize"))
+                    .DataSource(dataSource => dataSource
+                    .Events(events => events.Error("onDepoManagementError"))
+                    .Read(read => read.Action("LoadFilters", "BoxCalculation", new { area = "DomesticTrading" }).Data("onDepoManagementFilterLoad")))
+                    .ToHtmlString());
+
+        items.Add().Template(
+            "<table ID ='DepoManagementTable'><tr><td>" +
+            LabelHelper.LabelFor("TickerSearch", "DepoSecuritySearchTextBox").ToHtmlString() + "</td><td>" +
+            Html.Kendo().AutoComplete().Name("DepoSecuritySearchTextBox").HtmlAttributes(new { @class = "width90" }).Events(eve => eve.Filtering("onDepoSearchChange")).Suggest(true).ToHtmlString() +"</td></tr></table>"
+            ).HtmlAttributes(new { @class = "float-right" });
+    }))
+
+
+<hr class="hr-white">
+<div id="DepoContent" class="grid-div">
+   
+     @(Html.Kendo().Grid<SL_DepoManagemntExtendedProjection>()
+        .Name( "DepoManagementDetails" )
+        .HtmlAttributes( new { @class = "grid" } )
+        .Sortable()
+        .Scrollable( scroll => scroll.Enabled(true).Virtual(true) )
+        .Filterable()
+        .NoRecords()
+        .ColumnMenu( columnMenu =>
+        {
+            columnMenu.Filterable( true );
+            columnMenu.Columns( true );
+            columnMenu.Sortable( true );
+            columnMenu.ComponentType( "modern" );
+        } )
+        .Reorderable( reorder =>
+        {
+            reorder.Columns( true );
+        } )
+        .Resizable( resize =>
+        {
+            resize.Columns( true );
+        } )
+        .AllowCopy( copy =>
+        {
+            copy.Enabled( true );
+        } )
+        .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ).Type(GridSelectionType.Row ))
+        .Events( events =>
+        {
+            events.Change("onDepoManagementRowChange");
+            events.DataBound("onDepoManagementCheckData");
+            events.ColumnHide("onDepoManagementGridLayoutChange");
+            events.ColumnShow("onDepoManagementGridLayoutChange");
+            events.ColumnResize("onDepoManagementGridLayoutChange");
+            events.ColumnReorder("onDepoManagementGridLayoutChange");
+        } )
+        .Columns( columns =>
+        {
+            columns.Bound(x => x.IsBuyInMarket).GetColumnFormat(ColumnTypeEnum.String, false, "# if (IsBuyInMarket == true) { #<div style='text-align:center;' class='k-widget k-notification k-notification-error'><i class='fa  fa-exclamation'></i></div># } #", "");
+            columns.Bound( x => x.EntityId ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Cusip).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound( x => x.Isin ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Sedol ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Eligible).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.CountryCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.UnderlyingCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.ReacordDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            columns.Bound( x => x.ExcessPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(ExcessPositionSettled)#", "" );
+
+            columns.Bound(x => x.PendingSettlementPlus0).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingSettlementPlus0)#", "");
+            columns.Bound(x => x.PendingSettlementPlus1).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingSettlementPlus1)#", "");
+            columns.Bound(x => x.PendingSettlementPlus2).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingSettlementPlus2)#", "");
+            columns.Bound(x => x.PendingSettlementPlus3).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingSettlementPlus3)#", "");
+            columns.Bound(x => x.PendingSettlementPlusOther).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingSettlementPlusOther)#", "");
+            columns.Bound(x => x.TotalPostion).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(TotalPostion)#", "");
+
+
+            columns.Bound(x => x.DepositoryOtherSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositoryOtherSettled)#", "").Hidden();
+            columns.Bound(x => x.DepositoryOtherSettledAmt).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(DepositoryOtherSettledAmt)#", "").Hidden();
+
+            columns.Bound( x => x.DepositorySettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositorySettled)#", "" ).Hidden();
+            columns.Bound( x => x.DepositorySettledAmt ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DepositorySettledAmt)#", "" ).Hidden();
+
+            columns.Bound(x => x.DepositoryPendingDelivery).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositoryPendingDelivery)#", "").Hidden();
+            columns.Bound(x => x.DepositoryPendingDeliveryAmt).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DepositoryPendingDeliveryAmt)#", "").Hidden();
+
+            columns.Bound(x => x.DepositoryPendingReceive).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DepositoryPendingReceive)#", "").Hidden();
+            columns.Bound(x => x.DepositoryPendingReceiveAmt).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DepositoryPendingReceiveAmt)#", "").Hidden();
+
+
+            columns.Bound( x => x.CustomerLongPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(CustomerLongPositionSettled)#", "" );
+            columns.Bound( x => x.CustomerShortPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(CustomerShortPositionSettled)#", "" );
+
+            columns.Bound( x => x.FirmLongPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(FirmLongPositionSettled)#", "" );
+            columns.Bound( x => x.FirmShortPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(FirmShortPositionSettled)#", "" );
+
+            columns.Bound(x => x.CnsFailToDeliverPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CnsFailToDeliverPositionSettled)#", "");
+            columns.Bound(x => x.DvpFailToDeliverPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DvpFailToDeliverPositionSettled)#", "");
+            columns.Bound(x => x.BrokerFailToDeliverPositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BrokerFailToDeliverPositionSettled)#", "");
+
+            columns.Bound(x => x.CnsFailToRecievePositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CnsFailToRecievePositionSettled)#", "");
+            columns.Bound(x => x.DvpFailToRecievePositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DvpFailToRecievePositionSettled)#", "");
+            columns.Bound(x => x.BrokerFailToRecievePositionSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BrokerFailToRecievePositionSettled)#", "");
+
+            columns.Bound( x => x.StockBorrowPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowPositionSettled)#", "" ).Hidden();
+            columns.Bound( x => x.StockBorrowPositionSettledAmt ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetMoneyDirection(StockBorrowPositionSettledAmt)#", "" ).Hidden();
+
+            columns.Bound(x => x.StockBorrowPositionPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockBorrowPositionPending)#", "").Hidden();
+            columns.Bound(x => x.StockBorrowPositionPendingAmt).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(StockBorrowPositionPendingAmt)#", "").Hidden();
+
+            columns.Bound( x => x.StockLoanPositionSettled ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanPositionSettled)#", "" ).Hidden();
+            columns.Bound( x => x.StockLoanPositionSettledAmt ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetMoneyDirection(StockLoanPositionSettledAmt)#", "" ).Hidden();
+
+            columns.Bound(x => x.StockLoanPositionPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(StockLoanPositionPending)#", "").Hidden();
+            columns.Bound(x => x.StockLoanPositionPendingAmt).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(StockLoanPositionPendingAmt)#", "").Hidden();
+
+            columns.Bound(x => x.SuggestionBorrowSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(SuggestionBorrowSettled)#", "").Hidden();
+            columns.Bound(x => x.SuggestionLoanSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(SuggestionLoanSettled)#", "").Hidden();
+            columns.Bound(x => x.SuggestionReturnSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(SuggestionReturnSettled)#", "").Hidden();
+        } )
+        .DataSource( dataSource => dataSource
+        .Ajax()
+        .ServerOperation( false )
+        .PageSize(25)
+        .Read( read => read
+            .Action("Read_DepoManagement", "DepoManagement", new { area = "DomesticTrading" } )
+                 .Data( "additionalDepoManagementData" ).Type( HttpVerbs.Post ) )
+            .Events( events =>
+            {
+                events.Error("onDepoManagementGridError");
+            } )
+                   .Model( model =>
+                   {
+                       model.Id( x => x.Isin );
+                   } )
+                   .Aggregates(agg =>
+                   {
+                       agg.Add(x => x.ExcessPositionSettled).Sum();
+                       agg.Add(x => x.PendingSettlementPlus0).Sum();
+                       agg.Add(x => x.PendingSettlementPlus1).Sum();
+                       agg.Add(x => x.PendingSettlementPlus2).Sum();
+                       agg.Add(x => x.PendingSettlementPlus3).Sum();
+                       agg.Add(x => x.PendingSettlementPlusOther).Sum();
+                       agg.Add(x => x.TotalPostion).Sum();
+
+                       agg.Add(x => x.DepositoryOtherSettled).Sum();
+                       agg.Add(x => x.DepositoryOtherSettledAmt).Sum();
+
+                       agg.Add(x => x.DepositorySettled).Sum();
+                       agg.Add(x => x.DepositorySettledAmt).Sum();
+
+                       agg.Add(x => x.DepositoryPendingDelivery).Sum();
+                       agg.Add(x => x.DepositoryPendingDeliveryAmt).Sum();
+
+                       agg.Add(x => x.DepositoryPendingReceive).Sum();
+                       agg.Add(x => x.DepositoryPendingReceiveAmt).Sum();
+
+                       agg.Add(x => x.CustomerLongPositionSettled).Sum();
+                       agg.Add(x => x.CustomerShortPositionSettled).Sum();
+                       agg.Add(x => x.FirmLongPositionSettled).Sum();
+                       agg.Add(x => x.FirmShortPositionSettled).Sum();
+
+                       agg.Add(x => x.CnsFailToDeliverPositionSettled).Sum();
+                       agg.Add(x => x.DvpFailToDeliverPositionSettled).Sum();
+                       agg.Add(x => x.BrokerFailToDeliverPositionSettled).Sum();
+
+                       agg.Add(x => x.CnsFailToRecievePositionSettled).Sum();
+                       agg.Add(x => x.DvpFailToRecievePositionSettled).Sum();
+                       agg.Add(x => x.BrokerFailToRecievePositionSettled).Sum();
+
+                       agg.Add(x => x.StockBorrowPositionSettled).Sum();
+                       agg.Add(x => x.StockBorrowPositionSettledAmt).Sum();
+
+                       agg.Add(x => x.StockBorrowPositionPending).Sum();
+                       agg.Add(x => x.StockBorrowPositionPendingAmt).Sum();
+
+                       agg.Add(x => x.StockLoanPositionSettled).Sum();
+                       agg.Add(x => x.StockLoanPositionSettledAmt).Sum();
+
+                       agg.Add(x => x.StockLoanPositionPending).Sum();
+                       agg.Add(x => x.StockLoanPositionPendingAmt).Sum();
+
+
+                       agg.Add(x => x.SuggestionBorrowSettled).Sum();
+                       agg.Add(x => x.SuggestionLoanSettled).Sum();
+                       agg.Add(x => x.SuggestionReturnSettled).Sum();
+                   })
+           .Events( events => events.Error( "onDepoManagementGridError" ) )
+))
+
+
+@(Html.Kendo().ContextMenu()
+.Name( "DepoManagementContextMenu" )
+.Orientation( ContextMenuOrientation.Vertical )
+    .Target( "#DepoManagementDetails" )
+.Events( events => events.Select( "onDepoManagementContextMenuSelect" ) )
+.Items( items =>
+{
+    items.Add().Text( "Refresh Data" );
+    items.Add().Separator(true);
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text( "Unsort" );
+    items.Add().Text( "Reset Filter" ).Enabled( true );
+    items.Add().Text( "Reset Grid" ).Enabled( true );
+    items.Add().Separator( true );
+    items.Add().Text("Select All");
+    items.Add().Text( "Copy" ).Enabled( true ).HtmlAttributes( new { ID = "BoxCalcButton" } );
+    items.Add().Text( "Export To Excel" );
+} ))
+   
+</div>

@@ -1,0 +1,339 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Tools
+@*<style>
+        #LocateShortToolBar label {
+            padding-left: 10px;
+        }
+
+        #LocateShortToolBar td {
+            padding-left: 5px;
+        }
+</style>*@
+
+<script>
+   function exportToLocatesExcel() {
+        KendoGridToCSVConvertor("#LocateShortGrid", 'LocateShortGrid', false);
+    }
+
+   $(document).ready(function () {
+       $('#LocateShortClientCheckBox').change(function () {
+           $("#LocateShortClientDropdownList").data("kendoDropDownList").enable($(this).is(':checked'));
+       })
+   });
+
+    $('#SharedLabelCheckBox').change(function () {
+        $("#LocateShortGrid").data("kendoGrid").refresh();
+    })
+
+    function onLocateShortUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onLocateShortSelectAll(e) {
+        try {
+            var tradeDetailsGrid = $("#LocateShortGrid").data("kendoGrid");
+            tradeDetailsGrid.select(tradeDetailsGrid.tbody.find(">tr"));
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onLocateShortContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Unsort':
+                onLocateUnsortGrid("#LocateShortGrid");
+                break;
+
+            case 'Select All':
+                onLocateShortSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                exportToLocatesExcel();
+                break;
+        }
+    }
+
+    function onLocateShortDefaultLoad() {
+        try {
+            var UserPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    UserPreference = valid;
+
+                    var dropdownList = $('#LocateShortDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == UserPreference.DefaultFirm;
+                    });
+
+                    $('#LocateShortGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    UserPreference = null;
+                }
+            })
+        }
+        catch (e) { }
+    }
+
+    function onLocateShortCheckData() {
+            try {
+                CheckGridData('#LocateShortGrid');
+            }
+            catch (e)
+            { }
+    }
+
+
+    function onLocateShortDetailCheckData() {
+        try {
+            CheckGridData('#LocateShortDetailGrid');
+        }
+        catch (e)
+        { }
+    }
+
+    function onLocateShortRowChange(e) {
+        try
+        {
+            var entityGrid = $("#LocateShortGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+
+            UpdateIssue(securityNumber);
+            UpdateBox(effectiveDate, entityId, issueId);
+            UpdateTrading(entityId, issueId);
+            UpdateSharedView(entityId, securityNumber);
+       }
+        catch (e)
+        {
+        }
+
+        $('#LocateShortDetailGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onAdditionalLocateShortDetailData() {
+        var startdatedatepicker = $("#LocateShortStartDateCalander").data("kendoDatePicker");
+        var startdatevalue = kendo.toString(startdatedatepicker.value(), 'yyyy-MM-dd');
+
+        var entityGrid = $("#LocateShortGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var entityId = selectedItem["EntityId"]
+        var issueId = selectedItem["SecurityNumber"];
+
+        return {
+            effectiveDate: startdatevalue,
+            entity: entityId,
+            securityNumber: issueId
+        }
+    }
+
+    function onLocateShortChange() {
+        $('#LocateShortGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onAdditionalLocateShortData() {
+        var startdatedatepicker = $("#LocateShortStartDateCalander").data("kendoDatePicker");
+        var startdatevalue = kendo.toString(startdatedatepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#LocateShortDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value(),
+            effectiveDate: startdatevalue,
+        };
+    }
+
+
+    function onAdditionalLocateShortClientData() {
+        var entity = $("#LocateShortDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value()
+        };
+    }
+
+    function onLocateShortError(e) {
+        DisplayControllerError(e);
+    }
+
+
+    function onLocateShortDetailError(e) {
+        DisplayControllerError(e);
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("LocateShortToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar" })
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("StartDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("LocateShortStartDateCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .ToHtmlString());
+        
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("LocateShortDropdownList")
+                    .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                    .Animation(true)
+                    .DataTextField("Custodian")
+                    .DataValueField("CompanyId")
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                    .AutoBind(true)
+                    .Events(e => e.DataBound("onLocateShortDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                    .DataSource(dataSource => dataSource
+                    .Read(read => read
+                    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                    .SelectedIndex(0).ToHtmlString());
+    }))
+
+
+<hr class="hr-white">
+<div id="LocateShortDiv" class="grid-div">
+    @(Html.Kendo().Splitter()
+.Name("LocateShortSplitter")
+.HtmlAttributes(new { @class = "grid" })
+.Orientation(SplitterOrientation.Vertical)
+.Panes(panes =>
+{
+    panes.Add()
+        .Scrollable(false)
+        .Content(@<text>
+            @(Html.Kendo().Grid<SL_LocateShortSummaryProjection>()
+            .Name("LocateShortGrid")
+            .HtmlAttributes(new { @class = "grid" })
+            .Scrollable()
+            .Selectable(select =>
+            {
+                select.Enabled(true);
+                select.Mode(GridSelectionMode.Multiple);
+                select.Type(GridSelectionType.Row);
+            })
+            .Events(events =>
+            {
+                events.DataBound("onLocateShortCheckData");
+                events.Change("onLocateShortRowChange");
+            })           
+            .Filterable(filter =>
+                {
+                    filter.Enabled(true);
+                })
+            .Columns(cols =>
+            {
+                cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.AllocatedQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(AllocatedQuantity)#", "DecimalNumber");
+                cols.Bound(x => x.Shorted).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Shorted)#", "DecimalNumber");
+            })
+            .DataSource(ds =>
+            {
+                ds.Ajax()
+                     .Events(events => events
+                    .Error("onLocateShortError"))                   
+                    .ServerOperation(false)
+                    .Read(read =>
+                    {
+                        read.Action("LoadLocateShort", "Locates", new { area = "Locates" })
+                            .Data("onAdditionalLocateShortData");
+                    })
+                    .Aggregates(agg =>
+                        {                        
+                            agg.Add(x => x.AllocatedQuantity).Sum();
+                            agg.Add(x => x.Shorted).Sum();
+                        });
+            }))
+        </text>);
+
+    panes.Add()
+         .Scrollable(false)
+      .Content(@<text> 
+    @(Html.Kendo().Grid<LocateTradeSuggestionModel>()
+            .Name("LocateShortDetailGrid")
+            .HtmlAttributes(new { @class = "grid" })
+            .Scrollable()
+            .AutoBind(false)
+            .Selectable(select =>
+            {
+                select.Enabled(true);
+                select.Mode(GridSelectionMode.Multiple);
+                select.Type(GridSelectionType.Row);
+            })
+            .Events(events =>
+            {
+                events.DataBound("onLocateShortDetailCheckData");           
+            })
+            .Filterable(filter =>
+                {
+                    filter.Enabled(true);
+                })
+            .Columns(cols =>
+            {
+                cols.Bound(x => x.TradeDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                cols.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "DecimalNumber");
+            })
+            .DataSource(ds =>
+            {
+                ds.Ajax()
+                     .Events(events => events
+                    .Error("onLocateShortDetailError"))
+                    .ServerOperation(false)
+                    .Read(read =>
+                    {
+                        read.Action("LoadLocateShortDetail", "Locates", new { area = "Locates" })
+                            .Data("onAdditionalLocateShortDetailData");
+                    })
+                    .Aggregates(agg =>
+                        {
+                            agg.Add(x => x.Quantity).Sum();                            
+                        });
+            }))</text>);
+}));
+
+</div>
+
+@(Html.Kendo().ContextMenu()
+    .Name("LocateShortContextMenu")
+    .Target("#LocateShortGrid")
+    .Events(events => events.Select("onLocateShortContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Export To Excel").Enabled(true);
+    }))
+
+
+
+

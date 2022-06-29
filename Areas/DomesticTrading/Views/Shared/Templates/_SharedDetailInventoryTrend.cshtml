@@ -1,0 +1,76 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model IEnumerable<SL_InventoryProjection>
+
+<script type="text/javascript">
+    function onSharedInventoryCheckData() {
+        CheckGridData('#SharedDetailInventoryGrid');
+    }
+</script>
+
+<div id="SharedDetailInventoryTrendDiv" class="grid-div">
+    <table style="margin:0px;align-content:center;width:100%;height:100%;">
+        <tr>
+            <td width="50%">
+@(
+ Html.Kendo().Grid(Model)
+    .Name("SharedDetailInventoryGrid")
+    .Sortable(sort =>
+    {
+        sort.AllowUnsort(true);
+        sort.Enabled(true);
+        sort.SortMode(GridSortMode.MultipleColumn);
+    })
+    .Filterable()
+    .Scrollable()
+    .HtmlAttributes(new { @class = "grid" })
+        .Events(events => events.DataBound("onSharedInventoryCheckData"))
+    .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+    .Navigatable()
+    .NoRecords()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.MarkerColor).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(MarkerColor)#", "").HtmlAttributes(new { title = "#= MarkerDesceiption #" }).Hidden(!SessionService.UserPreference.ShowInventoryMarker);
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+        cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "");
+    })
+    .DataSource(ds =>
+    {
+        ds.Ajax()
+        .ServerOperation(false)
+        .Sort(q =>
+        {
+            q.Add(x => x.EffectiveDate).Descending();
+            q.Add(x => x.Quantity).Descending();
+        });
+    })
+)</td><td>
+          @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#SharedDetailInventoryGrid").Filter("td[title]")
+@(
+ Html.Kendo().Chart(Model)
+.Name("InventoryChart")
+.HtmlAttributes(new { @class = "grid" })
+    .Series(series =>
+    {
+        series
+            .Line(model => model.Quantity, categoryExpression: model => model.EffectiveDate)
+            .Aggregate(ChartSeriesAggregate.Sum);
+    })
+    .CategoryAxis(c =>
+        {
+            c.Date().BaseUnit(ChartAxisBaseUnit.Fit);
+        })
+ )</td>
+      </tr>
+</table>
+</div>

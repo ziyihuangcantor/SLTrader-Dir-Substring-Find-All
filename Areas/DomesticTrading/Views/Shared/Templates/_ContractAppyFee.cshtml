@@ -1,0 +1,371 @@
+﻿    @using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+@using SLTrader.Models.ContractRelatedModels
+
+@model IEnumerable<FeeChangeModel>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        setTimeout(function () {
+            resizeGridColumns("#BoxCalculationFeeGrid");
+            $('#LocalDetailWindow').data("kendoWindow").center();
+        }, 5);
+    });
+    function additionalApplyFeeTypeDropdownData() {
+        var entity = '@Model.Select(x => x.Entity).First()';
+
+        return {
+            entityId : entity,
+        }
+    }
+
+    function onSharedApplyFee(e) {
+        var grid = $('#BoxCalculationFeeGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#FeeAllButton").data("kendoButton").enable(false);
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled) {
+                rowCount++;
+            }
+        });
+
+        var feeType = $("#ApplyFeeTypeDropdownList").data("kendoDropDownList").value();        
+        var feeOffSet = $("#ApplyFeeNumericBox").data("kendoNumericTextBox").value();
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+        $.ajax({
+            url: "@Url.Action("ProcessBulkFee", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                feeType: feeType,
+                feeOffSet: feeOffSet,
+                list: rows
+            }),
+            success: function (valid) {
+                $.each(valid, function (i, obj) {
+                    var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+
+                    obj['EffectiveDate'] = effectiveDate;
+
+                    var startDate = kendo.parseDate(obj['StartDate']);
+
+                    obj['StartDate'] = startDate;
+
+                    var stopDate = kendo.parseDate(obj['StopDate']);
+
+                    obj['StopDate'] = stopDate;
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                var _grid = $("#BoxCalculationFeeGrid").data("kendoGrid");
+                var _data = _grid.dataSource.data();
+
+                $("#FeeAllButton").data("kendoButton").enable(false);
+
+                $.each(_data, function (i, row) {
+                    if (row.Enabled) {
+                        $("#FeeAllButton").data("kendoButton").enable(true);
+
+                        processedRowCount++;
+                    }
+                });
+
+                $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+            },
+            error: function (valid) {
+                LogError(valid);
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#FeeAllButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+
+    function onProcessFee(e) {
+        var grid = $('#BoxCalculationFeeGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#FeeAllButton").data("kendoButton").enable(false);
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled) {
+                rowCount++;
+            }
+        });
+
+        var feeType = $("#ApplyFeeTypeDropdownList").data("kendoDropDownList").value();
+        var feeOffset = $("#ApplyFeeNumericBox").data("kendoNumericTextBox").value();
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+        $.ajax({
+            url: "@Url.Action("ProcessFee", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+        contentType: 'application/json;',
+        data: JSON.stringify({         
+            items: rows
+        }),
+        success: function (valid) {
+            $.each(valid, function (i, obj) {
+                var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+
+                obj['EffectiveDate'] = effectiveDate;
+            });
+
+            grid.dataSource.data(valid);
+            grid.refresh();
+
+            var _grid = $("#BoxCalculationFeeGrid").data("kendoGrid");
+            var _data = _grid.dataSource.data();
+
+            $("#FeeAllButton").data("kendoButton").enable(false);
+
+            $.each(_data, function (i, row) {
+                if (row.Enabled) {
+                    $("#FeeAllButton").data("kendoButton").enable(true);
+
+                    processedRowCount++;
+                }
+            });
+
+            $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+          
+            if (processedRowCount == rowCount) {
+                $('#LocalDetailWindow').data("kendoWindow").close();
+            }
+        },
+        error: function (valid) {
+            LogError(valid);
+            $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+            $("#FeeAllButton").data("kendoButton").enable(true);
+        }
+    });
+    }
+
+
+    function onSelectAllFee(e) {
+        var grid = $('#BoxCalculationFeeGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 0;
+
+        $("#SelectAllButton").data("kendoButton").enable(false);
+        $("#FeeAllButton").data("kendoButton").enable(false);
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {            
+                grid.dataSource.data()[index].Enabled = true;
+                processedRowCount = processedRowCount + 1;            
+        }
+
+        grid.dataSource.sync();
+
+        $('#ProgressLabel').html('Selected ' + processedRowCount + ' items.');
+
+        $("#SelectAllButton").data("kendoButton").enable(true);
+        $("#FeeAllButton").data("kendoButton").enable(true);
+    }
+
+    function onSharedFeeEdit(e) {       
+        var entityGrid = $("#BoxCalculationFeeGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if (selectedItem.SubmissionType == '@Convert.ToInt32(StatusDetail.Approved)') {
+            $('#BoxCalculationFeeGrid').data("kendoGrid").closeCell();
+        }
+        else {
+            var input = e.container.find("input");
+            setTimeout(function () { input.select(); });
+        }
+    }
+
+    function onContractFeeDataBound(e) {
+        try {
+            var grid = $("#BoxCalculationFeeGrid").data("kendoGrid");
+            var data = grid.dataSource.data();
+
+            $("#SelectAllButton").data("kendoButton").enable(true);
+            $("#FeeAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                    $("#FeeAllButton").data("kendoButton").enable(true);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onApplyFeeTypeDropdownListChange(e) {
+        $("#ApplyFeeAllButton").data("kendoButton").enable(true);
+    }
+
+    $(function () {
+        $('#BoxCalculationFeeGrid').on('click', '.chkbx', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#BoxCalculationFeeGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+            grid.select($(this).closest('tr'));
+
+            var entityGrid = $("#BoxCalculationFeeGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            if (selectedItem.SubmissionType != '@Convert.ToInt32(StatusDetail.Approved)') {
+                dataItem['Enabled'] = checked;
+            }
+
+            var data = grid.dataSource.data();
+
+            $("#SelectAllButton").data("kendoButton").enable(false);
+            $("#FeeAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                     $("#SelectAllButton").data("kendoButton").enable(true);
+                    $("#FeeAllButton").data("kendoButton").enable(true);
+                }
+            });
+        });
+
+        $('#BoxCalculationFeeGrid').on('click', '.chkbxSuppressRateChange', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#BoxCalculationFeeGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+            grid.select($(this).closest('tr'));
+
+            dataItem['SuppressRateChange'] = checked;
+      
+            var data = grid.dataSource.data();
+
+            $("#SelectAllButton").data("kendoButton").enable(false);
+            $("#FeeAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                     $("#SelectAllButton").data("kendoButton").enable(true);
+                    $("#FeeAllButton").data("kendoButton").enable(true);
+                }
+            });
+        });
+    });
+    
+    function onSharedFeeError(e) {
+
+    }
+</script>
+@if (!Model.Any())
+{
+    <div style="padding:20px;font-size:small;">
+        <h2>No Data Selected / Processed</h2>
+    </div>
+}
+else
+{
+
+    @(
+         Html.Kendo().ToolBar()
+            .Name("SharedFeeToolBar")
+            .Items(items =>
+            {
+                items.Add().Template(LabelHelper.Label("NewFee").ToHtmlString());
+                items.Add().Template(Html.Kendo().DropDownListFor(m => m)
+                  .Name("ApplyFeeTypeDropdownList")
+                  .DataValueField("Fee")
+                  .DataTextField("Fee")
+                  .OptionLabel(LabelHelper.Text("OptionLabel"))
+                  .HtmlAttributes(new { style = "width:75px;" })
+                  .Events(events => events.Open("onContraEntityAutoCompleteResize").Change("onApplyFeeTypeDropdownListChange"))
+                  .DataSource(dataSource => dataSource
+                 .Read(read => read.Action("Read_FeeTypesDropdown", "FeeType", new { area = "DomesticTrading" }).Data("additionalApplyFeeTypeDropdownData"))).ToHtmlString());
+
+                items.Add().Template(LabelHelper.Label("NewFeeOffSet").ToHtmlString());
+                items.Add().Template(Html.Kendo().NumericTextBox().Name("ApplyFeeNumericBox").Format("#,##0.000").Decimals(3).Value(0).ToHtmlString());
+
+
+                items.Add().Template(Html.Kendo().Button().Name("ApplyFeeAllButton").Content("Apply Fee").Enable(false).Events(e => e.Click("onSharedApplyFee")).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("SelectAllButton").Content("Select All").Events(e => e.Click("onSelectAllFee")).ToHtmlString());
+                items.Add().Template(Html.Kendo().Button().Name("FeeAllButton").Content("Send Fees").Events(e => e.Click("onProcessFee")).Enable(false).ToHtmlString());
+                items.Add().Template("<label id='ProgressLabel'></label>");
+            }))
+
+    <hr class="hr-white">
+
+    <div class="grid-div">
+        @(Html.Kendo().Grid(Model)
+                .Name("BoxCalculationFeeGrid")
+                .HtmlAttributes(new { @style = "height:100%;" })
+                .Scrollable()
+                .NoRecords()
+                .Selectable(select => select.Mode(GridSelectionMode.Single)
+                .Enabled(true))
+                .Resizable(cols => cols.Columns(false))
+                .Editable(edit => edit.Mode(GridEditMode.InCell).Enabled(true))
+                .Events(e => e.Edit("onSharedFeeEdit")
+                .DataBound("onContractFeeDataBound"))
+                .Columns(columns =>
+                {
+                    columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "# if (SubmissionType == " + Convert.ToInt32(StatusDetail.Approved).ToString() + ") { #" + "<div style='text-align:center;' class='k-widget k-notification k-notification-success'><i class='fa  fa-check'></i></div>" + "# } else if (SubmissionType == " + Convert.ToInt32(StatusDetail.Rejected).ToString() + "){ #" + "<div style='text-align:center;' class='k-widget k-notification k-notification-error'><i class='fa fa-times' ></i></div>" + "# } else if (SubmissionType == " + Convert.ToInt32(StatusDetail.HeldLocal).ToString() + "){ #" + "<div style='text-align:center;' class='k-widget k-notification k-notification-warning'><i class='fa fa-pencil'></i></div>" + "# }#", "");
+                    columns.Bound(x => x.Enabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='chkbx' #= (Enabled) ? checked ='checked' : '' #/>", "");
+                    columns.Bound(x => x.Entity).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                    columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                    columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "Date");
+                    columns.Bound(x => x.CollateralFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.SuppressRateChange).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='chkbxSuppressRateChange' #= (SuppressRateChange) ? checked ='checked' : '' #/>", "");
+                    columns.Bound(x => x.StartDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                    columns.Bound(x => x.StopDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                    columns.Bound(x => x.OldFee).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.OldFeeOffSet).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "");
+                    columns.Bound(x => x.NewFee).GetColumnFormat(ColumnTypeEnum.String, false, "", "_ContractFeeTypeDropdown");
+                    columns.Bound(x => x.NewFeeOffSet).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "");
+                    columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                })
+               .DataSource(read => read.Ajax()
+               .Events(e => e.Error("onSharedFeeError")).ServerOperation(false).AutoSync(true).Update(update => update.Action("FeeModel_Update", "ContractRelated", new { area = "DomesticTrading" }))
+               .Model(model =>
+               {
+                   model.Id(x => x.ModelId);
+                   model.Field(x => x.ModelId).Editable(false);
+                   model.Field(x => x.Enabled).Editable(false);
+                   model.Field(x => x.Entity).Editable(false);
+                   model.Field(x => x.ClearingId).Editable(false);
+                   model.Field(x => x.ContraEntity).Editable(false);
+                   model.Field(x => x.ContractNumber).Editable(false);
+                   model.Field(x => x.TradeType).Editable(false);
+                   model.Field(x => x.IssueId).Editable(false);
+                   model.Field(x => x.SecurityNumber).Editable(false);
+                   model.Field(x => x.Ticker).Editable(false);
+                   model.Field(x => x.EffectiveDate).Editable(false);
+                   model.Field(x => x.SubmissionType).Editable(false);
+                   model.Field(x => x.OldFee).Editable(false);
+                   model.Field(x => x.OldFeeOffSet).Editable(false);
+                   model.Field(x => x.NewFee).Editable(true);
+                   model.Field(x => x.NewFeeOffSet).Editable(true);
+                   model.Field(x => x.MemoInfo).Editable(false);
+               })))
+    </div>
+}
+

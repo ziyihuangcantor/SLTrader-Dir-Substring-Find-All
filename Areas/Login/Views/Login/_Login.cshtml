@@ -1,0 +1,355 @@
+﻿@using SLTrader.Tools;
+
+@(Html.Kendo().Window()
+      .Name("LoginWindow")
+      .Modal(true)
+      .Resizable(builder => builder.Enabled(false))
+      .Actions(action => action.Clear())
+      .Events(events => events.Deactivate("onLoginWindowDeactivate").Activate("onLoginWindowActivate"))
+      .Animation(anime =>
+      {
+          anime.Open(open => open.SlideIn(SlideDirection.Up).Duration(AnimationDuration.Slow));
+          anime.Close(close => close.Duration(AnimationDuration.Slow));
+      })
+      .AutoFocus(true)
+      .Draggable(false)      
+      .Title(false)
+      .Visible(false)
+      .Content(@<text>
+                    <div>
+    <img class="window-image" src="../Images/helixSL.png" alt="" />
+    <div style="font-size: small;">
+        @Html.Label("Username:")
+        @Html.Kendo().TextBox().Name("UserNameText").HtmlAttributes(new { @class = "width100p" })
+    </div>
+    <div style="font-size:small;">
+        @Html.Label("Password:")
+        @Html.Kendo().TextBox().Name("PasswordText").HtmlAttributes(new { type ="password", @class = "width100p" })
+    </div>
+    <div style="text-align:right;padding:5px;font-size: small;">
+        @Html.Kendo().Button().Name("LoginButton").Content("Login").HtmlAttributes(new { @class = "width100p" }).Events(e => e.Click("onUserLogin"))
+    </div>
+    <div>
+        <label id="WarningLabel" class="login-WarningLabel"></label>
+    </div>
+</div>                    
+                </text>))
+
+@(Html.Kendo().Window()
+      .Name("LoginLoadWindow")
+      .Modal(true)
+      .Resizable(builder => builder.Enabled(false))
+      .Actions(action => action.Clear())
+      .Animation(anime => anime.Open(open => open.SlideIn(SlideDirection.Up).Duration(AnimationDuration.Slow)))
+      .Events(events => events.Open("onUserLoginLoad"))
+      .AutoFocus(true)
+      .Draggable(false)
+      .Title(false)
+      .Visible(false)
+      .Content(@<text>
+                <table style="font-size: small">   
+                <tr>
+                <td class="logininfo-load" ><i id="LoadUserInformation" class="fa fa-spinner fa-spin fa-2x"></i></td>
+                <td>@Html.Label("Load User Information")</td>
+                </tr>
+                <tr>
+                <td class="logininfo-load"><i id="LoadUserFirms" class="fa fa-spinner fa-spin fa-2x"></i></td>
+                    <td>@Html.Label("Load User Firms")</td>
+                </tr>
+                <tr>
+                <td class="logininfo-load"><i id="LoadUserPreferences" class="fa fa-spinner fa-spin fa-2x"></i></td>
+                    <td>@Html.Label("Load User Preferences")</td>
+                </tr>
+                <tr>
+                <td class="logininfo-load"><i id="LoadUserDictionary" class="fa fa-spinner fa-spin fa-2x"></i></td>
+                <td>@Html.Label("Load User Dictionary")</td>
+                </tr>
+                <tr>
+                <td class="logininfo-load"><i id="LoadUserSecurityProfile" class="fa fa-spinner fa-spin fa-2x"></i></td>
+                    <td>@Html.Label("Load User Security Profile")</td>
+                </tr>
+                <tr>
+                <td class="logininfo-load"><i id="LoadApplication" class="fa fa-spinner fa-spin fa-2x"></i></td>
+                    <td>@Html.Label("Load Application")</td>
+                </tr>
+                </table>
+                </text>))
+
+@(Html.Kendo().Window()
+      .Name("InvalidResolutionWindow")
+      .Modal(true)
+      .Resizable(builder => builder.Enabled(false))
+      .Actions(action => action.Clear())
+      .Animation(anime =>
+      {
+          anime.Open(open => open.SlideIn(SlideDirection.Up).Duration(AnimationDuration.Slow));
+          anime.Close(close => close.Duration(AnimationDuration.Slow));
+      })
+      .AutoFocus(true)
+      .Draggable(false)
+      .Title("Unsupported Resolution")
+      .Visible(false)
+      .Content(@<text>
+        <div class="text-center">
+            <i class="fa fa-frown-o fa-4x"></i>
+            <br />
+            <br />
+            <h4><label id="ScreenWidth"></label></h4>
+            <br/>
+            <h4>HelixSL is optimized for resolution 1280 x 720 and greater.</h4>
+        </div>
+    </text>))
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        if (window.screen.availHeight >= 720 && window.screen.availWidth >= 1280) {
+            $("#LoginWindow").data("kendoWindow").center().open();
+
+            $("#UserNameText").val(localStorage["username"]);
+
+            isFlashEnabled();
+        }
+        else {
+            $("#InvalidResolutionWindow").data("kendoWindow").center().open();
+
+            $("#ScreenWidth").text("Current resolution " + window.screen.availWidth.toString() + " x " + window.screen.availHeight.toString() + " not supported!");
+        }
+    });
+
+    //checks if flash is installed/enabled on the browser
+    function isFlashEnabled() {
+        if (pluginlist.indexOf("Flash") == -1)
+        {
+            $("#WarningLabel").text("Adboe Flash is not installed.");
+        }
+    }
+
+    $(document).keyup(function (e) {
+
+        if (e.keyCode == 13) {
+            $("#LoginButton").click();
+        }
+    });
+
+    function onLoginWindowActivate(e) {
+        $("#UserNameText").focus();
+
+        if (document.getElementById("UserNameText").value.length > 0) {
+            $("#PasswordText").focus();
+        }
+    }
+
+    function onLoginWindowDeactivate(e) {
+        $(this).trigger("keydown", [9]);
+        $("#LoginLoadWindow").data("kendoWindow").center().open();
+    }
+
+    function onUserLogin(e) {
+        e.preventDefault();
+
+        $("#LoginButton").data("kendoButton").enable(false);
+
+        var varUserName = document.getElementById("UserNameText").value;
+        var varPassword = document.getElementById("PasswordText").value;
+
+        $("#LoginButton").data("kendoButton").enable(false);
+        $.ajax({
+            url: "@Url.Action("Login", "Login", new {area = "Login"})",
+            type: 'GET',
+            contentType: 'application/json;',
+            async: false,
+            data: { userName: varUserName, password: varPassword },
+            success: function (dataObject) {
+                try {
+                    $("#LoginButton").data("kendoButton").enable(true);
+
+                    $("#LoginWindow").data("kendoWindow").close();
+
+                    localStorage["username"] = varUserName;
+
+                } catch (exception) {
+                    $("#LoginButton").data("kendoButton").enable(true);
+                    DisplayControllerError(exception);
+                }
+            },
+            error: function (e) {
+                $("#LoginButton").data("kendoButton").enable(true);
+                DisplayControllerError(e);
+            }
+        });
+    }
+
+
+    function LoadUserSecurityProfile() {
+        var success = false;
+
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUserSecurityProfile',
+                type: 'POST',
+                async: false,
+                contentType: 'application/json;',
+                success: function(valid) {
+                    $("#LoadUserSecurityProfile").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                    success = true;
+                },
+                error: function (valid) {
+                    $("#LoadUserSecurityProfile").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-times-circle fa-2x');
+                    DisplayControllerError(valid);
+                }
+            });
+        } catch (e) {
+            DisplayControllerError(e);
+        }
+
+        return success;
+    }
+
+    function LoadApplication() {
+        try {
+            $.ajax({
+                url: '/Header/Header/LoadApplication',
+                type: 'POST',
+                async: false,
+                contentType: 'application/json;',
+                data: JSON.stringify({ application: null }),
+                success: function(valid) {
+                    $("#LoadApplication").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                    $("#ContentArea").html(valid);
+                },
+                error: function (valid) {
+                    $("#LoadApplication").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-times-circle fa-2x');                 
+                    DisplayControllerError(valid);
+            }
+        });
+    } catch (e) {
+        DisplayControllerError(e);
+    }
+}
+
+
+    function LoadUser() {
+        var success = false;
+
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUser',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: null,
+                async: false,
+                success: function(valid) {
+                    $("#LoadUserInformation").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');                    
+                    success = true;
+                },
+                error: function (valid) {
+                    $("#LoadUserInformation").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-times-circle fa-2x');
+                    DisplayControllerError(valid);
+                }
+            });
+        } catch (e) {
+            DisplayControllerError(e);
+        }
+
+        return success;
+    }
+
+
+    function LoadUserPreference() {
+        var success = false;
+
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUserPreference',
+                type: 'POST',
+                async: false,
+                contentType: 'application/json;',
+                data: null,
+                success: function(valid) {
+                    $("#LoadUserPreferences").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+
+                    success = true;
+                },
+                error: function (valid) {
+                    $("#LoadUserPreferences").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-times-circle fa-2x');                    
+                    DisplayControllerError(valid);
+                }
+            });
+        } catch (e) {
+            DisplayControllerError(e);
+        }
+
+        return success;
+    }
+
+    function LoadUserDictionary() {
+        var success = false;
+
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadDictionary',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: null,
+                async: false,
+                success: function(valid) {
+                    $("#LoadUserDictionary").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                    success = true;
+                },
+                error: function (valid) {
+                    $("#LoadUserDictionary").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-times-circle fa-2x');
+                    DisplayControllerError(valid);
+                }
+            });
+        } catch (e) {
+            DisplayControllerError(e);
+        }
+
+        return success;
+    }
+
+    function LoadUserFirms() {
+        var success = false;
+
+        try {
+            $.ajax({
+                url: '/Login/Login/LoadUserFirms',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: null,
+                async: false,
+                success: function(valid) {
+                    $("#LoadUserFirms").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-check-circle fa-2x');
+                    success = true;
+                },
+                error: function (valid) {
+                    $("#LoadUserFirms").removeClass('fa fa-spinner fa-spin fa-2x').addClass('fa fa-times-circle fa-2x');
+                    DisplayControllerError(valid);
+                }
+            });
+        } catch (e) {
+            DisplayControllerError(e);
+        }
+
+        return success;
+    }
+
+    function onUserLoginLoad(e) {
+        setTimeout(function() {
+            LoadUser();
+            setTimeout(function () {
+                LoadUserPreference();
+                setTimeout(function () {
+                    LoadUserDictionary();
+                    setTimeout(function () {
+                        LoadUserFirms();
+                        setTimeout(function () {
+                            LoadUserSecurityProfile();
+                            setTimeout(LoadApplication, 1000);                
+                        }, 1000);
+                    }, 1000);
+                }, 1000);
+            }, 1000);
+        }, 1000);
+    }
+</script>

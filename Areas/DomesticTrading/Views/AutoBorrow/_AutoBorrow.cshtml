@@ -1,0 +1,1197 @@
+﻿@using BondFire.Entities.Projections
+@using BondFire.Entities
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+
+<script type="text/javascript">
+    var _autoBorrowSelectAll = false;
+    var _autoBorrowDisableRowChangeEvents = false;
+    var _autoBorrowSelectedRows = [];
+    var _autoBorrowSummarySelectedRows = [];
+    var _autoBorrowUpdateRows = [];
+    var _autoBorrowSuspendRefresh = false;
+    var _originalAutoBorrowGrid = null;
+    var _originalAutoBorrowSummaryGrid = null;
+    var _autoBorrowEditMode = false;
+    var _autoBorrowInterval = false;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalAutoBorrowGrid = $("#AutoBorrowGrid").data('kendoGrid').getOptions();
+            _originalAutoBorrowSummaryGrid = $("#AutoBorrowSummaryGrid").data('kendoGrid').getOptions();
+
+            LoadGridLayout("#AutoBorrowGrid");
+            LoadGridLayout("#AutoBorrowSummaryGrid");
+        }, 5);
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("AutoBorrowSummaryButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#AutoBorrowSummaryGrid", "AutoBorrowSummaryGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("AutoBorrowButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#AutoBorrowGrid", "AutoBorrowGrid", _autoBorrowSelectAll);
+                clientEvent2.setText(data2);
+            });
+        });
+              
+        autoBorrowInterval = setInterval("onBulkAutoBorrowUpdate()", 10000);
+    });
+
+    $('#AutoBorrowSummaryButton').hover (
+        function() { $(this).addClass('k-state-hover')},
+        function () { $(this).removeClass('k-state-hover') }
+        )
+
+    $('#AutoBorrowButton').hover(
+    function () { $(this).addClass('k-state-hover') },
+    function () { $(this).removeClass('k-state-hover') }
+    )
+
+
+
+    $("#AutoBorrowGrid").focusout(function () {        
+        _autoBorrowEditMode = false;
+    });
+
+    function BackupAutoBorrowRowSelection() {
+        try
+        {
+            var grid = $("#AutoBorrowGrid").data("kendoGrid");
+
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                _autoBorrowSelectedRows.push(selectedItem);
+            });
+        }
+        catch (e)
+        {
+
+        }
+    }
+
+    function RestoreAutoBorrowRowSelection() {
+        if (_autoBorrowSelectedRows.length != 0) {
+            for (var i = 0; i < _autoBorrowSelectedRows.length; i++) {
+                var currId = _autoBorrowSelectedRows[i].uid;
+
+                $('#AutoBorrowGrid').data("kendoGrid").tbody.find("tr[data-uid='" + currId + "']").addClass("k-state-selected");
+            }
+        }
+    }
+
+    function BackupAutoBorrowSummaryRowSelection() {
+        var grid = $("#AutoBorrowSummaryGrid").data("kendoGrid");
+
+        var rows = grid.select();
+
+        rows.each(function (index, row) {
+            var selectedItem = grid.dataItem(row);
+            _autoBorrowSummarySelectedRows.push(selectedItem);
+        });
+    }
+
+    function RestoreAutoBorrowSummaryRowSelection() {
+        if (_autoBorrowSummarySelectedRows.length != 0) {
+            for (var i = 0; i < _autoBorrowSummarySelectedRows.length; i++) {
+                var currId = _autoBorrowSummarySelectedRows[i].uid;
+
+                $('#AutoBorrowSummaryGrid').data("kendoGrid").tbody.find("tr[data-uid='" + currId + "']").addClass("k-state-selected");
+            }
+        }
+    }
+
+    function onAutoBorrowRequestEnd(e) {
+        traderHubProxy.on('updateAutoBorrowOrder', function (update) {
+            updateBorrowOrderRow(update);
+        });
+    }
+
+    function onAutoBorrowRequestStart(e) {
+        traderHubProxy.off('updateAutoBorrowOrder');
+    }
+
+    function onAutoBorrowSummaryRequestEnd(e) {
+        traderHubProxy.on('updateAutoBorrowOrderSummary', function (update) {
+            updateBorrowOrderSummaryRow(update);
+        });
+    }
+
+    function onAutoBorrowSummaryRequestStart(e) {
+        traderHubProxy.off('updateAutoBorrowOrderSummary');
+    }
+
+    function updateBorrowOrderSummaryRow(update) {
+        try {
+            var entity = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+
+            if (update.EntityId == entity) {
+                if ($("#AutoBorrowSummaryGrid").length) {
+                    var data = $("#AutoBorrowSummaryGrid").data("kendoGrid").dataSource;
+
+                    var dateTimeId = kendo.parseDate(update['DateTimeId']);
+                    update['DateTimeId'] = dateTimeId;
+
+                    data.pushUpdate(update);
+                }
+            }
+        }
+        catch (e) {
+            traderHubProxy.off('updateAutoBorrowOrderSummary');
+        }
+    }
+
+    function onBulkAutoBorrowUpdate(e) {
+
+        if (_autoBorrowEditMode == false) {
+            try
+            {
+                BackupAutoBorrowRowSelection();
+                _autoBorrowDisableRowChangeEvents = true;
+                _autoBorrowSuspendRefresh = true;
+
+                var _autoBorrowUpdateRowsCopy = _autoBorrowUpdateRows;
+
+                _autoBorrowUpdateRows = [];
+
+                $.each(_autoBorrowUpdateRowsCopy, function (i, obj) {
+                    if ($("#AutoBorrowGrid").length) {
+                        var data = $("#AutoBorrowGrid").data("kendoGrid").dataSource;
+
+                        data.pushUpdate(obj);                        
+                    }
+                });
+
+                _autoBorrowUpdateRowsCopy = [];
+
+                _autoBorrowSuspendRefresh = false;
+                $("#AutoBorrowGrid").data("kendoGrid").refresh();
+                ReInitVirtualScroll("#AutoBorrowGrid");
+                _autoBorrowDisableRowChangeEvents = false;
+
+                $('#AutoBorrowGrid').data('kendoGrid').refresh();
+                RestoreAutoBorrowRowSelection();
+            }
+            catch(e)
+            {             
+                clearInterval(_autoBorrowInterval);
+            }
+        }
+        else
+        {
+            console.log("Currently in edit mode, will waiting on udaptes");
+        }
+    }
+
+    function onAutoBorrowRowEdit(e) {
+        var entityGrid = $("#AutoBorrowGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if ((selectedItem.LoanStatusFlag == '@Convert.ToInt32(SL_AutoLoanOrderStatusFlag.Pending).ToString()')) {
+            _autoBorrowEditMode = true;
+            var input = e.container.find("input");
+            setTimeout(function () { input.select(); });
+        }
+        else {
+            $('#AutoBorrowGrid').data("kendoGrid").closeCell();
+        }
+    }
+
+    function onAutoBorrowRowSave(e) {
+        _autoBorrowEditMode = false;
+    }
+
+    function updateBorrowOrderRow(update) {
+        try {
+            var entity = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+
+            var entityGrid = $("#AutoBorrowSummaryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            $.each(update, function (i, obj) {
+                if ($("#AutoBorrowGrid").length) {
+                    if (selectedItem.ListName == update.ListName) {
+                        var data = $("#AutoBorrowGrid").data("kendoGrid").dataSource;
+
+                        var effectiveDate = kendo.parseDate(obj['EffectiveDate']);
+                        obj['EffectiveDate'] = effectiveDate;
+
+                        var dateTimeId = kendo.parseDate(obj['DateTimeId']);
+                        obj['DateTimeId'] = dateTimeId;
+
+                        _autoBorrowUpdateRows.push(obj);
+                    }
+                }
+            });
+        }
+        catch (e) {
+            traderHubProxy.off('updateAutoBorrowOrder');
+        }
+    }
+
+    function onAutoBorrowUpdateSmartRouteDataBound(e) {
+        this.trigger("change");
+    }
+
+    function onAutoBorrowUpdateSmartRouteSelect(e) {
+
+        var grid = $("#AutoBorrowGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["ContraEntityId"] = "";
+    }
+
+    function onAutoBorrowUpdateContraEntitySelect(e) {
+
+        var grid = $("#AutoBorrowGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["SmartRoute"] = -1;
+        selectedItem["SmartRouteName"] = "";
+    }
+
+    function onAutoBorrowSelectAll(e) {
+        try {
+            var autoBorrowGrid = $("#AutoBorrowGrid").data("kendoGrid");
+            autoBorrowGrid.select(autoBorrowGrid.tbody.find(">tr"));
+
+            _autoBorrowSelectAll = true;
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);        
+        }
+    }
+
+    function onAutoBorrowDefaultOptions() {
+        try {
+            HelperPartialWindow(
+                null,
+                'Auto Borrow Defaults',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoBorrowDefaultOptionsPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);           
+        }
+    }
+
+    function onAutoBorrowBulkUpdate(e) {
+        var dataItems = [];
+        var grid = $('#AutoBorrowGrid').data('kendoGrid');
+        var rows = grid.select();
+
+        dataItems = getDataItems('#AutoBorrowGrid',
+              _autoBorrowSelectAll,
+              '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+        HelperPartialWindow(
+        JSON.stringify({
+            items: dataItems
+        }),
+        'Bulk AutoBorrow Update',
+        0,
+        0,
+        '/DomesticTrading/SmartRoute/LoadBulkUpdatePartial');
+    }
+
+
+    function onAutoBorrowSummaryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Send':
+                onAutoBorrowSummarySend(true);
+                break;
+            case 'Cancel Pending':
+                onAutoBorrowSummaryCancel(true);
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#AutoBorrowSummaryGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#AutoBorrowSummaryGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#AutoBorrowSummaryGrid");
+
+                $("#AutoBorrowSummaryGrid").data('kendoGrid').setOptions(_originalAutoBorrowSummaryGrid);
+                $('#AutoBorrowSummaryGrid').data("kendoGrid").dataSource.read();
+                break;
+            case 'Export To Excel':
+                exportToAutoBorrowSummaryExcel();
+                break;
+
+            case 'Unsort':
+                onAutoBorrowUnsortGrid("#AutoBorrowSummaryGrid");
+                break;
+
+        }
+    }
+
+    function onAutoBorrowSummarySend(e)
+    {
+        var grid = $('#AutoBorrowSummaryGrid').data('kendoGrid');
+        var row = grid.select();
+        var selectedItem = grid.dataItem(row);
+
+        $.ajax({
+            url: '@Url.Action("Send_AutoBorrowList", "SmartRoute", new { area = "DomesticTrading" })',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                EntityId: selectedItem.EntityId,
+                ListName: selectedItem.ListName
+            }),
+            success: function(valid) {
+                DisplayControllerByStringError("Info", "Sent " + valid.length + " items.");
+            },
+            error: function(valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onAutoBorrowSummaryCancel(e) {
+        var grid = $('#AutoBorrowSummaryGrid').data('kendoGrid');
+        var row = grid.select();
+        var selectedItem = grid.dataItem(row);
+
+        $.ajax({
+            url: '@Url.Action("Cancel_AutoBorrowList", "SmartRoute", new { area = "DomesticTrading" })',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                EntityId: selectedItem.EntityId,
+                ListName: selectedItem.ListName
+            }),
+            success: function(valid) {
+                DisplayControllerByStringError("Info", "Canceled " + valid.length + " items.");
+            },
+            error: function(valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function exportToAutoBorrowSummaryExcel() {
+
+        try {
+            KendoGridToCSVConvertor("#AutoBorrowSummaryGrid", 'AutoBorrowSummary', false);
+        }
+        catch (e) {
+            DisplayControllerByStringError("Error", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onAutoBorrowSummaryLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#AutoBorrowSummaryGrid");
+        }, 5);
+    }
+
+    function onAutoBorrowLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#AutoBorrowGrid");
+        }, 5);
+    }
+
+    function onAutoBorrowContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Send':
+                onAutoBorrowSend(true);
+                break;
+
+            case 'Cancel':
+                onAutoBorrowCancel(true);
+                break;
+
+            case 'Clone':
+                onAutoBorrowMirror(true);
+                break;
+
+            case 'Bulk Update':
+                onAutoBorrowBulkUpdate(true);
+                break;
+
+            case 'Refresh Data':
+                onAutoBorrowChange();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#AutoBorrowGrid");
+                break;
+
+            case 'Unsort':
+                onAutoBorrowUnsortGrid("#AutoBorrowGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#AutoBorrowGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#AutoBorrowGrid");
+
+                $("#AutoBorrowGrid").data('kendoGrid').setOptions(_originalAutoBorrowGrid);
+                $('#AutoBorrowGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Select All':
+                onAutoBorrowSelectAll(e);
+                break;
+
+            case 'Export To Excel':
+                exportToAutoBorrowExcel();
+                break;
+        }
+    }
+
+    function onAutoBorrowUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onAutoBorrowSend(e) {
+
+
+        var grid = $('#AutoBorrowGrid').data('kendoGrid');
+        var dataItems = [];
+
+        traderHubProxy.off('updateAutoBorrowOrder');
+
+        dataItems = getDataItems('#AutoBorrowGrid',
+                _autoBorrowSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+        _autoBorrowDisableRowChangeEvents = true;
+
+        $.ajax({
+            url: '@Url.Action("Send", "SmartRoute", new { area = "DomesticTrading" })',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ list: dataItems }),
+            success: function(valid) {
+                DisplayControllerByStringError("Info", "Sent " + dataItems.length + " items.");
+
+                grid.dataSource.read();
+                _autoBorrowDisableRowChangeEvents = false;
+                traderHubProxy.on('updateAutoBorrowOrder', function (update) {
+                    updateBorrowOrderRow(update);
+                });
+            },
+            error: function(valid) {
+                DisplayControllerError(valid);
+                _autoBorrowDisableRowChangeEvents = false;
+                grid.dataSource.read();
+                traderHubProxy.on('updateAutoBorrowOrder', function (update) {
+                    updateBorrowOrderRow(update);
+                });
+            }
+        });
+
+
+    }
+
+    function onAutoBorrowCancel(e) {
+        var grid = $('#AutoBorrowGrid').data('kendoGrid');
+        var dataItems = [];
+
+        dataItems = getDataItems('#AutoBorrowGrid',
+                _autoBorrowSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+        _autoBorrowDisableRowChangeEvents = true;
+        traderHubProxy.off('updateAutoBorrowOrder');
+
+        $.ajax({
+            url: '@Url.Action("Cancel", "SmartRoute", new { area = "DomesticTrading" })',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ list: dataItems }),
+            success: function(valid) {
+                DisplayControllerByStringError("Info", "Canceled " + dataItems.length + " items.");
+                _autoBorrowDisableRowChangeEvents = false;
+                grid.dataSource.read();
+                traderHubProxy.on('updateAutoBorrowOrder', function (update) {
+                    updateBorrowOrderRow(update);
+                });
+            },
+            error: function(valid) {
+                DisplayControllerError(valid);
+                _autoBorrowDisableRowChangeEvents = false;
+                grid.dataSource.read();
+                traderHubProxy.on('updateAutoBorrowOrder', function (update) {
+                    updateBorrowOrderRow(update);
+                });
+            }
+        });
+
+
+    }
+
+    function onAutoBorrowMirror(e) {
+        var dataItems = [];
+        var grid = $('#AutoBorrowGrid').data('kendoGrid');
+        var rows = grid.select();
+
+        _autoBorrowDisableRowChangeEvents = true;
+        dataItems = getDataItems('#AutoBorrowGrid',
+                _autoBorrowSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoBorrowMaxItems","1000")');
+
+        $.ajax({
+            url: '@Url.Action("Mirror", "SmartRoute", new { area = "DomesticTrading" })',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ list: dataItems }),
+            success: function (valid) {
+                _autoBorrowDisableRowChangeEvents = false;
+                DisplayControllerByStringError("Info", "Cloned " + dataItems.length + " items.");
+            },
+            error: function (valid) {
+                _autoBorrowDisableRowChangeEvents = false;
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function exportToAutoBorrowExcel() {
+        try {
+            KendoGridToCSVConvertor("#AutoBorrowGrid", 'AutoBorrow', _autoBorrowSelectAll);
+        }
+        catch (e) {
+            DisplayControllerByStringError("Error", e.message);          
+        }
+    }
+
+    function onAutoBorrowChange() {
+        _autoBorrowSelectedRows = [];
+        _autoBorrowSelectAll = false;
+
+        $("#AutoBorrowSummaryGrid").data("kendoGrid").dataSource.read();
+        $("#AutoBorrowGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onAutoBorrowSummaryRowChange(e) {
+        _autoBorrowSummarySelectedRows = [];
+
+        $("#AutoBorrowGrid").data("kendoGrid").dataSource.read();
+
+        BackupAutoBorrowSummaryRowSelection();
+    }
+
+    function onAutoBorrowRowChange(e) {
+        e.preventDefault();
+
+        _autoBorrowSelectedRows = [];
+
+        var tab = $("#MainTabStrip").data("kendoTabStrip").select();
+
+        if (tab.text() == 'Auto Borrow') {
+            if (_autoBorrowDisableRowChangeEvents == false) {
+                try {
+                    var entityGrid = $("#AutoBorrowGrid").data("kendoGrid");
+                    var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                    if (selectedItem != null) {
+                        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                        var entityId = selectedItem["EntityId"];
+                        var effectiveDate = selectedItem["EffectiveDate"];
+                        var securityNumber = selectedItem["SecurityNumber"];
+                        var issueId = selectedItem["IssueId"];
+
+                        SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+
+                        if (selectedItem.BorrowStatus == '@Convert.ToInt32(StatusMain.Pending)') {
+                            EnableContextMenuItem("#AutoBorrowContextMenu", "Send", true);
+                            EnableContextMenuItem("#AutoBorrowContextMenu", "Cancel", true);
+                        }
+                        else {
+                            EnableContextMenuItem("#AutoBorrowContextMenu", "Send", false);
+                            EnableContextMenuItem("#AutoBorrowContextMenu", "Cancel", false);
+                        }
+
+                        _autoBorrowSelectAll = false;
+                        BackupAutoBorrowRowSelection();
+                    }
+                }
+                catch (e) {
+                    DisplayControllerByStringError("Error", e.message);                   
+                }
+            }
+        }
+    }
+
+    function onAutoBorrowDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#AutoBorrowDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#AutoBorrowSummaryGrid').data("kendoGrid").dataSource.read();
+                    $('#AutoBorrowGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);        
+        }
+    }
+
+    function onAutoBorrowError(e) {
+        console.log(e.message);
+    }
+
+    function clickAutoBorrowCheck(e) {
+        var $cb = $(e);
+        var checked = $cb.is(':checked');
+
+        var grid = $("#AutoBorrowGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["IncomeTracked"] = checked;
+    }
+
+    function onAutoBorrowCheckData(e) {
+        try {
+            CheckGridData('#AutoBorrowGrid');
+        }
+        catch (err) {
+            LogError(err.message);
+        }
+
+        ReInitVirtualScroll("#AutoBorrowGrid");
+        RestoreAutoBorrowRowSelection();
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#AutoBorrowSummaryGrid");
+        RefreshGrid("#AutoBorrowGrid");
+    });
+
+    function onAutoBorrowSummaryCheckData() {
+        try {
+            CheckGridData('#AutoBorrowSummaryGrid');
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);        
+        }
+
+        RestoreAutoBorrowSummaryRowSelection();
+    }
+
+    function additionalAutoBorrowSummaryData() {
+        var datepicker = $("#AutoBorrowCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId : entityId
+        }
+    }
+
+    function additionalAutoBorrowData() {
+        var datepicker = $("#AutoBorrowCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+        var listName = "";
+
+        try
+        {
+            var entityGrid = $("#AutoBorrowSummaryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            listName = selectedItem["ListName"];
+        }
+        catch (e) {
+            listName = "";
+        }
+
+        return {
+            effectiveDate: value,
+            entityId : entityId,
+            listName: listName
+        }
+    }
+
+    function additionalAutoBorrowEntityData() {
+        var entityId = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+    function onAutoBorrowRowEdit(e) {
+        var entityGrid = $("#AutoBorrowGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if (selectedItem.BorrowStatus == '@Convert.ToInt32(StatusMain.Pending)') {
+            var input = e.container.find("input");
+            _autoBorrowEditMode = true;
+            console.log('in edit mode');
+            setTimeout(function () { input.select(); });
+        }
+        else {
+            $('#AutoBorrowGrid').data("kendoGrid").closeCell();
+        }
+    }
+
+    function onAutoBorrowScratchPad() {
+        try {
+            HelperPartialWindow(
+                JSON.stringify(null),
+                'Scratch pad',
+                700,
+                600,
+                '/DomesticTrading/SmartRoute/LoadScratchpad'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+        }
+    }
+
+    function onAutoBorrowDataBinding(e) {
+       if (_autoBorrowSuspendRefresh) {
+            e.preventDefault();
+        }
+    }
+
+
+    function ReInitVirtualScroll(e) {
+        var grid = $(e).data("kendoGrid");
+        grid._rowHeight = undefined;
+        grid.virtualScrollable.refresh();
+    }
+
+    function onAutoBorrowDefaultOptions() {
+        try {
+            HelperPartialWindow(
+                null,
+                'Auto Borrow Defaults',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoBorrowDefaultOptionsPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);           
+        }
+    }
+
+    function onAutoBorrowHistorySummaryReportButton() {
+        var datepicker = $("#AutoBorrowCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+
+        try {
+            HelperPartialWindow(
+                JSON.stringify({
+                    effectiveDate: value,
+                    entityId: entityId
+                }),
+                'Auto Borrow Approval History',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoBorrowsHsitorySummaryPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+        }
+    }
+
+
+
+    function onAutoBorrowRowSave(e) {
+        _autoBorrowEditMode = false;
+        console.log('Edit mode turned off');
+    }
+
+    function onAutoBorrowProduceReportButton(e) {
+
+        var datepicker = $("#AutoBorrowCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#AutoBorrowDropdownList").data("kendoDropDownList").value();
+
+        var reportType = $("#AutoBorrowReportTypeDropdownList").data("kendoDropDownList").value();
+
+        window.location = '/DomesticTrading/SmartRoute/ExportAutoBorrowToExcel?effectiveDate=' + value + '&entityId=' + entityId + '&reportType=' + reportType;
+    }
+
+</script>
+    @(
+ Html.Kendo().ToolBar()
+    .Name("AutoBorrowHeaderToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("AutoBorrowCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "width90" })
+            .Events(events => events.Change("onAutoBorrowChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+                .Name("AutoBorrowDropdownList")                
+                .DataTextField("Custodian")
+                .DataValueField("CompanyId")
+                .OptionLabel(LabelHelper.Text("OptionLabel"))
+                .AutoBind(true)
+                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                .Events(events => events.Change("onAutoBorrowChange").DataBound("onAutoBorrowDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                .DataSource(dataSource => dataSource
+                .Read(read => read
+                .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                .SelectedIndex(0).ToHtmlString());
+
+
+        items.Add().Template(Html.Kendo().Button()
+                          .Name("AutoBorrowDefaultOptionButton")
+                  .Events(e => e.Click("onAutoBorrowDefaultOptions"))
+                  .Content(LabelHelper.Text("DefaultOptions")).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button()
+                            .Name("AutoBorrowScratchPadButton")
+                    .Events(e => e.Click("onAutoBorrowScratchPad"))
+                    .Content(LabelHelper.Text("AutoBorrowScratchPad")).ToHtmlString());
+
+
+        items.Add().Template( LabelHelper.Label( "ReportType" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DropDownListFor( m => m )
+            .Name( "AutoBorrowReportTypeDropdownList" )
+            .HtmlAttributes( new { @class = "width100", data_value_primitive = true } )
+            .BindTo( Enum.GetNames( typeof( AutoActionReportTypeEnums ) ).AsEnumerable() )
+            .Value( AutoActionReportTypeEnums.Filled.ToString() ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().Button()
+                        .Name( "AutoBorrowProduceReportButton" )
+                .Events( e => e.Click( "onAutoBorrowProduceReportButton" ) )
+                .Content( LabelHelper.Text( "AutoBorrowProduceReport" ) ).ToHtmlString() );
+
+        items.Add().Template(Html.Kendo().Button()
+                        .Name("AutoBorrowHistorySummaryButton")
+                .Events(e => e.Click("onAutoBorrowHistorySummaryReportButton"))
+                .Content(LabelHelper.Text("AutoBorrowHistorySummary")).ToHtmlString());
+
+    }))
+
+<hr class="hr-white">
+
+<div id="AutoBorrowSummaryContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("AutoBorrowSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        {
+            panes.Add()
+                .Collapsible(false)
+                .Size("30%")
+                .Scrollable(false)
+                .Content(@<text>
+    @(Html.Kendo().Grid<SL_AutoBorrowOrderSummaryProjection>()
+    .Name("AutoBorrowSummaryGrid")
+    .Sortable(sort =>
+    {
+        sort.AllowUnsort(true);
+        sort.Enabled(true);
+        sort.SortMode(GridSortMode.MultipleColumn);
+    })
+    .Scrollable()
+    .Filterable()
+    .Navigatable()
+    .NoRecords()
+     .HtmlAttributes(new { @class = "grid" })
+    .Reorderable(reorder => reorder.Columns(true))
+    .ColumnMenu(menu =>
+    {
+        menu.Columns(true);
+        menu.Filterable(true);
+        menu.Sortable(true);
+        menu.ComponentType( "modern" );
+    } )
+    .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))
+    .Events(events =>
+    {
+        events.Change("onAutoBorrowSummaryRowChange");
+        events.DataBound("onAutoBorrowSummaryCheckData");
+        events.Edit( "onAutoBorrowRowEdit" );
+        events.Save( "onAutoBorrowRowSave" );
+        events.ColumnHide("onAutoBorrowSummaryLayoutChange");
+        events.ColumnShow("onAutoBorrowSummaryLayoutChange");
+        events.ColumnResize("onAutoBorrowSummaryLayoutChange");
+        events.ColumnReorder("onAutoBorrowSummaryLayoutChange");
+    })
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.ListName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+
+        cols.Bound(x => x.NunberOfItemsRequested).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        cols.Bound(x => x.NotionalAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "");
+
+        cols.Bound(x => x.PendingItemCount).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        cols.Bound(x => x.TransmittedItemCount).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        cols.Bound(x => x.ApprovedItemCount).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        cols.Bound(x => x.ApprovedItemCountAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "");
+        cols.Bound(x => x.ErrorItemCount).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        cols.Bound(x => x.TotalItemCount).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        cols.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+    })
+    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+    .DataSource(ds => ds.Ajax()
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Model(model => model.Id("ListName"))
+        .Read(read => read.Action("Read_AutoBorrowSummary", "SmartRoute", new { area = "DomesticTrading" }).Data("additionalAutoBorrowSummaryData"))
+        .Events(events =>
+        {
+            events.RequestStart("onAutoBorrowSummaryRequestStart");
+            events.RequestEnd("onAutoBorrowSummaryRequestEnd");
+        })
+        .Aggregates(agg =>
+        {
+            agg.Add(x => x.PendingItemCount).Sum();
+            agg.Add(x => x.NotionalAmount).Sum();
+            agg.Add(x => x.NunberOfItemsRequested).Sum();
+            agg.Add(x => x.ApprovedItemCount).Sum();
+            agg.Add(x => x.ApprovedItemCountAmount).Sum();
+            agg.Add(x => x.TransmittedItemCount).Sum();
+            agg.Add(x => x.ErrorItemCount).Sum();
+            agg.Add(x => x.TotalItemCount).Sum();
+        })))</text>);
+
+            panes.Add()
+                .Collapsible(false)
+                .Size("70%")
+                .Scrollable(false)
+                .Content(@<text>
+    @(
+ Html.Kendo().Grid<SL_AutoBorrowOrderProjection>()
+    .Name( "AutoBorrowGrid" )
+    .HtmlAttributes(new { @class = "grid" })
+    .Sortable( sort =>
+    {
+        sort.AllowUnsort( true );
+        sort.Enabled( true );
+        sort.SortMode( GridSortMode.MultipleColumn );
+    } )
+    .Filterable()
+    .Scrollable(scroll => scroll.Virtual(true))
+    .NoRecords()
+    .Reorderable( reorder => reorder.Columns( true ) )
+    .ColumnMenu( menu =>
+    {
+        menu.Columns( true );
+        menu.Filterable( true );
+        menu.Sortable( true );
+        menu.ComponentType( "modern" );
+    } )
+       .Pageable(pagable =>
+       {
+           pagable.Numeric(false);
+           pagable.PreviousNext(false);
+           pagable.Messages(config =>
+           {
+               config.Display("Showing {2} contract(s)");
+           });
+       })
+    .Editable( edit => edit.Mode( GridEditMode.InCell ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLAutoBorrow ) ) )
+    .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ) )
+    .Events( events =>
+    {
+        events.Change( "onAutoBorrowRowChange" );
+        events.DataBound( "onAutoBorrowCheckData" );
+        events.DataBinding( "onAutoBorrowDataBinding" );
+        events.Edit( "onAutoBorrowRowEdit" );
+        events.Save( "onAutoBorrowRowSave" );
+        events.ColumnHide( "onAutoBorrowLayoutChange" );
+        events.ColumnShow( "onAutoBorrowLayoutChange" );
+        events.ColumnResize( "onAutoBorrowLayoutChange" );
+        events.ColumnReorder( "onAutoBorrowLayoutChange" );
+    } )
+    .Columns( cols =>
+    {
+        cols.Bound( x => x.SLAutoBorrowOrder ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.ListName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.AutoBorrowOrderRequest ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        cols.Bound( x => x.AutoBorrowOrderSystem ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.EntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.SmartRouteId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.SmartRouteName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "_AutoBorrowUpdateSmartRouteDropdown" );
+        cols.Bound( x => x.ContraEntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "_AutoBorrowUpdateContraEntityAutoComplete" );
+        cols.Bound( x => x.IssueId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        cols.Bound( x => x.Ticker ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        cols.Bound(x => x.ISIN).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.OccEligible).GetColumnFormat(ColumnTypeEnum.String, false, "<input disabled type='checkbox'   #= (OccEligible) ? checked ='checked' : '' #/>", "");
+        cols.Bound( x => x.MaxPrice ).GetColumnFormat( ColumnTypeEnum.Rate, false, "", "DecimalNumber" );
+        cols.Bound( x => x.Quantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "QuantityDecimalNumber" );
+        cols.Bound( x => x.MinQuantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(MinQuantity)#", "QuantityDecimalNumber" );
+        cols.Bound( x => x.MinRebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(MinRebateRate)#", "RebateRateDecimalNumber" );
+        cols.Bound( x => x.MinRebateRateId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "String" );
+        cols.Bound( x => x.Mark ).GetColumnFormat( ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "RebateRateDecimalNumber" );
+        cols.Bound( x => x.MarkParameterId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.ProfitId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "String" );
+        cols.Bound( x => x.CollateralFlag ).GetColumnFormat( ColumnTypeEnum.String, false, "", "_CollateralFlagDropdown" ).Hidden( true );
+        cols.Bound( x => x.DividendRate ).GetColumnFormat( ColumnTypeEnum.Margin, false, "", "DecimalNumber" );
+        cols.Bound( x => x.IncomeTracked ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox' onClick='clickAutoBorrowCheck(this)' #= (IncomeTracked) ? checked ='checked' : '' #/>", "" ).Filterable( false );
+        cols.Bound( x => x.Comment ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.TimeOut ).GetColumnFormat( ColumnTypeEnum.Position, false, "", "" ).Filterable( false );
+        cols.Bound( x => x.AddToLoanetId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Filterable( false ).Hidden( true );
+        cols.Bound( x => x.BatchCode ).GetColumnFormat( ColumnTypeEnum.String, false, "", "String" ).Hidden( true );
+        cols.Bound( x => x.AutoBorrowOrderRequest ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.AutoBorrowOrderResponse ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.AutoBorrowOrderSystem ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.BorrowStatus ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( false );
+        cols.Bound( x => x.BorrowStatusFlag ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        cols.Bound( x => x.SubmissionType ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.DateTimeId ).GetColumnFormat( ColumnTypeEnum.Time, false, "", "" );
+    } )
+    .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+    .DataSource( ds => ds.Ajax()
+        .PageSize(30)
+        .ServerOperation( false )
+        .AutoSync(true)
+        .Sort(sort =>
+        {
+            sort.Add( x => x.SLAutoBorrowOrder );
+        })
+        .Read( read => read.Action( "Read_AutoBorrow", "SmartRoute", new { area = "DomesticTrading" } ).Data( "additionalAutoBorrowData" ) )
+        .Update( update => update.Action( "UpdateAutoBorrow", "SmartRoute", new { area = "DomesticTrading" } ) )
+        .Create( create => create.Action( "UpdateAutoBorrow", "SmartRoute", new { area = "DomesticTrading" } ) )
+        .Events( events =>
+        {
+            events.RequestStart( "onAutoBorrowRequestStart" );
+            events.RequestEnd( "onAutoBorrowRequestEnd" );
+            events.Error("onAutoBorrowError");
+        } )
+        .Aggregates( agg =>
+        {
+            agg.Add( x => x.MinQuantity ).Sum();
+            agg.Add( x => x.Quantity ).Sum();
+        } )
+        .PageSize(100)
+        .Model( model =>
+        {
+            model.Id( x => x.SLAutoBorrowOrder );
+            model.Field( x => x.SLAutoBorrowOrder ).Editable( false );
+            model.Field( x => x.EntityId ).Editable( false );
+            model.Field( x => x.IssueId ).Editable( false );
+            model.Field( x => x.SecurityNumber ).Editable( false );
+            model.Field( x => x.Ticker ).Editable( false );
+            model.Field(x => x.ISIN).Editable(false);
+            model.Field(x => x.Sedol).Editable(false);
+            model.Field(x => x.Quick).Editable(false);            
+            model.Field(x => x.OccEligible).Editable(false);
+            model.Field( x => x.AutoBorrowOrderRequest ).Editable( false );
+            model.Field( x => x.AutoBorrowOrderResponse ).Editable( false );
+            model.Field( x => x.AutoBorrowOrderSystem ).Editable( false );
+            model.Field( x => x.BorrowStatus ).Editable( false );
+            model.Field( x => x.BorrowStatusFlag ).Editable( false );
+            model.Field( x => x.IncomeTracked ).Editable( false );
+            model.Field( x => x.DateTimeId ).Editable( false );
+        } ) ))
+
+            </text>);
+        })
+)
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("AutoBorrowSummaryContextMenu")
+    .Target("#AutoBorrowSummaryGrid")
+    .Events(events => events.Select("onAutoBorrowSummaryContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Send").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+        items.Add().Text("Cancel Pending").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "AutoBorrowSummaryButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    }))
+
+
+
+
+@(Html.Kendo().ContextMenu()
+.Name("AutoBorrowContextMenu")
+    .Target("#AutoBorrowGrid")
+    .Events(events => events.Select("onAutoBorrowContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Send").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+        items.Add().Text("Cancel").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+        items.Add().Text("Clone").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+        items.Add().Text("Bulk Update").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoBorrow));
+        items.Add().Separator(true);
+        items.Add().Text("Refresh Data").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "AutoBorrowButton" })  ;
+        items.Add().Text("Export To Excel").Enabled(true);
+
+    }))

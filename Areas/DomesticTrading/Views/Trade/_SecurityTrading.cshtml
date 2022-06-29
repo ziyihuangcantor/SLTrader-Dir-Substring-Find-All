@@ -1,0 +1,54 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model List<SLTrader.Models.SecurityTradingModel>
+
+
+    <script>
+        $("#SecTradingBlock").dblclick(function () {
+            onContractLoad();
+        });
+
+        function onContractLoad() {
+            try {
+
+            }
+            catch (e) { }
+        }
+    </script>
+    <div id="SecTradingBlock" align="center">        
+        @(
+    Html.Kendo().Grid(Model)
+    .Name("SecurityTradingModelGrid")
+    .HtmlAttributes(new {@class="grid" })
+    .NoRecords()
+    .Scrollable()
+    .Columns(cols =>
+    {
+        cols.Bound(x => x.ST_IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        cols.Bound(x => x.ST_EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        cols.Bound(x => x.ST_TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "","");
+        cols.Bound(x => x.ST_Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+        cols.Bound(x => x.ST_Amount).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+        cols.Bound(x => x.ST_AverageRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(ST_AverageRate)#", "");
+    })
+    .ClientRowTemplate(
+           "<tr data-uid='#: uid #'>" +
+           "<td class ='ST_EntityType'><span class='ST_EntityType'>#: ST_EntityType.toString() #</span></td>" +
+           "<td class ='ST_TradeType'><span class='ST_TradeType'>#: ST_TradeType.toString() #</span></td>" +
+           "<td class ='ST_Quantity'><span class='ST_Quantity'>#: ST_Quantity.toString() #</span></td>" +
+           "<td class ='ST_Amount'><span class='ST_Amount'>#: ST_Amount #</span></td>" +
+           "<td class ='ST_Amount'><span class='ST_AverageRate'>#: ST_AverageRate #</span></td>" +
+           "</tr>")
+    .DataSource(ds =>
+    {
+        ds.Ajax().ServerOperation(false);
+    }))
+    </div>
+
+<style>    
+</style>

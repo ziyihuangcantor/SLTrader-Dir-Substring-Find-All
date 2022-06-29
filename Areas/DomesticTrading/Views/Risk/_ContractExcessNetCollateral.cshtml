@@ -1,0 +1,274 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Tools
+
+
+<script type="text/javascript">
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#ContractExcessNetDetails");
+    });
+
+
+    function onExcessChange() {
+        $('#ContractExcessNetSummaryDetails').data('kendoGrid').dataSource.read();
+    }
+
+    function onExcessCheckData() {
+        CheckGridData('#ContractExcessNetDetails');
+    }
+
+    function onExcessSummaryCheckData() {
+        CheckGridData('#ContractExcessNetSummaryDetails');
+    }
+
+
+    function additionalExcessSummaryData() {
+
+        var datepicker = $("#ContractExcessCalander").data("kendoDatePicker");
+        var effectiveDate = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#ContractExcessDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: effectiveDate,
+            entityId: entity,
+        }
+    }
+
+    function additionalExcessData() {
+        var entityGrid = $("#ContractExcessNetSummaryDetails").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var effectiveDate = selectedItem["EffectiveDate"];
+        var entityId = selectedItem["EntityId"];
+        var contraEntity = selectedItem["ContraEntity"];
+        var collateralFlag = selectedItem["CollateralFlag"];
+        var currencyCode = selectedItem["CurrencyCode"];
+
+
+        return {
+            effectiveDate: effectiveDate,
+            entityId: entity,
+            contraEntity: contraEntity,
+            collateralFlag: collateralFlag,
+            currencyCode: currencyCode
+        }
+    }
+
+
+    function onExcessSummaryRowChange() {
+        $('#ContractExcessNetDetails').data('kendoGrid').dataSource.read();
+    }
+
+    function onExcessDefaultLoad() {
+        try {
+            var UserPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    UserPreference = valid;
+
+                    var dropdownList = $('#ContractExcessDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == UserPreference.DefaultFirm;
+                    });
+
+                    $('#ContractExcessNetSummaryDetails').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    UserPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onExcessError(err) {
+        console.log(e.message);
+    }
+
+    function onExcessRowChange() {
+        //not working due to multi-layer models
+    }
+
+
+    function onContractExcessContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Export To Excel':
+                exportToExcessNetExcel();
+                break;
+        }
+    }
+
+    function exportToExcessNetExcel() {
+        KendoGridToCSVConvertor("#ContractExcessNetDetails", 'ContractExcessNetDetails');
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("ExcessNetToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("ContractExcessCalander")
+                                .Format("yyyy-MM-dd")
+                                .Value(DateTime.Now)
+                            .HtmlAttributes(new { @class = "width90" })
+                                .Events(events => events.Change("onExcessChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("ContractExcessDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .AutoBind(true)
+                            .Events(events => events.Change("onExcessChange").DataBound("onExcessDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Events(events => events.Error("onExcessError"))
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+<div id="ContractExcessContent" class="grid-div">
+
+    @(Html.Kendo().Splitter()
+        .Name( "ExcessNetsSplitter" )
+        .HtmlAttributes( new { @class = "grid" } )
+        .Orientation( SplitterOrientation.Vertical )
+        .Panes( panes =>
+        {
+            panes.Add()
+                .Collapsible( false )
+                .Size( "20%" )
+                .Scrollable( false )
+                .Content( @<text>
+
+    @(Html.Kendo().Grid<ExcessCollateralSummaryModel>()
+        .Name( "ContractExcessNetSummaryDetails" )
+        .HtmlAttributes( new { @class = "grid" } )
+        .Sortable()
+        .Scrollable()
+        .Filterable()
+        .Navigatable()
+        .Events( events => events.Change( "onExcessSummaryRowChange" ).DataBound( "onExcessSummaryCheckData" ) )
+        .Selectable( selectable => selectable
+        .Mode( GridSelectionMode.Multiple )
+        .Type( GridSelectionType.Row ) )
+        .NoRecords()
+        .Columns( columns =>
+        {
+            columns.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.EntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.ContraEntity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.AccountName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.CurrencyCode ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.CollateralFlag ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.BorrowBalance ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(BorrowBalance)#", "" );
+            columns.Bound( x => x.MoneyOut ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(MoneyOut)#", "" );
+            columns.Bound( x => x.LoanBalance ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(BorrowBalance)#", "" );
+            columns.Bound( x => x.MoneyIn ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(BorrowBalance)#", "" );
+            columns.Bound( x => x.Total ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(Total)#", "" );
+        } )
+        .ColumnMenu( menu =>
+        {
+            menu.Columns( false );
+            menu.Filterable( true );
+            menu.Sortable( false );
+            menu.ComponentType( "modern" );
+        } )
+        .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+        .DataSource( dataSource => dataSource
+            .Ajax()
+            .Aggregates( agg =>
+            {
+                agg.Add( x => x.Total ).Sum();
+            } )
+            .ServerOperation( false )
+                    .Read( read => read.Action( "Read_ExcessNetCollateralSummary", "Risk", new { Area = "DomesticTrading" } ).Data( "additionalExcessSummaryData" ) )
+            .Events( events => events.Error( "onExcessError" ) ) ))
+
+
+            </text> );
+
+         panes.Add()
+                .Collapsible( false )
+                .Size( "70%" )
+                .Scrollable( false )
+                .Content( @<text>
+        @(Html.Kendo().Grid<ExcessCollateralModel>()
+        .Name( "ContractExcessNetDetails" )
+        .HtmlAttributes( new { @class = "grid" } )
+        .Sortable()
+        .Scrollable()
+        .Filterable()
+        .Navigatable()
+        .AutoBind(false)
+        .Events( events => events.Change( "onExcessRowChange" ).DataBound( "onExcessCheckData" ) )
+        .Selectable( selectable => selectable
+                        .Mode( GridSelectionMode.Multiple )
+                        .Type( GridSelectionType.Row ) )
+        .Columns( columns =>
+        {
+            columns.Bound( x => x.Contract.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.Contract.EntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.Contract.ContraEntity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Contract.ContractNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound(x => x.Contract.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound( x => x.Contract.IssueId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.Contract.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Contract.Ticker ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Contract.Classification ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            columns.Bound( x => x.Contract.Quantity ).GetColumnFormat( ColumnTypeEnum.Position, false, "#=GetPositionDirection(Contract.Quantity)#", "" );
+            columns.Bound( x => x.Contract.Amount ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(Contract.Amount)#", "" );
+            columns.Bound( x => x.Contract.RebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(Contract.RebateRate)#", "" );
+            columns.Bound( x => x.Contract.RebateRateId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.Contract.Mark ).GetColumnFormat( ColumnTypeEnum.Margin, false, "#=GetRateDirection(Contract.Mark)#", "" );
+            columns.Bound( x => x.Contract.MarkParameterId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            columns.Bound( x => x.MarkValue ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(MarkValue)#", "" );
+            columns.Bound( x => x.Difference ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(Difference)#", "" );
+        } )
+       .ColumnMenu( menu =>
+       {
+           menu.Columns( false );
+           menu.Filterable( true );
+           menu.Sortable( false );
+           menu.ComponentType( "modern" );
+       } )
+       .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) ).DataSource( dataSource => dataSource
+       .Ajax()
+       .Aggregates( agg =>
+       {
+           agg.Add( x => x.Difference ).Sum();
+       } )
+       .ServerOperation( false )
+            .Read( read => read.Action( "Read_ExcessNetCollateral", "Risk", new { Area = "DomesticTrading" } ).Data( "additionalExcessData" ) )
+       .Events( events => events.Error( "onExcessError" ) )))
+        </text> );
+    } ))
+</div>
+
+@(Html.Kendo().ContextMenu()
+    .Name("ExcessNetContextMenu")
+    .Target("#ContractExcessNetDetails")
+    .Events(events => events.Select("onContractExcessContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Export To Excel");
+    }))

@@ -1,0 +1,668 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<style scoped>
+    .label {
+        padding-left: 5px;
+    }
+</style>
+<script>
+
+    var borrowExcessChecked = false;
+
+    $(document).ready(function () {
+    });
+
+
+    function onPendHoldDefaultLoad(e) {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $("#PendHoldDropdownList").data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $("#BorrowExcessGrid").data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function onPendHoldCheckData() {
+        CheckGridData('#BorrowExcessGrid');
+    }
+
+    function onCallbackByIssueCheckData(e) {
+        CheckGridData('#CallbackByIssueGrid');
+
+        disableRowButtons();
+    }
+
+    function onLoanCallbackByIssueCheckData(e) {
+        CheckGridData('#LoanCallbackByIssueGrid');
+    }
+
+    function onPendHoldChange(e) {
+        $("#BorrowExcessGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onPendHoldRowChange() {
+
+    }
+
+    function onBorrowExcessAdditionalData(e) {
+        var datepicker = $("#PendHoldCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#PendHoldDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entity
+        };
+    }
+
+    function onBorrowCallbackAdditionalData(e) {
+        var entityGrid = $("#BorrowExcessGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var entityId = selectedItem["EntityId"];
+        var effectiveDate = selectedItem["EffectiveDate"];
+        var issueId = selectedItem["IssueId"];
+
+
+        if (borrowExcessChecked == true) {
+            issueId = null;
+        }
+
+        return {
+            effectiveDate: effectiveDate,
+            entityId: entityId,
+            issueId: issueId
+        }
+    }
+
+    function onBorrowExcessContextMenuSelect(e)
+    {
+        switch ($(e.item).children(".k-link").text()) {
+            case "Refresh Data":
+                onPendHoldChange();
+                break;
+
+            case "Pend":
+                onBorrowCallbackAllocate();
+                break;
+
+            case "Release All":
+                BorrowReleaseAll();
+                break;
+
+            case "Cancel Recall(s)":
+                onBorrowExcessCancelRecall();
+                break;
+
+            case "Unsort":
+                onBoxCalculationUnsortGrid("#BoxCalculationSummary");
+                break;
+
+            case "Select All":
+                boxSummarySelectAll(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#BoxCalculationSummary");
+                break;
+
+
+
+            case "Reset Grid":
+                ResetUserLayout("#BoxCalculationSummary");
+                $('#BoxCalculationSummary').data('kendoGrid').setOptions(_originalBoxGrid);
+                break;
+
+            case "Export To Excel":
+                exportToBoxSummaryExcel();
+                break;
+        }
+    }
+
+
+    function onBorrowCallbackAllocate() {
+        var grid = $('#BorrowExcessGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var selectedItem = grid.dataItem(grid.select());
+
+
+        $.ajax({
+            url: "@Url.Action( "CallbackByEntityAndQuantity", "Callback", new { area = "DomesticTrading" } )",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                effectiveDate: selectedItem.EffectiveDate,
+                entityId: selectedItem.EntityId,
+                issueId: selectedItem.IssueId,
+                quantity: selectedItem.EligibleCallbackQuantity
+            }),
+            success: function (valid) {
+                $("#CallbackByIssueGrid").data("kendoGrid").dataSource.read();
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onBorrowExcessCancelRecall() {
+        var grid = $('#BorrowExcessGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var selectedItem = grid.dataItem(grid.select());
+
+
+        $.ajax({
+            url: "@Url.Action( "CancelRecallByEntityAndQuantity", "Callback", new { area = "DomesticTrading" } )",
+            type: 'POST',
+        contentType: 'application/json;',
+        data: JSON.stringify({
+            effectiveDate: selectedItem.EffectiveDate,
+            entityId: selectedItem.EntityId,
+            issueId: selectedItem.IssueId,
+            excess  :selectedItem.DepositorySettled
+        }),
+        success: function (valid) {
+            onPendHoldChange();
+        },
+        error: function (valid) {
+            DisplayControllerError(valid);
+        }
+    });
+    }
+
+    function onBoxExcessRowChange(e) {
+
+        try {
+            var entityGrid = $("#BorrowExcessGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+
+            if (selectedItem.EligibleCallbackQuantity > 0) {
+                EnableContextMenuItem("#BorrowExcessContextMenu", "Pend", true);
+            }
+            else {
+                EnableContextMenuItem("#BorrowExcessContextMenu", "Pend", false);
+            }
+
+
+            if (selectedItem.LoanRecall > 0) {
+                EnableContextMenuItem("#BorrowExcessContextMenu", "Cancel Recall(s)", true);
+            }
+            else {
+
+                EnableContextMenuItem("#BorrowExcessContextMenu", "Cancel Recall(s)", false);
+            }
+
+
+            $("#CallbackByIssueGrid").data("kendoGrid").dataSource.read();
+            $("#LoanCallbackByIssueGrid").data("kendoGrid").dataSource.read();
+
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function disableRowButtons() {
+        var grid = $("#CallbackByIssueGrid").data("kendoGrid");
+        var gridData = grid.dataSource.view();
+
+        for (var i = 0; i < gridData.length; i++) {
+            var currentUid = gridData[i].uid;
+
+            if (gridData[i].UserStatusMainId != '@Convert.ToInt32(StatusMain.Pending)') {
+                var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                var approveButton = $(currenRow).find(".BorrowExcessReturn");
+                approveButton.hide();
+
+                var cancelButton = $(currenRow).find(".BorrowExcessLend");
+                cancelButton.hide();
+            }
+        }
+    }
+
+    function BorrowReleaseAll() {
+        var grid = $('#BorrowExcessGrid').data().kendoGrid;
+        var _dataItem = grid.dataItem($(this).closest('tr'));
+
+        $.ajax({
+            url: '@Url.Action( "ReleaseAllCallbacks", "Callback", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                dataItem: _dataItem
+            }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Released " + valid + " items.");
+                $("#CallbackByIssueGrid").data("kendoGrid").dataSource.read();
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    $(function () {
+        $('#CallbackByIssueGrid').on('click', '.BorrowExcessReturn', function (e) {
+            var grid = $('#CallbackByIssueGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            $.ajax({
+                url: '@Url.Action( "ReturnCallBack", "Callback", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    callBack: dataItem.CallBack
+                }),
+                success: function (valid) {
+                    $("#CallbackByIssueGrid").data("kendoGrid").dataSource.pushUpdate(valid);
+                },
+                error: function (valid) {
+                    DisplayControllerError(valid);
+                }
+            });
+        });
+
+        $('#CallbackByIssueGrid').on('click', '.BorrowExcessLend', function (e) {
+            var grid = $('#CallbackByIssueGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+
+            $.ajax({
+                url: '@Url.Action( "LendCallback", "Callback", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    callBack: dataItem.CallBack
+                }),
+                success: function (valid) {
+
+                    $("#CallbackByIssueGrid").data("kendoGrid").dataSource.pushUpdate(valid);
+                },
+                error: function (valid) {
+                    DisplayControllerError(valid);
+                }
+            });
+        });
+    });
+
+    function onPendingBorrowExcessCheckBoxChange() {
+        try {
+            if ($("#PendingBorrowExcessCheckBox").is(':checked')) {
+                $("#BorrrowExcessTopPane").hide();
+                borrowExcessChecked = true;
+            }
+            else {
+                $("#BorrrowExcessTopPane").show();
+                borrowExcessChecked = false;
+            }
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+</script>
+
+@(Html.Kendo().ToolBar()
+        .Name("InformationToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+            .Name("PendHoldCalander")
+            .Format("yyyy-MM-dd")
+            .Value(DateTime.Now)
+            .HtmlAttributes(new { @class = "width90" })
+            .Events(events => events.Change("onPendHoldChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DropDownList()
+    .Name("PendHoldDropdownList")
+    .HtmlAttributes(new { @class = "width90" })
+    .Animation(true)
+    .DataTextField("Custodian")
+    .DataValueField("CompanyId")
+    .OptionLabel("Empty List")
+    .AutoBind(true)
+    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+    .Events(events => events.Change("onPendHoldChange").DataBound("onPendHoldDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+    .DataSource(dataSource => dataSource
+    .Read(read => read
+   .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+    .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button().Name("BoxExcessRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onPendHoldChange")).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="ContractConsolidationContent" style="height:85%;width:100%;">
+    @(Html.Kendo().Splitter()
+        .Name("ContractConsolidationSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        {
+        panes.Add()
+            .Collapsible(false)
+            .Size("70%")
+            .Scrollable(false)
+            .HtmlAttributes(new { ID = "ContractConsolidationTopPane" })
+            .Content( @<text>
+    @(Html.Kendo().Grid<SL_ContractBreakOutExtendedProjection>()
+          .Name("ContractBreakOutDetails")
+          .HtmlAttributes(new { @class = "grid" })
+          .Sortable(sort =>
+          {
+              sort.AllowUnsort(true);
+              sort.Enabled(true);
+              sort.SortMode(GridSortMode.MultipleColumn);
+          })
+          .Scrollable(scrollable => scrollable.Virtual(true).Enabled(true))
+          .Filterable()
+          .Navigatable()
+          .NoRecords()
+          .AutoBind(false)
+          .ColumnMenu(menu =>
+          {
+              menu.Columns(true);
+              menu.Filterable(true);
+              menu.Sortable(true);
+              menu.ComponentType( "modern" );
+          } )
+          .Events(events =>
+          {
+              events.Change("onContractBreakOutRowChange");
+              events.DataBound("onContractBreakOutCheckData");
+              events.ColumnHide("onContractBreakOutDetailGridLayoutChange");
+              events.ColumnShow("onContractBreakOutDetailGridLayoutChange");
+              events.ColumnResize("onContractBreakOutDetailGridLayoutChange");
+              events.ColumnReorder("onContractBreakOutDetailGridLayoutChange");
+          })
+          .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+          .Reorderable(reorder => reorder.Columns(true))
+          .Columns(columns =>
+          {
+              columns.Bound(x => x.EffectiveDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SLContract).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ExecutingSystem).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RecordDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+              columns.Bound(x => x.MktPrice).GetColumnFormat(ColumnTypeEnum.Money, false, "", "").Hidden();
+              columns.Bound(x => x.IssueId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+              columns.Bound(x => x.BorrowQuantityDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDeltaDirection(BorrowQuantityDelta)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantityFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantityFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantityStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantityStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantity)#", "");
+              columns.Bound(x => x.BorrowQuantityOnRecall).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDeltaDirection(BorrowQuantityOnRecall)#", "");
+              columns.Bound(x => x.BorrowAmountFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowAmountFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowAmountDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDeltaDirection(BorrowAmountDelta)#", "").Hidden(true);
+              columns.Bound(x => x.BorrowAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowAmount)#", "");
+              columns.Bound(x => x.BorrowAmountStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowAmountStartOfDay)#", "").Hidden(true);
+
+              columns.Bound(x => x.BorrowReturnQuantityPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowReturnQuantityPending)#", "");
+              columns.Bound(x => x.BorrowReturnAmountPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(BorrowReturnAmountPending)#", "").Hidden(true);
+
+
+              columns.Bound(x => x.LoanQuantityDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDeltaDirection(LoanQuantityDelta)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantityFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantityFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantityStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantityStartOfDay)#", "").Hidden(true);
+              columns.Bound(x => x.LoanQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantity)#", "");
+              columns.Bound(x => x.LoanQuantityOnRecall).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDeltaDirection(LoanQuantityOnRecall)#", "");
+              columns.Bound(x => x.LoanAmountFullSettled).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanAmountFullSettled)#", "").Hidden(true);
+              columns.Bound(x => x.LoanAmountDelta).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDeltaDirection(LoanAmountDelta)#", "").Hidden(true);
+              columns.Bound(x => x.LoanAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanAmount)#", "");
+              columns.Bound(x => x.LoanAmountStartOfDay).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanAmountStartOfDay)#", "").Hidden(true);
+
+
+              columns.Bound(x => x.LoanReturnQuantityPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanReturnQuantityPending)#", "");
+              columns.Bound(x => x.LoanReturnAmountPending).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(LoanReturnAmountPending)#", "").Hidden(true);
+
+              columns.Bound(x => x.DepositoryStatus).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+              columns.Bound(x => x.CollateralFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ProfitId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, true, "#=GetRateDirection(RebateRate)#", "");
+              columns.Bound(x => x.RebateRateId).Hidden(true);
+              columns.Bound(x => x.Mark).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(Mark)#", "");
+              columns.Bound(x => x.MarkParameterId).Hidden(true);
+              columns.Bound(x => x.ValueDate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.SettlementDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.TermDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+              columns.Bound(x => x.CurrencyCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.SecurityLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.CashLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.IncomeTracked).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'   #= (IncomeTracked) ? checked ='checked' : '' #/>", "");
+              columns.Bound(x => x.DividendRate).Hidden(true).GetColumnFormat(ColumnTypeEnum.Margin, false, "#=GetRateDirection(DividendRate)#", "");
+              columns.Bound(x => x.CashLoc).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.ActivityItemCount).GetColumnFormat(ColumnTypeEnum.Position, false, "# if (ActivityItemCount > 0) { #<i class='fa fa-bars' style='color:green;'></i># }# ", "").Title("").HtmlAttributes(new { title = "Actions - #= ActivityItemCount # " }).Filterable(false);
+              columns.Bound(X => X.ContractFlag).GetColumnFormat(ColumnTypeEnum.String, false, "# if (ContractFlag == 'Pending') { #<i class='fa  fa-info-circle' style='color:blue;'></i># } else if (ContractFlag == 'Success') { #<i class='fa  fa-exclamation-circle' style='color:green;'></i># } else if (ContractFlag != ''){ #<i class='fa  fa-exclamation-triangle' style='color:red;'></i># } #", "").Title("").HtmlAttributes(new { title = "Status - #= ContractFlag # " }).Filterable(false);
+              columns.Bound(x => x.IncomeAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(IncomeAmount)#", "");
+              columns.Bound(x => x.Spread).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetRateDirection(Spread)#", "");
+              columns.Bound(x => x.Comment).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.FeeFundRate).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateDirection(FeeFundRate)#", "");
+              columns.Bound(x => x.FeeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+              columns.Bound(x => x.FeeOffset).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateNullableDirection(FeeOffset)#", "");
+              columns.Bound(x => x.FeeRate).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateDirection(FeeRate)#", "");
+              columns.Bound(x => x.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+          })
+          .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+          .Pageable(page =>
+          {
+              page.PageSizes(false);
+              page.Enabled(true);
+              page.Numeric(false);
+              page.PreviousNext(false);
+              page.Info(false);
+          })
+          .DataSource(dataSource => dataSource
+              .Ajax()
+              .PageSize(100)
+              .ServerOperation(false)
+              .Read(read => read.Action("Read_ContractBreakOutExtendedSummary", "Contract", new { area = "DomesticTrading" }).Data("additionalContractData"))
+              .Events(events => events.Error("onContractError"))
+              .Model(model => model.Id(x => x.SLContract))
+              .Sort(sort => sort.Add(x => x.TradeType).Order(ListSortDirection.Descending))
+              .Aggregates(s =>
+              {
+                  s.Add(x => x.BorrowQuantityFullSettled).Sum();
+                  s.Add(x => x.BorrowQuantityDelta).Sum();
+                  s.Add(x => x.BorrowQuantity).Sum();
+                  s.Add(x => x.BorrowQuantityStartOfDay).Sum();
+                  s.Add(x => x.BorrowAmountFullSettled).Sum();
+                  s.Add(x => x.BorrowAmountDelta).Sum();
+                  s.Add(x => x.BorrowAmount).Sum();
+                  s.Add(x => x.BorrowAmountStartOfDay).Sum();
+                  s.Add(x => x.BorrowReturnQuantityPending).Sum();
+                  s.Add(x => x.BorrowReturnAmountPending).Sum();
+
+                  s.Add(x => x.LoanQuantityFullSettled).Sum();
+                  s.Add(x => x.LoanQuantityDelta).Sum();
+                  s.Add(x => x.LoanQuantity).Sum();
+                  s.Add(x => x.LoanQuantityStartOfDay).Sum();
+                  s.Add(x => x.LoanAmountFullSettled).Sum();
+                  s.Add(x => x.LoanAmountDelta).Sum();
+                  s.Add(x => x.LoanAmount).Sum();
+                  s.Add(x => x.LoanAmountStartOfDay).Sum();
+                  s.Add(x => x.LoanReturnQuantityPending).Sum();
+                  s.Add(x => x.LoanReturnAmountPending).Sum();
+
+                  s.Add(x => x.IncomeAmount).Sum();
+                  s.Add(x => x.RebateRate).Average();
+              })))
+
+            </text> );
+
+
+    panes.Add()
+        .Collapsible(false)
+        .Size("20%")
+        .Scrollable(false)
+        .Content( @<text>
+
+            @(Html.Kendo().Splitter()
+                .Name("CallBackSplitter")
+        .Orientation(SplitterOrientation.Horizontal)
+        .HtmlAttributes(new { @class = "grid" })
+        .Panes(childPanes =>
+        {
+            childPanes.Add()
+                 .Scrollable(false)
+               .Content(
+
+             (Html.Kendo().Grid<BorrowCallbackWithContractModel>()
+                    .Name("CallbackByIssueGrid")
+                                        .Sortable()
+                                        .AutoBind(false)
+                            .Scrollable(scrollable => scrollable.Virtual(true))
+                            .HtmlAttributes(new { @class = "grid" })
+                            .Events(events =>
+                            {
+                                events.DataBound("onCallbackByIssueCheckData");
+                            })
+                            .Filterable()
+                               .ToolBar(t =>
+                               {
+                                   t.Template(LabelHelper.Label("BorrowCallbacks").ToString());
+                               })
+                            .ColumnMenu(columnMenu =>
+                            {
+                                columnMenu.Columns(true);
+                                columnMenu.Sortable(true);
+                                columnMenu.Filterable(true);
+                                columnMenu.ComponentType( "modern" );
+                            } )
+                            .Reorderable(reorder =>
+                            {
+                                reorder.Columns(true);
+                            })
+                            .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+                            .Navigatable()
+                    .Columns(columns =>
+                    {
+                        columns.Bound(x => x.Contract.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+                        columns.Bound(x => x.Contract.EntityId).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+                        columns.Bound(x => x.Contract.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.Contract.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.Contract.QuantityOnRecall).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Contract.QuantityOnRecall)#", "");
+                        columns.Bound(x => x.CallBack.ReturnQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CallBack.ReturnQuantity)#", "");
+                        columns.Bound(x => x.CallBack.ReturnAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(CallBack.ReturnAmount)#", "");
+                        columns.Bound(x => x.CallBack.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(CallBack.RebateRate)#", "");
+                        columns.Bound(x => x.CallBack.MadeIndicatorId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.CallBack.StatusMain).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(x => x.CallBack.UserStatusMainId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Command(x =>
+                        {
+                            x.Custom("Pend").HtmlAttributes(new { @class = "BorrowExcessReturn", @style = "background-color:lightgreen;" });
+                            x.Custom("Return").HtmlAttributes(new { @class = "BorrowExcessReturn", @style = "background-color:lightgreen;" });
+                            x.Custom("Lend").HtmlAttributes(new { @class = "BorrowExcessLend", @style = "background-color:lightgreen;" });
+                        });
+                    })
+                    .DataSource(ds =>
+                    {
+                        ds.Ajax()
+                            .ServerOperation(false)
+                            .Model(model =>
+                            {
+                                model.Id(x => x.CallBack.SLCallback);
+                                model.Field(x => x.CallBack.ReturnQuantity).Editable(true);
+                            })
+                                 .Aggregates(agg =>
+                                 {
+                                     agg.Add(x => x.Contract.QuantityOnRecall).Sum();
+                                     agg.Add(x => x.CallBack.ReturnQuantity).Sum();
+                                     agg.Add(x => x.CallBack.ReturnAmount).Sum();
+                                 })
+                            .Read(read => read.Action("Read_BorrowCallbackByIssue", "Callback", new { area = "DomesticTrading" }).Data("onBorrowCallbackAdditionalData"))
+                            .Update(update => update.Action("Update_BorrowCallBack", "Callback", new { area = "DomesticTrading" }));
+                    }).ToHtmlString()));
+
+            childPanes.Add()
+                .Scrollable(false)
+     .Content(
+         (Html.Kendo().Grid<SL_Callback>()
+         .Name("LoanCallbackByIssueGrid")
+         .AutoBind(false)
+            .HtmlAttributes(new { @class = "grid" })
+                            .Events(events =>
+                            {
+                                events.DataBound("onLoanCallbackByIssueCheckData");
+                            })
+          .ToolBar(t =>
+          {
+              t.Template(LabelHelper.Label("LoanCallbacks").ToString());
+          })
+              .Columns(cols =>
+              {
+                  cols.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                  cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetRateDirection(RebateRate)#", "");
+                  cols.Bound(x => x.ReturnQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(ReturnQuantity)#", "");
+                  cols.Bound(x => x.ReturnAmount).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(ReturnAmount)#", "");
+              })
+              .Scrollable(scroll =>
+              {
+                  scroll.Enabled(true);
+                  scroll.Virtual(true);
+              })
+              .DataSource(ds =>
+              {
+                  ds.Ajax()
+                      .ServerOperation(false)
+                      .Read(r => r.Action("Read_LoanCallbackByIssue", "CallBack", new { area = "DomesticTrading" }).Data("onBorrowCallbackAdditionalData"))
+                      .Aggregates(agg =>
+                      {
+                          agg.Add(x => x.ReturnQuantity).Sum();
+                          agg.Add(x => x.ReturnAmount).Sum();
+                      });
+              })).ToHtmlString());
+        }))
+        </text> );
+        }))
+
+</div>

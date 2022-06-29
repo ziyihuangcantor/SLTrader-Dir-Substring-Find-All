@@ -1,0 +1,1993 @@
+﻿@using SLTrader.Tools
+@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+@using EnumExtensions = SLTrader.Tools.EnumExtensions
+
+@model SingleTradeModel
+
+<script type="text/javascript">
+    var mirrorTrade = false;
+
+    $(document).ready(function () {
+        if (localStorage["mirrortrade"] == "true") {
+
+            setTimeout(function () {
+                document.getElementById("MirrorTrade").checked = true;
+
+                $('#MirrorTrade').trigger('change');
+            }, 5);
+        }
+
+   });
+
+    $('#MirrorTrade').on('change', function () {
+        if ($("#MirrorTrade").is(':checked')) {
+            $("#Trade2").show();
+            $("#Trade1TitleRow").show();
+            $("#Trade1").removeClass("TableTrade");
+            $("#Trade1").addClass("TableTradeBorder");
+
+            mirrorTrade = true;
+
+            localStorage["mirrortrade"] = "true";
+        }
+        else {
+            $("#Trade2").hide();
+            $("#Trade1TitleRow").hide();
+            $("#Trade1").removeClass("TableTradeBorder");
+            $("#Trade1").addClass("TableTrade");
+
+            mirrorTrade = false;
+
+            localStorage["mirrortrade"] = "false";
+        };
+
+        var window = $("#LocalDetailWindow").data("kendoWindow");
+        window.center();
+    });
+
+    function onTrade1TradeTypeRequestEnd(e) {
+        $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value('@DataSystemValues.LoadSystemValue("ScratchPadDefaultTradeType", "50")');
+        $('#Trade1TradeTypeDownDownList').trigger('change');
+    }
+
+    $('#Trade1ValueDate').on('change', function () {
+        var date = $('#Trade1ValueDate').data("kendoDatePicker").value();
+
+        $('#Trade2ValueDate').data("kendoDatePicker").value(date);
+    });
+
+    $('#Trade1SettlementDate').on('change', function () {
+        var date = $('#Trade1SettlementDate').data("kendoDatePicker").value();
+
+        $('#Trade2SettlementDate').data("kendoDatePicker").value(date);
+    });
+
+    $('#Trade1TermDate').on('change', function () {
+        var date = $('#Trade1TermDate').data("kendoDatePicker").value();
+
+        $('#Trade2TermDate').data("kendoDatePicker").value(date);
+    });
+
+    $('#Trade1TradeDate').on('change', function () {
+        var date = $('#Trade1TradeDate').data("kendoDatePicker").value();
+
+        $('#Trade2TradeDate').data("kendoDatePicker").value(date);
+    });
+
+    $('#Trade1ExpectedEndDate').on('change', function () {
+        var date = $('#Trade1ExpectedEndDate').data("kendoDatePicker").value();
+
+        $('#Trade2ExpectedEndDate').data("kendoDatePicker").value(date);
+    });
+
+
+    $('#Trade1TradeTypeDownDownList').on('change', function () {
+        var trade1 = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value();
+        var executingSystem = $("#Trade1ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+        var trade1String = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").text();
+
+        $("#TradeFullyPaidAccountWrapper").hide();
+        $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").dataSource.read();
+
+        if (executingSystem == '@SL_ExecutionSystemType.GLOBALONE.ToString()') {
+
+            if (trade1String.includes("Borrow") == true)
+            {
+
+                $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value('@Convert.ToInt32(TradeType.LoanVsRate)');
+                $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.NONE.ToString())');
+
+            }
+            else
+            {
+                $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value('@Convert.ToInt32(TradeType.BorrowVsRate)');
+                $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.NONE.ToString())');
+            }
+        }
+        else {
+
+
+            if (trade1 == '@Convert.ToInt32(TradeType.StockBorrow)') {
+
+                $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value('@Convert.ToInt32(TradeType.StockLoan)');
+                $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.PTS.ToString())');
+            }
+            else if (trade1 == '@Convert.ToInt32(TradeType.FullyPaidLoan)' || trade1 == '@Convert.ToInt32(TradeType.FullyPaidBorrow)') {
+                $("#Trade1SingleTradeProfitIdTextBox").val('@DataSystemValues.LoadSystemValue("FPLendingProfitId", "P")');
+                $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.PHYS.ToString())');
+
+                $("#TradeFullyPaidAccountWrapper").show();
+                $("#TradeAllocationList").data("kendoGrid").refresh();
+            }
+            else {
+                $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value('@Convert.ToInt32(TradeType.StockBorrow)');
+                $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.CCF.ToString())');
+            }
+        }
+
+
+    });
+
+    $('#Trade2TradeTypeDownDownList').on('change', function () {
+        var trade2 = $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value();
+        var executingSystem = $("#Trade2ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+        var trade2String = $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").text();
+
+        $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").dataSource.read();
+
+
+        if (executingSystem == '@SL_ExecutionSystemType.GLOBALONE.ToString()') {
+            if (trade2String.includes("Borrow") == true) {
+                $("#Trade2DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.NONE.ToString())');
+
+            }
+            else {
+                $("#Trade2DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.NONE.ToString())');
+            }
+        }
+        else {
+
+            if (trade2 == '@Convert.ToInt32(TradeType.StockBorrow)') {
+                $("#Trade2DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.PTS.ToString())');
+            }
+            else if (trade2 == '@Convert.ToInt32(TradeType.FullyPaidLoan)' || trade2 == '@Convert.ToInt32(TradeType.FullyPaidBorrow)') {
+                $("#Trade2SingleTradeProfitIdTextBox").val('@DataSystemValues.LoadSystemValue("FPLendingProfitId", "P")');
+                $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.PHYS.ToString())');
+            }
+            else {
+                $("#Trade2DeliveryCodeDropdownList").data("kendoAutoComplete").value('@(SL_DeliveryCode.CCF.ToString())');
+            }
+        }
+    });
+
+    $('#Trade1MarkTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade1RebateRateTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade1PriceTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade1QuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade1AmountTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade2MarkTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade2RebateRateTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade2PriceTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade2QuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#Trade2AmountTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+
+    $('#Trade2DivRateTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+
+    $('#Trade1DivRateTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $("#Trade1SingleTradeProfitIdTextBox").on('change', function () {
+               var pc1 =     $("#Trade1SingleTradeProfitIdTextBox").val();
+               $("#Trade2SingleTradeProfitIdTextBox").val(pc1);
+    });
+
+    $('#Trade1Callable').on('click', function (e) {
+        if (this.checked) {
+            document.getElementById("Trade2Callable").checked = true;
+        }
+        else
+        {
+            document.getElementById("Trade2Callable").checked = false;
+        }
+    });
+
+    function onTrade1FeeDropDownListChange(e) {
+        var fee = $("#Trade1FeeDropDownList").data("kendoDropDownList").value();
+
+        $("#Trade2FeeDropDownList").data("kendoDropDownList").value(fee);
+    };
+
+
+    function onTrade1FeeOffSetNumericChange(e) {
+        var feeOffSet = $("#Trade1FeeOffSetNumeric").data("kendoNumericTextBox").value();
+
+        $("#Trade2FeeOffSetNumeric").data("kendoNumericTextBox").value(feeOffSet);
+    };
+
+    function additionalTradeTicketEntityTradeTypeData() {
+        var tradeType = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: '@Model.Trade1.EntityId',
+            tradeType: tradeType
+        }
+    }
+
+
+    function additionalTradeTicketEntityData() {
+        return {
+            entityId : '@Model.Trade1.EntityId'
+        }
+    }
+
+    function additionalTrade1ExecutingSystem() {
+        var executingSystem = $("#Trade1ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+
+        return {
+            executingSystem: executingSystem
+        }
+    }
+
+
+    function additionalTrade1TradeType() {
+        var tradeType = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value();
+
+        return {
+            tradeType: tradeType
+        }
+    }
+
+
+    function additionalTrade1TradeTypeExecutinSystem() {
+        var tradeType = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value();
+        var executingSystem = $("#Trade1ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+
+        return {
+            tradeType: tradeType,
+            executingSystem : executingSystem
+        }
+    }
+
+    function additionalTrade2TradeType() {
+        var tradeType = $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value();
+
+        return {
+            tradeType: tradeType
+        }
+    }
+
+
+    function additionalTrade2TradeTypeExecutingSystem() {
+        var tradeType = $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value();
+        var executingSystem = $("#Trade2ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+
+        return {
+            tradeType: tradeType,
+            executingSystem: executingSystem
+        }
+    }
+
+
+    function additionalTrade2ExecutingSystem() {
+        var executingSystem = $("#Trade2ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+
+        return {
+            executingSystem: executingSystem
+        }
+    }
+
+    function onTrade1AmountChange() {
+        try {
+            var quantity = $("#Trade1QuantityTextBox").data("kendoNumericTextBox").value();
+            var amount = $("#Trade1AmountTextBox").data("kendoNumericTextBox").value();
+
+            var price = amount / quantity;
+
+            $("#Trade1PriceTextBox").data("kendoNumericTextBox").value(price);
+
+            $("#Trade2PriceTextBox").data("kendoNumericTextBox").value(price);
+
+            $("#Trade2AmountTextBox").data("kendoNumericTextBox").value(amount);
+        }
+        catch (e)
+        {            
+            $("#Trade1AmountTextBox").data("kendoNumericTextBox").value(100);
+        }
+
+        onTradePrepayCreditLimitTest();
+    }
+
+    function onTrade1CashSettleDateChange() {
+        onTradePrepayCreditLimitTest();
+    }        
+
+    function onTradeCurrencyCode() {
+        onTradePrepayCreditLimitTest();
+    }
+
+    function onTrade1PositionChange() {
+        try {
+            var price = $("#Trade1PriceTextBox").data("kendoNumericTextBox").value();
+            var quantity = $("#Trade1QuantityTextBox").data("kendoNumericTextBox").value();
+            var mark = $("#Trade1MarkTextBox").data("kendoNumericTextBox").value();
+            var amount = quantity * price;
+
+            $("#Trade1AmountTextBox").data("kendoNumericTextBox").value(amount);
+
+            $("#Trade2PriceTextBox").data("kendoNumericTextBox").value(price);
+            $("#Trade2QuantityTextBox").data("kendoNumericTextBox").value(quantity);
+            $("#Trade2MarkTextBox").data("kendoNumericTextBox").value(mark);
+
+
+            onTradePrepayCreditLimitTest();
+            onTrade2PositionChange();
+        }
+        catch (e) {
+            $("#Trade1AmountTextBox").data("kendoNumericTextBox").value(100);
+        }
+    }
+
+
+    function onTrade1FullyPaidBorrowTest() {
+        var message = "";
+
+        try {
+            var tradeType = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value();
+            var quantity = $("#Trade1QuantityTextBox").data("kendoNumericTextBox").value();
+
+            if (tradeType == '@Convert.ToInt32(TradeType.FullyPaidBorrow)') {
+                var grid = $("#TradeAllocationList").data("kendoGrid");
+                var data = grid.dataSource.data();
+                var quantityGrid = 0;
+
+                $.each(data, function (i, row) {
+                    if (row.IsEnabled) {
+                        quantityGrid = quantityGrid + row.Quantity;
+                    }
+                });
+
+                console.log(quantity + ' ' + quantityGrid);
+
+                if (quantity > quantityGrid) {
+                    message = "Trade qty is greater than selected qty.";                    
+                }
+            }
+        }
+        catch (err) {            
+        }
+
+        return message;
+    }
+
+    function onTrade2PositionChange() {
+        try {
+            var price = $("#Trade2PriceTextBox").data("kendoNumericTextBox").value();
+            var quantity = $("#Trade2QuantityTextBox").data("kendoNumericTextBox").value();
+
+            var amount = quantity * price;
+            $("#Trade2AmountTextBox").data("kendoNumericTextBox").value(amount);
+
+            onTradePrepayCreditLimitTest();
+        }
+        catch (e) {
+            $("#Trade2AmountTextBox").data("kendoNumericTextBox").value(100);
+        }
+    }
+
+    function onTrade1ExpectedEndDate() {
+        var date = $("#Trade1ExpectedEndDate").data("kendoDatePicker").value();
+
+        $("#Trade2ExpectedEndDate").data("kendoDatePicker").value(date);
+    }
+
+    function onTrade1Strategy() {
+        var date = $("#Trade1ExpectedEndDate").data("kendoDatePicker").value();
+
+        $("#Trade2ExpectedEndDate").data("kendoDatePicker").value(date);
+    }
+
+    function onTrade1RebateRateChange() {
+        Trade1PCLookup();
+    }
+
+    function onTrade2RebateRateChange() {
+        Trade2PCLookup();
+    }
+
+    function Trade1PCLookup() {
+        var form = $("#my-form");
+
+        $.ajax({
+            url: "@Url.Action("Trade1PCMatrixLookup", "Trade")",
+            data: form.serializeArray(),
+            type: "POST",
+            success: function (e) {
+                $("#Trade1SingleTradeProfitIdTextBox").val(e);
+                $("#Trade2SingleTradeProfitIdTextBox").val(e);
+            },
+            error: function (e) {
+            }
+        });
+    }
+
+    function Trade2PCLookup() {
+        var form = $("#my-form");
+
+        $.ajax({
+            url: "@Url.Action("Trade2PCMatrixLookup", "Trade")",
+            data: form.serializeArray(),
+            type: "POST",
+            success: function (e) {
+                $("#Trade2SingleTradeProfitIdTextBox").val(e);
+            },
+            error: function (e) {
+            }
+        });
+    }
+
+    function onTrade1ContraEntityChange() {
+        var contraEntity = $("#Trade1ContraEntityDropdownList").data("kendoAutoComplete").value();
+        var mktPrice = $("#Trade1MktPriceTextBox").data("kendoNumericTextBox").value();
+
+        if (contraEntity == null || contraEntity == '') {
+
+        }
+        else {
+            $.ajax({
+                url: "@Url.Action("Read_ContraEntityDetailResultWithPrice", "ContraEntity")",
+                data: {
+                    entityId: "@Model.Trade1.EntityId",
+                    contraEntityId: contraEntity,
+                    marketPrice: mktPrice
+                },
+                type: "Post",
+                success: function (e) {
+
+                    $("#Trade1ExecutingSystemDropdownList").data("kendoAutoComplete").value(e.ContraEntity.ExecutingSystem);
+
+                    var trade1 = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").value();
+
+
+                    if (trade1 == '@Convert.ToInt32(TradeType.StockBorrow)')  {
+                        var borrowColl = e.ContraEntity.BorrowColl;
+
+                        if (e.ContraEntity.BorrowMarkCode == '%') {
+                            borrowColl = borrowColl / 100;
+                            $("#Trade1MarkTextBox").data("kendoNumericTextBox").value(borrowColl);
+                        }
+
+                        $("#Trade1PriceTextBox").data("kendoNumericTextBox").value(e.Price);
+
+                        if ($("#Trade1RebateRateTextBox").data("kendoNumericTextBox").value() == null) {
+                            $("#Trade1RebateRateTextBox").data("kendoNumericTextBox").value(e.ContraEntity.STKBorrowRate);
+                        }
+                    }
+                    else if (trade1 == '@Convert.ToInt32(TradeType.StockLoan)') {
+                        var loanColl = e.ContraEntity.LoanColl;
+
+                        if (e.ContraEntity.LoanMarkCode == '%') {
+                            loanColl = loanColl / 100;
+                            $("#Trade1MarkTextBox").data("kendoNumericTextBox").value(loanColl);
+                        }
+
+                        $("#Trade1PriceTextBox").data("kendoNumericTextBox").value(e.Price);
+
+                        if ($("#Trade1RebateRateTextBox").data("kendoNumericTextBox").value() == null) {
+                            $("#Trade1RebateRateTextBox").data("kendoNumericTextBox").value(e.ContraEntity.STKLoanRate);
+                        }
+                    }
+                    else {
+                            var loanColl = null;
+
+                        switch ('@DataSystemValues.LoadSystemValue("GlobalOneMargin", "StandardCashPoolMargin")') {
+                            case 'StandardCashPoolMargin':
+                                loanColl = e.ContraEntity['StandardCashPoolMargin'];
+                                break;
+
+                            case 'CashCollateralMarg':
+                            default:
+                                loanColl = e.ContraEntity['CashCollateralMarg'];
+                                break;
+                        }
+                       
+                        loanColl = loanColl / 100;
+                        $("#Trade1MarkTextBox").data("kendoNumericTextBox").value(loanColl);
+                            
+                        $("#Trade1PriceTextBox").data("kendoNumericTextBox").value(e.Price);
+                    }
+
+                    onTrade1PositionChange();
+                    onTrade1RebateRateChange();
+                    onTradePrepayCreditLimitTest();
+                },
+                error: function (e) {
+                    console.log(e.message);
+                }
+            });
+        }
+    }
+
+    function onTrade2ContraEntityChange() {
+        var contraEntity = $("#Trade2ContraEntityDropdownList").data("kendoAutoComplete").value();
+        var mktPrice = $("#Trade2MktPriceTextBox").data("kendoNumericTextBox").value();
+
+        if (contraEntity == null || contraEntity == '') {
+
+        }
+        else {
+            $.ajax({
+                url: "@Url.Action("Read_ContraEntityDetailResultWithPrice", "ContraEntity")",
+                data: {
+                    entityId: "@Model.Trade2.EntityId",
+                    contraEntityId: contraEntity,
+                    marketPrice: mktPrice
+                },
+                type: "Post",
+                success: function (e) {
+
+                    $("#Trade2ExecutingSystemDropdownList").data("kendoAutoComplete").value(e.ContraEntity.ExecutingSystem);
+
+                    var trade2 = $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").value();
+
+
+                    if (trade2 == '@Convert.ToInt32(TradeType.StockBorrow)')  {
+                        var borrowColl = e.ContraEntity.BorrowColl;
+
+                        if (e.ContraEntity.BorrowMarkCode == '%') {
+                            borrowColl = borrowColl / 100;
+                            $("#Trade2MarkTextBox").data("kendoNumericTextBox").value(borrowColl);
+                        }
+
+                        $("#Trade2PriceTextBox").data("kendoNumericTextBox").value(e.Price);
+
+                        if ($("#Trade2RebateRateTextBox").data("kendoNumericTextBox").value() == null) {
+                            $("#Trade2RebateRateTextBox").data("kendoNumericTextBox").value(e.ContraEntity.STKBorrowRate);
+                        }
+                    }
+                    else if (trade2 == '@Convert.ToInt32(TradeType.StockLoan)')  {                   
+                        var loanColl = e.ContraEntity.LoanColl;
+
+                        if (e.ContraEntity.LoanMarkCode == '%') {
+                            loanColl = loanColl / 100;
+                            $("#Trade2MarkTextBox").data("kendoNumericTextBox").value(loanColl);
+                        }
+
+                        $("#Trade2PriceTextBox").data("kendoNumericTextBox").value(e.Price);
+
+                        if ($("#Trade2RebateRateTextBox").data("kendoNumericTextBox").value() == null) {
+                            $("#Trade2RebateRateTextBox").data("kendoNumericTextBox").value(e.ContraEntity.STKLoanRate);
+                        }
+                    }
+                    else {                    
+                        var loanColl = null;
+
+                        switch ('@DataSystemValues.LoadSystemValue("GlobalOneMargin", "StandardCashPoolMargin")') {
+                            case 'StandardCashPoolMargin':
+                                loanColl = e.ContraEntity['StandardCashPoolMargin'];
+                                break;
+
+                            case 'CashCollateralMarg':
+                            default:
+                                loanColl = e.ContraEntity['CashCollateralMarg'];
+                                break;
+                        }
+                       
+                        loanColl = loanColl / 100;
+                        $("#Trade2MarkTextBox").data("kendoNumericTextBox").value(loanColl);
+
+                        $("#Trade2PriceTextBox").data("kendoNumericTextBox").value(e.Price);                       
+                    }
+
+                    onTrade2PositionChange();
+                    onTrade2RebateRateChange();
+                },
+                error: function (e) {
+                    console.log(e.message);
+                }
+            });
+        }
+    }
+
+    function Validate() {
+        var trade1ContraEntity  =$("#Trade1ContraEntityDropdownList").data("kendoAutoComplete");
+        var trade1Price = $("#Trade1PriceTextBox").data("kendoNumericTextBox");
+        var trade1Quantity = $("#Trade1QuantityTextBox").data("kendoNumericTextBox");
+        var trade1Margin = $("#Trade1MarkTextBox").data("kendoNumericTextBox");
+        var trade1RebateRate = $("#Trade1RebateRateTextBox").data("kendoNumericTextBox");
+        var trade1Amount = $("#Trade1AmountTextBox").data("kendoNumericTextBox");
+        var tradeType = $("#Trade1TradeTypeDownDownList").data("kendoDropDownList");
+        var trade1ProfitId = $("#Trade1SingleTradeProfitIdTextBox");
+
+        var itemsWrong = 0;
+
+        if ((tradeType.value() == null) || (tradeType.value() == 0)) {
+            tradeType.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            tradeType.wrapper.find(".k-input").css("background", "white");
+        }
+
+
+        if ((trade1ContraEntity.value() == null) || (trade1ContraEntity.value() == 0)) {
+            trade1ContraEntity.wrapper.find(".k-input").css("background", "lightcoral");
+            itemsWrong++;
+        }
+        else {
+            trade1ContraEntity.wrapper.find(".k-input").css("background", "white");
+        }
+
+
+        if ((trade1Price.value() == null) || (trade1Price.value() == 0)) {
+            trade1Price.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            trade1Price.wrapper.find(".k-input").css("background", "white");
+        }
+
+        if ((trade1Quantity.value() == null) || (trade1Quantity.value() == 0)) {
+            trade1Quantity.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            trade1Quantity.wrapper.find(".k-input").css("background", "white");
+        }
+
+        if ((trade1Margin.value() == null) || (trade1Margin.value() == 0)) {
+            trade1Margin.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            trade1Margin.wrapper.find(".k-input").css("background", "white");
+        }
+
+        if (trade1RebateRate.value() == null) {
+            trade1RebateRate.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            trade1RebateRate.wrapper.find(".k-input").css("background", "white");
+        }
+
+        var validatePoolCode = '@DataSystemValues.LoadSystemValue("ValidatePoolCode", "true")';
+
+        if (validatePoolCode == 'TRUE   ') {
+            if ((trade1ProfitId.val() == null) || (trade1ProfitId.val() == '')) {
+                trade1ProfitId.css('background', 'lightcoral');
+
+                itemsWrong++;
+            }
+            else {
+                trade1ProfitId.css('background', 'white');
+            }
+        }
+
+        if ((trade1Amount.value() == null) || (trade1Amount.value() == 0)) {
+            trade1Amount.wrapper.find(".k-input").css("background", "lightcoral");
+
+            itemsWrong++;
+        }
+        else {
+            trade1Amount.wrapper.find(".k-input").css("background", "white");
+        }
+
+        if (mirrorTrade == true) {
+            var trade2ContraEntity = $("#Trade2ContraEntityDropdownList").data("kendoAutoComplete");
+            var trade2Price = $("#Trade2PriceTextBox").data("kendoNumericTextBox");
+            var trade2Quantity = $("#Trade2QuantityTextBox").data("kendoNumericTextBox");
+            var trade2Margin = $("#Trade2MarkTextBox").data("kendoNumericTextBox");
+            var trade2RebateRate = $("#Trade2RebateRateTextBox").data("kendoNumericTextBox");
+            var trade2Amount = $("#Trade2AmountTextBox").data("kendoNumericTextBox");
+            var trade2Type = $("#Trade2TradeTypeDownDownList").data("kendoDropDownList");
+            var trade2ProfitId = $("#Trade2SingleTradeProfitIdTextBox");
+
+            if ((trade2Type.value() == null) || (trade2Type.value() == 0)) {
+                trade2Type.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2Type.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if ((trade2ContraEntity.value() == null) || (trade2ContraEntity.value() == 0)) {
+                trade2ContraEntity.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2ContraEntity.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if (trade1ContraEntity.value() == trade2ContraEntity.value()) {
+                trade1ContraEntity.wrapper.find(".k-input").css("background", "lightcoral");
+                trade2ContraEntity.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+
+            if ((trade2Price.value() == null) || (trade2Price.value() == 0)) {
+                trade2Price.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2Price.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if ((trade2Quantity.value() == null) || (trade2Quantity.value() == 0)) {
+                trade2Quantity.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2Quantity.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if ((trade2Margin.value() == null) || (trade2Margin.value() == 0)) {
+                trade2Margin.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2Margin.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if (trade2RebateRate.value() == null) {
+                trade2RebateRate.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2RebateRate.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if ((trade2Amount.value() == null) || (trade2Amount.value() == 0)) {
+                trade2Amount.wrapper.find(".k-input").css("background", "lightcoral");
+
+                itemsWrong++;
+            }
+            else {
+                trade2Amount.wrapper.find(".k-input").css("background", "white");
+            }
+
+            if (validatePoolCode == 'TRUE') {
+                if ((trade2ProfitId.val() == null) || (trade1ProfitId.val() == '')) {
+                    trade2ProfitId.css('background', 'lightcoral');
+
+                    itemsWrong++;
+                }
+                else {
+                    trade2ProfitId.css('background', 'white');
+                }
+            }
+        }
+
+        return itemsWrong;
+    }
+
+
+    function onTradeSavePost(e) {
+        e.preventDefault();
+
+        try {
+            var form = $("#my-form");
+
+            $("#ConfirmTradePost").data("kendoButton").enable(false);
+            $("#SaveTradePost").data("kendoButton").enable(false);
+            
+            if (Validate() == 0) {
+                $.ajax({
+                    url: "@Url.Action("AddSingleTradeModel", "Trade", new { area = "DomesticTrading" })",
+                    data: form.serializeArray(),
+                    type: "POST",
+                    success: function () {
+                        $("#StatusLabel").text("Trade created.");
+                        $('#LocalDetailWindow').data("kendoWindow").close();
+                    },
+                    error: function (e) {
+                        $("#StatusLabel").text(e.statusText);
+                        $("#ConfirmTradePost").data("kendoButton").enable(true);
+                        $("#SaveTradePost").data("kendoButton").enable(true);
+                    }
+                });
+            }
+            else {
+                $("#StatusLabel").text("Values missing highlighted in red.");
+
+                $("#ConfirmTradePost").data("kendoButton").enable(true);
+                $("#SaveTradePost").data("kendoButton").enable(true);
+            }
+        }
+        catch (e) {
+            $("#ConfirmTradePost").data("kendoButton").enable(true);
+            $("#SaveTradePost").data("kendoButton").enable(true);
+        }
+    }
+
+    function onTradeConfirmPost(e) {
+        e.preventDefault();
+
+        try {
+            var form = $("#my-form");
+
+            $("#ConfirmTradePost").data("kendoButton").enable(false);
+            $("#SaveTradePost").data("kendoButton").enable(false);
+
+
+            if (Validate() == 0) {                  
+                var boxDataItems = getDataItems('#TradeAllocationList',
+                    true,
+                    1000);
+
+                console.log(boxDataItems);
+
+                $.ajax({
+                    url: "@Url.Action("AddSingleTradeModelConfirm", "Trade", new { area = "DomesticTrading" })",
+                    data: form.serializeArray(),                    
+                    type: "POST",
+                    success: function () {
+                        $("#StatusLabel").text("Trade created.");
+                        $('#LocalDetailWindow').data("kendoWindow").close();
+                    },
+                    error: function (e) {
+                        $("#StatusLabel").text(e.statusText);
+                        $("#ConfirmTradePost").data("kendoButton").enable(true);
+                        $("#SaveTradePost").data("kendoButton").enable(true);
+                    }
+                });
+            }
+            else {
+                $("#StatusLabel").text("Values missing highlighted in red.");
+
+                $("#ConfirmTradePost").data("kendoButton").enable(true);
+                $("#SaveTradePost").data("kendoButton").enable(true);
+            }
+        }
+        catch (e) {
+            $("#ConfirmTradePost").data("kendoButton").enable(true);
+            $("#SaveTradePost").data("kendoButton").enable(true);
+        }
+    }
+
+    
+
+    function onTradePrepayCreditLimitTest() {        
+        try {
+            var form = $("#my-form");
+
+            $("#ConfirmTradePost").data("kendoButton").enable(false);
+            $("#SaveTradePost").data("kendoButton").enable(false);
+
+            $.ajax({
+                url: "@Url.Action("ExceedPrepayCreditLimitTest", "Trade", new { area = "DomesticTrading" })",
+                data: form.serializeArray(),
+                type: "POST",
+                success: function (valid) {
+
+                    var msg = onTrade1FullyPaidBorrowTest();
+
+                    $("#StatusLabel").text(valid.Message + msg);
+
+
+                    $("#ConfirmTradePost").data("kendoButton").enable(!valid.RestrictTrade);
+                    $("#SaveTradePost").data("kendoButton").enable(!valid.RestrictTrade);
+
+                    return valid.RestrictTrade;
+                },
+                error: function (e) {
+                    $("#StatusLabel").text(e.statusText);
+                    $("#ConfirmTradePost").data("kendoButton").enable(false);
+                    $("#SaveTradePost").data("kendoButton").enable(false);                   
+
+                    return false;
+                }
+            });
+        }
+        catch (e) {
+            $("#ConfirmTradePost").data("kendoButton").enable(false);
+            $("#SaveTradePost").data("kendoButton").enable(false);
+        }
+    }
+
+
+
+    function onTrade1ExecutingSystemLoad() {
+        $("#Trade1TradeTypeDownDownList").data("kendoDropDownList").dataSource.read();
+        $("#Trade1CollateralFlagDropdownList").data("kendoAutoComplete").dataSource.read();
+        $("#Trade1CollateralFlagDropdownList").data("kendoAutoComplete").value();
+        $("#Trade1ContraEntityDropdownList").data("kendoAutoComplete").value();
+   }
+
+
+    function onTrade2ExecutingSystemLoad() {
+        $("#Trade2TradeTypeDownDownList").data("kendoDropDownList").dataSource.read();
+        $("#Trade2CollateralFlagDropdownList").data("kendoAutoComplete").dataSource.read();
+        $("#Trade2CollateralFlagDropdownList").data("kendoAutoComplete").value();
+        $("#Trade2ContraEntityDropdownList").data("kendoAutoComplete").value();
+    }
+
+    function onTradeType1DataBound() {
+        $("#Trade1DeliveryCodeDropdownList").data("kendoAutoComplete").dataSource.read();
+    }
+
+    function onTradeType2DataBound() {
+        $("#Trade2DeliveryCodeDropdownList").data("kendoAutoComplete").dataSource.read();
+    }
+
+    function onTrade1TradeTypeChange() {
+        $("#Trade1ContraEntityDropdownList").data("kendoAutoComplete").value('');
+        $("#Trade1ContraEntityDropdownList").data("kendoAutoComplete").dataSource.read();
+    }
+
+    function onTrade1ExecutingSystemChange(e) {
+        var executingSystem = $("#Trade1ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+
+
+        if (executingSystem.toUpperCase() == '@SL_ExecutionSystemType.GLOBALONE.ToString()')
+        {
+            $("#Trade1International").show();
+            $("#Trade1InternationalAdditional").show();
+            $("#Trade1DomesticAdditional").hide();
+        }
+        else
+        {
+            $("#Trade1InternationalAdditional").hide();
+            $("#Trade1International").hide();
+            $("#Trade1DomesticAdditional").show();
+        }
+    }
+
+    function onTrade2ExecutingSystemChange(e) {
+        var executingSystem = $("#Trade2ExecutingSystemDropdownList").data("kendoAutoComplete").value();
+
+        if (executingSystem.toUpperCase() == '@SL_ExecutionSystemType.GLOBALONE.ToString()') {
+            $("#Trade2International").show();
+            $("#Trade2InternationalAdditional").show();
+            $("#Trade2DomesticAdditional").hide();
+        }
+        else {
+            $("#Trade2InternationalAdditional").hide();
+            $("#Trade2International").hide();
+            $("#Trade2DomesticAdditional").show();
+        }
+    }
+
+      $(function() {
+          $('#TradeAllocationList').on('click', '.chkbxTradeIsEnabled', function () {
+              var checked = $(this).is(':checked');
+              var grid = $('#TradeAllocationList').data().kendoGrid;
+              var dataItem = grid.dataItem($(this).closest('tr'));
+              grid.select($(this).closest('tr'));
+
+
+              dataItem.set('IsEnabled', checked);                                   
+          });
+        });
+    
+</script>
+
+<style scoped>
+    .Trade2Alternate {
+        background: #d29cee;
+    }
+
+    .TableTrade {        
+        margin:5px;
+        padding:5px;
+        
+    }
+
+    input {
+        text-transform: uppercase;        
+    }
+     .TableTradeBorder {        
+        border-collapse:separate;
+        border-color:whitesmoke;
+        border-style:solid;
+        border-width:2px;
+        border-radius:5px;
+        margin:5px;
+        padding:5px;
+        
+    }
+
+    #Trade1 th,
+    #Trade1 td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+
+    #Trade2 th,
+    #Trade2 td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+
+    #TradeHeaderWrapper th,
+    #TradeHeaderWrapper td,
+    #TradeWrapper th,
+    #TradeWrapper td,
+    #TradeFullyPaidAccountWrapper th,
+    #TradeFullyPaidAccountWrapper td,
+    #TradeFooterWrapper th,
+    #TradeFooterWrapper td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+</style>
+<div id="TradeAddDiv" class="table-form">
+    @using (Html.BeginForm("Action", "ControllerName", FormMethod.Post, new { id = "my-form" }))
+    {
+        <table id="TradeHeaderWrapper" style="width:100%;">
+            <tr>
+                <td style="" align="right"></td>
+                <!--<td style="width:120px;" align="right">@Html.Label("Mirror Trade")</td>-->
+                <td style="width:50px;" align="right">@Html.Kendo().CheckBoxFor(m => m.IsMirror).HtmlAttributes(new { ID = "MirrorTrade", tabindex = 30 }).Checked(false).Label("Mirror Trade")</td>
+                <!--td style="width:50px;" align="right">@Html.CheckBoxFor(m => m.IsMirror, new { ID = "MirrorTrade", tabindex = 30 })</td>-->
+            </tr>
+        </table>
+        <table id="TradeWrapper" style="width:100%;">
+            <tr>
+                <td>
+                    <table class="TableTrade" id="Trade1">
+                        <tr id="Trade1TitleRow" style="display:none;">
+                            <th colspan="6">
+                                @Html.Label("Trade 1")
+                            </th>
+                        </tr>
+                        <tr>
+                            <td>
+                                @if (SessionSecurityService.IsEditable(ManagerTask.ViewSLInternational))
+                                {
+                                    @LabelHelper.Text("ExecutingSystem")
+                                }
+                            </td>
+                            <td>
+                                @if (SessionSecurityService.IsEditable(ManagerTask.ViewSLInternational))
+                                {
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade1.ExecutingSystem)
+                                                        .HtmlAttributes(new { ID = "Trade1ExecutingSystemDropdownList", @style = "width:90px;", tabindex = 1 })
+                                                        .Suggest(true)
+                                                        .AutoWidth(true)
+                                                        .Enable(false)
+                                                        .BindTo(Enum.GetNames(typeof(SL_ExecutionSystemType)).ToList())
+                                                        .Events(events => events.DataBound("onTrade1ExecutingSystemLoad").Change("onTrade1ExecutingSystemChange"))
+                                                        .Value(Model.Trade1.ExecutingSystem.ToString()))
+                                }
+                                else
+                                {
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade1.ExecutingSystem)
+                                                        .HtmlAttributes(new { ID = "Trade1ExecutingSystemDropdownList", @style = "width:90px;readonly:readonly;", tabindex = 1 })
+                                                        .Suggest(true)
+                                                        .AutoWidth(true)
+                                                        .Enable(false)
+                                                        .Events(events => events.DataBound("onTrade1ExecutingSystemLoad").Change("onTrade1ExecutingSystemChange"))
+                                                        .BindTo(Enum.GetNames(typeof(SL_ExecutionSystemType)).ToList())
+                                                        .Value(Model.Trade1.ExecutingSystem.ToString()))
+                                }
+                            </td>
+
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("TradeType")
+                            </td>
+                            <td>
+                                @(Html.Kendo().DropDownListFor(model => model.Trade1.TradeType)
+                                                    .DataValueField("Value")
+                                                    .DataTextField("Text")
+                                                    .HtmlAttributes(new { @style = "width:90px;", ID = "Trade1TradeTypeDownDownList", tabindex = 2 })
+                                                    .Enable(true)
+                                                    .AutoWidth(true)
+                                                    .Template("<span class=\"k-state-default\">#:data.Text#</span>")
+                                                    .Events(events => events.Change("onTrade1TradeTypeChange"))
+                                                    .DataSource(dataSource =>
+                                                    {
+                                                        dataSource.Read(read => read.Action("Read_SLTradeTypeByExecutingSystem", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1ExecutingSystem"));
+                                                    }))
+                            </td>
+                            <td>
+                                @LabelHelper.Text("ContraEntity")
+                            </td>
+                            <td>
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade1.ContraEntityId)
+                                        .HtmlAttributes(new { ID = "Trade1ContraEntityDropdownList", @style = "width:90px;", tabindex = 3 })
+                                        .DataTextField("ContraEntity")
+                                        .AutoWidth(true)
+                                        .Suggest(false)
+                                        .Events(events => events.Change("onTrade1ContraEntityChange"))
+                                        .Template("<span class=\"k-state-default\">#:data.ContraEntity# #:data.AccountName# </span>")
+                                        .DataSource(dataSource => dataSource
+                                        .Read(read => read.Action("Read_ContraEntityDropdownByTradeType", "ContraEntity", new { area = "DomesticTrading" }).Data("additionalTradeTicketEntityTradeTypeData"))))
+                            </td>
+                            <td>
+                                @LabelHelper.Text("MktPrice")
+                            </td>
+                            <td>
+                                @(Html.Kendo().NumericTextBox().Name("Trade1MktPriceTextBox").HtmlAttributes(new { @style = "width:90px;", tabindex = -1 }).Format("n2").Spinners(false).Value(DataIssue.LoadIssuePrice(Model.Trade1.EntityId, (int)Model.Trade1.IssueId).CurrentCashPrice).Enable(false))
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("SecurityNumber")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.SecurityNumber).HtmlAttributes(new { @style = "width:90px;", tabindex = -1, @readonly = "readonly" })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Ticker")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.Ticker).HtmlAttributes(new {  @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Price")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.Price).HtmlAttributes(new { ID = "Trade1PriceTextBox", @style = "width:90px;", tabindex = 4 }).Decimals(5).Format("n5").Events(e => e.Change("onTrade1PositionChange")).Spinners(false)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Isin")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.Isin).HtmlAttributes(new {  @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Sedol")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.Sedol).HtmlAttributes(new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Quick")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model   => model.Trade1.Quick).HtmlAttributes( new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Quantity")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.Quantity).HtmlAttributes(new { ID = "Trade1QuantityTextBox", @style = "width:90px;", tabindex = 5 }).Format("n0").Events(e => e.Change("onTrade1PositionChange")).Step(100).Min(0)
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Amount")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.Amount).HtmlAttributes(new { ID = "Trade1AmountTextBox", @style = "width:90px;", tabindex = 6 }).Format("c2").Events(e => e.Change("onTrade1AmountChange")).Min(0).Spinners(false)
+                            </td>
+                            <td>
+                                @LabelHelper.Text("RebateRate")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.RebateRate).HtmlAttributes(new { ID = "Trade1RebateRateTextBox", @style = "width:90px;", tabindex = 7 }).Max(999).Min(-999).Events(e => e.Change("onTrade1RebateRateChange")).Format("n4").Decimals(4).Spinners(false)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Mark")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.Mark).HtmlAttributes(new { ID = "Trade1MarkTextBox", @style = "width:90px;", tabindex = 8 }).Format("n2").Events(e => e.Change("onTrade1PositionChange")).Spinners(false)
+                            </td>
+                            <td>
+                                @LabelHelper.Text("ProfitId")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.ProfitId).HtmlAttributes( new { @style = "width:90px;", ID = "Trade1SingleTradeProfitIdTextBox", tabindex = 9 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("TradeTicketCollateralFlag")
+                            </td>
+                            <td>
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade1.CollateralFlag)
+                                                    .HtmlAttributes(new { ID = "Trade1CollateralFlagDropdownList", @style = "width:90px;", tabindex = 10 })
+                                                    .Suggest(true)
+                                                    .AutoWidth(true)
+                                                    .DataTextField("Text")
+                                                    .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                                    .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLCollateralFlagByExecutingSystem", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1ExecutingSystem")))
+                                                    .Value(Model.Trade1.CollateralFlag.ToString())
+                                )
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Currency")
+                            </td>
+                            <td>
+
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade1.CurrencyCode)
+.HtmlAttributes(new { ID = "Trade1CurrencyDropdownList", @style = "width:90px;", tabindex = 11 })
+.Suggest(true)
+                               .BindTo(Enum.GetNames(typeof(Currency)).ToList())
+                               .Events(ev => ev.Change("onTradeCurrencyCode"))
+                                .Value(Model.Trade1.CurrencyCode.ToString())
+                                )
+                            </td>
+                            <td>
+                                @LabelHelper.Text("CashLoc")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.CashLoc).HtmlAttributes( new {@style = "width:90px;", tabindex = 12 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("SecurityLoc")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade1.SecurityLoc).HtmlAttributes(new { @style = "width:90px;", tabindex = 13 })
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Fee")
+                            </td>
+                            <td>
+                                @(Html.Kendo().DropDownListFor(model => model.Trade1.FeeType)
+                                                .HtmlAttributes(new { @class = "Toolbar-Cell", @style = "width:90px;", ID = "Trade1FeeDropDownList", tabindex = 14 })
+                                                .DataTextField("Fee")
+                                                .DataValueField("Fee")
+                                                .AutoWidth(true)
+                                                .OptionLabel(LabelHelper.Text("OptionLabel"))
+                                                .Animation(true)
+                                                .Events(events => events.Change("onTrade1FeeDropDownListChange"))
+                                                .DataSource(dataSource => dataSource
+                                                .Read(read => read.Action("Read_FeeTypesDropdown", "FeeType", new { area = "DomesticTrading" }).Data("additionalTradeTicketEntityData")))
+                                                .SelectedIndex(0))
+
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.FeeOffset).HtmlAttributes(new { @style = "width:90px;", ID = "Trade1FeeOffSetNumeric", tabindex = 15 }).Events(ev => ev.Change("onTrade1FeeOffSetNumericChange")).Spinners(true).Format("#,##0.00")
+                            </td>
+                            <td>
+                                @LabelHelper.Text("TradeTicketDeliveryCode")
+                            </td>
+                            <td>
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade1.DeliveryCode)
+                                        .HtmlAttributes(new { ID = "Trade1DeliveryCodeDropdownList", @style = "width:90px;", tabindex = 16 })
+                                        .Suggest(true)
+                                        .HighlightFirst(true)
+                                        .AutoWidth(true)
+                                        .DataTextField("Text")
+                                        .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                        .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLDeliveryCodeByTradeType", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1TradeTypeExecutinSystem")))
+                                        .Value(Model.Trade1.DeliveryCode.ToString())
+                                )
+                            </td>
+                            <td>
+                                @LabelHelper.Text("DivRate")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade1.DividendRate).HtmlAttributes(new { ID = "Trade1DivRateTextBox", @style = "width:90px;", tabindex = 17 }).Format("n2").Spinners(false)
+                            </td>
+                        </tr>
+                        <tr id="Trade1Domestic">
+                            <td>
+                                @LabelHelper.Text("CashSettleDate")
+                            </td>
+                            <td>
+                                @Html.Kendo().DatePickerFor(model => model.Trade1.CashSettleDate).Value(Model.Trade1.CashSettleDate).Format("yyyy-MM-dd").HtmlAttributes(new { ID = "Trade1ValueDate", @style = "width:90px;", tabindex = 18 }).Events(ev => ev.Change("onTrade1CashSettleDateChange"))
+                            </td>
+                            <td>
+                                @LabelHelper.Text("SecuritySettleDate")
+                            </td>
+                            <td>
+                                @Html.Kendo().DatePickerFor(model => model.Trade1.SecuritySettleDate).Value(Model.Trade1.SecuritySettleDate).Format("yyyy-MM-dd").HtmlAttributes(new { ID = "Trade1SettlementDate", @style = "width:90px;", tabindex = 19 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("TermDate")
+                            </td>
+                            <td>
+                                @Html.Kendo().DatePickerFor(model => model.Trade1.TermDate).Value(Model.Trade1.TermDate).Format("yyyy-MM-dd").HtmlAttributes(new { ID = "Trade1TermDate", @style = "width:90px;", tabindex = 20 })
+                            </td>
+                        </tr>
+                        @if (Model.Trade1.ExecutingSystem == SL_ExecutionSystemType.LOANET)
+                        {
+                            <tr id="Trade1DomesticAdditional">
+                                <td>
+                                    @LabelHelper.Text("AmountCalcType")
+                                </td>
+                                <td>
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade1.AmountCalcType)
+.HtmlAttributes(new { ID = "Trade1TradeAmountCalcTypeDropdownList", @style = "width:90px;", tabindex = 21 })
+                                .Suggest(true)
+                                   .BindTo(Enum.GetNames(typeof(SL_TradeAmountCalcType)).ToList())
+                                    .Value(Model.Trade1.AmountCalcType.ToString())
+                                    )
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("PriceCalcType")
+                                </td>
+                                <td>
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade1.PriceCalcType)
+                                                       .HtmlAttributes(new { ID = "Trade1PriceCalcTypeDropdownList", @style = "width:90px;", tabindex = 22 })
+                                                       .Suggest(true)
+                                                       .AutoWidth(true)
+                                                       .DataTextField("Text")
+                                                       .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                                       .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLTradePriceAmountTypeEnum", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1ExecutingSystem")))
+                                                       .Value(Model.Trade1.PriceCalcType.ToString())
+                                    )
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr id="Trade1DomesticAdditional" style="display:none;">
+                                <td>
+                                    @LabelHelper.Text("AmountCalcType")
+                                </td>
+                                <td>
+
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade1.AmountCalcType)
+.HtmlAttributes(new { ID = "Trade1TradeAmountCalcTypeDropdownList", @style = "width:90px;", tabindex = -1 })
+.Suggest(true)
+.AutoWidth(true)
+                               .BindTo(Enum.GetNames(typeof(SL_TradeAmountCalcType)).ToList())
+                                .Value(Model.Trade1.AmountCalcType.ToString())
+                                    )
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("PriceCalcType")
+                                </td>
+                                <td>
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade1.PriceCalcType)
+                                                    .HtmlAttributes(new { ID = "Trade2PriceCalcTypeDropdownList", @style = "width:90px;", tabindex = -1 })
+                                                    .Suggest(true)
+                                                    .AutoWidth(true)
+                                                    .DataTextField("Text")
+                                                    .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                                    .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLTradePriceAmountTypeEnum", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1ExecutingSystem")))
+                                                    .Value(Model.Trade1.PriceCalcType.ToString())
+                                    )
+
+
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+
+                        @if (Model.Trade1.ExecutingSystem == SL_ExecutionSystemType.GLOBALONE)
+                        {
+                            <tr id="Trade1International">
+                                <td>
+                                    @LabelHelper.Text("ExpectedEndDate")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade1.ExpectedEndDate).Value(Model.Trade1.ExpectedEndDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade1ExpectedEndDate", tabindex = 25 }).Events(events => events.Change("onTrade1ExpectedEndDate"))
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("Callable")
+                                </td>
+                                <td>
+                                    @Html.Kendo().CheckBoxFor(x => x.Trade1.Callable).HtmlAttributes(new { ID = "Trade1Callable", tabindex = 26 })
+                                </td>
+
+                                <td>
+                                    @LabelHelper.Text("TradeDAte")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade1.TradeDate).Value(Model.Trade1.ExpectedEndDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade1TradeDate", tabindex = 27 })
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @LabelHelper.Text("Comments")
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @Html.TextAreaFor(x => x.Trade1.Comment, new { @style = "width:100%;height:50px;", @maxlength = 20, tabindex = -1 })
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr id="Trade1International" style="display:none;">
+                                <td>
+                                    @LabelHelper.Text("ExpectedEndDate")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade1.ExpectedEndDate).Value(Model.Trade1.ExpectedEndDate).Format("yyyy-MM-dd").Events(events => events.Change("onTrade1ExpectedEndDate")).HtmlAttributes(new { @style = "width:90px;", ID = "Trade1ExpectedEndDate", tabindex = -1 })
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("Callable")
+                                </td>
+                                <td>
+                                    @Html.Kendo().CheckBoxFor(x => x.Trade1.Callable).HtmlAttributes(new { ID = "Trade1Callable", tabindex = -1 })
+                                </td>
+
+                                <td>
+                                    @LabelHelper.Text("TradeDAte")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade1.TradeDate).Value(Model.Trade1.ExpectedEndDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade1TradeDate", tabindex = -1 })
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @LabelHelper.Text("Comments")
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @Html.Kendo().TextAreaFor(x => x.Trade1.Comment).HtmlAttributes( new { @style = "width:100%;height:50px;", @maxlength = 20, tabindex = -1 })
+                                </td>
+                            </tr>
+                        }
+                    </table>
+                </td>
+                <td>
+                    <table id="Trade2" style="display:none;" class="TableTradeBorder">
+                        <tr>
+                            <th colspan="6">
+                                @Html.Label("Trade 2")
+                            </th>
+                        </tr>
+                        <tr>
+                            <td>
+                                @if (SessionSecurityService.IsEditable(ManagerTask.ViewSLInternational))
+                                {
+                                    @LabelHelper.Text("ExecutingSystem")
+                                }
+                            </td>
+                            <td>
+                                @if (SessionSecurityService.IsEditable(ManagerTask.ViewSLInternational))
+                                {
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade2.ExecutingSystem)
+                                                        .HtmlAttributes(new { ID = "Trade2ExecutingSystemDropdownList", @style = "width:90px;", tabindex = 31 })
+                                                        .Suggest(true)
+                                                        .AutoWidth(true)
+                                                        .Enable(false)
+                                                        .BindTo(Enum.GetNames(typeof(SL_ExecutionSystemType)).ToList())
+                                                         .Events(events => events.DataBound("onTrade2ExecutingSystemLoad").Change("onTrade2ExecutingSystemChange"))
+                                                        .Value(Model.Trade2.ExecutingSystem.ToString()))
+                                }
+                                else
+                                {
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade2.ExecutingSystem)
+                                                        .HtmlAttributes(new { ID = "Trade2ExecutingSystemDropdownList", @style = "width:90px;readonly:readonly;", tabindex = 31 })
+                                                        .Suggest(true)
+                                                        .AutoWidth(true)
+                                                        .Enable(false)
+                                                        .BindTo(Enum.GetNames(typeof(SL_ExecutionSystemType)).ToList())
+                                                         .Events(events => events.DataBound("onTrade2ExecutingSystemLoad"))
+                                                        .Value(Model.Trade2.ExecutingSystem.ToString()))
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("TradeType")
+                            </td>
+                            <td>
+                                @(Html.Kendo().DropDownListFor(model => model.Trade2.TradeType)
+                                                      .DataValueField("Value")
+                                                      .DataTextField("Text")
+                                                      .AutoWidth(true)
+                                                      .HtmlAttributes(new { @style = "width:90px;", ID = "Trade2TradeTypeDownDownList", tabindex = 32 })
+                                                      .Template("<span class=\"k-state-default\">#:data.Text#</span>")
+                                                      .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLTradeTypeByExecutingSystem", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade2ExecutingSystem"))))
+                            </td>
+                            <td>
+                                @LabelHelper.Text("ContraEntity")
+                            </td>
+                            <td>
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade2.ContraEntityId)
+                                            .HtmlAttributes(new { ID = "Trade2ContraEntityDropdownList", @style = "width:90px;", tabindex = 33 })
+                                            .DataTextField("ContraEntity")
+                                            .Suggest(false)
+                                            .AutoWidth(true)
+                                            .Events(events => events.Change("onTrade2ContraEntityChange"))
+                                            .Template("<span class=\"k-state-default\">#:data.ContraEntity# #:data.AccountName# </span>")
+                                            .DataSource(dataSource => dataSource
+                                            .Read(read => read.Action("Read_ContraEntityDropdown", "ContraEntity", new { area = "DomesticTrading" }).Data("additionalTradeTicketEntityData"))))
+                            </td>
+                            <td>
+                                @LabelHelper.Text("MktPrice")
+                            </td>
+                            <td>
+                                @(Html.Kendo().NumericTextBox().Name("Trade2MktPriceTextBox").HtmlAttributes(new { @style = "width:90px;", tabindex = -1 }).Format("n2").Spinners(false).Value(DataIssue.LoadIssuePrice(Model.Trade2.EntityId, (int)Model.Trade2.IssueId).CurrentCashPrice).Enable(false))
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("SecurityNumber")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.SecurityNumber).HtmlAttributes( new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @if (Model.Company.Country == Country.UnitedStates)
+                                {
+                                    LabelHelper.Text("Ticker");
+                                }
+                                else
+                                {
+                                    LabelHelper.Text("SecNumber");
+                                }
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.Ticker).HtmlAttributes( new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Price")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.Price).HtmlAttributes(new { ID = "Trade2PriceTextBox", @style = "width:90px;", tabindex = 34 }).Decimals(5).Format("n5").Events(e => e.Change("onTrade2PositionChange")).Spinners(false)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Isin")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.Isin).HtmlAttributes( new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Sedol")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.Sedol).HtmlAttributes( new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Quick")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.Quick).HtmlAttributes( new { @style = "width:90px;", @readonly = "readonly", tabindex = -1 })
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Quantity")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.Quantity).HtmlAttributes(new { ID = "Trade2QuantityTextBox", @style = "width:90px;", tabindex = 35 }).Format("n0").Events(e => e.Change("onTrade2PositionChange")).Step(100).Min(0)
+                            </td>
+                            <td>
+                                @LabelHelper.Text("Amount")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.Amount).HtmlAttributes(new { ID = "Trade2AmountTextBox", @style = "width:90px;", tabindex = 36 }).Format("c2").Events(e => e.Change("onTrade2PositionChange")).Min(0).Spinners(false)
+                            </td>
+                            <td>
+                                @LabelHelper.Text("RebateRate")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.RebateRate).HtmlAttributes(new { ID = "Trade2RebateRateTextBox", @style = "width:90px;", tabindex = 37 }).Events(e => e.Change("onTrade2RebateRateChange")).Format("n3").Decimals(3).Spinners(false)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Mark")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.Mark).HtmlAttributes(new { ID = "Trade2MarkTextBox", @style = "width:90px;", tabindex = 38 }).Format("n2").Events(e => e.Change("onTrade2PositionChange")).Spinners(false)
+                            </td>
+                            <td>
+                                @LabelHelper.Text("ProfitId")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.ProfitId).HtmlAttributes( new { @style = "width:90px;", ID = "Trade2SingleTradeProfitIdTextBox", tabindex = 39 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("TradeTicketCollateralFlag")
+                            </td>
+                            <td>
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade2.CollateralFlag)
+                                                .HtmlAttributes(new { ID = "Trade2CollateralFlagDropdownList", @style = "width:90px;", tabindex = 40 })
+                                                    .Suggest(true)
+                                                    .AutoWidth(true)
+                                                    .DataTextField("Text")
+                                                .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                                .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLCollateralFlagByExecutingSystem", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade2ExecutingSystem")))
+                                                .Value(Model.Trade2.CollateralFlag.ToString())
+                                )
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Currency")
+                            </td>
+                            <td>
+
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade2.CurrencyCode)
+                                    .HtmlAttributes(new { ID = "Trade2CurrencyDropdownList", @style = "width:90px;", tabindex = 41 })
+                                            .Suggest(true)
+                                            .AutoWidth(true)
+                                            .Events(ev => ev.Change("onTradeCurrencyCode"))
+                                               .BindTo(Enum.GetNames(typeof(Currency)).ToList())
+                                                .Value(Model.Trade2.CurrencyCode.ToString())
+                                )
+                            </td>
+                            <td>
+                                @LabelHelper.Text("CashLoc")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.CashLoc).HtmlAttributes( new { @style = "width:90px;", tabindex = 42 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("SecurityLoc")
+                            </td>
+                            <td>
+                                @Html.Kendo().TextBoxFor(model => model.Trade2.SecurityLoc).HtmlAttributes( new { @style = "width:90px;", tabindex = 43 })
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                @LabelHelper.Text("Fee")
+                            </td>
+                            <td>
+                                @(Html.Kendo().DropDownListFor(model => model.Trade2.FeeType)
+                                                .HtmlAttributes(new { @class = "Toolbar-Cell", @style = "width:90px;", ID = "Trade2FeeDropDownList", tabindex = 44 })
+                                                .DataTextField("Fee")
+                                                .DataValueField("Fee")
+                                                .AutoWidth(true)
+                                                .OptionLabel(LabelHelper.Text("OptionLabel"))
+                                                .Animation(true)
+                                                .DataSource(dataSource => dataSource
+                                                .Read(read => read.Action("Read_FeeTypesDropdown", "FeeType", new { area = "DomesticTrading" }).Data("additionalTradeTicketEntityData")))
+                                                .SelectedIndex(0))
+
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.FeeOffset).HtmlAttributes(new { @style = "width:90px;", ID = "Trade2FeeOffSetNumeric", tabindex = 45 }).Spinners(true).Format("#,##0.00")
+                            </td>
+                            <td>
+                                @LabelHelper.Text("TradeTicketDeliveryCode")
+                            </td>
+                            <td>
+                                @(Html.Kendo().AutoCompleteFor(model => model.Trade2.DeliveryCode)
+                                .HtmlAttributes(new { ID = "Trade2DeliveryCodeDropdownList", @style = "width:90px;", tabindex = 46 })
+                                    .Suggest(true)
+                                    .AutoWidth(true)
+                                    .DataTextField("Text")
+                                .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                               .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLDeliveryCodeByTradeType", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade2TradeTypeExecutingSystem")))
+                                .Value(Model.Trade2.DeliveryCode.ToString())
+                                )
+                            </td>
+                            <td>
+                                @LabelHelper.Text("DivRate")
+                            </td>
+                            <td>
+                                @Html.Kendo().NumericTextBoxFor(model => model.Trade2.DividendRate).HtmlAttributes(new { ID = "Trade2DivRateTextBox", @style = "width:90px;", tabindex = 47 }).Format("n2").Spinners(false)
+                            </td>
+                        </tr>
+                        <tr id="Trade2Domestic">
+                            <td>
+                                @LabelHelper.Text("CashSettleDate")
+                            </td>
+                            <td>
+                                @Html.Kendo().DatePickerFor(model => model.Trade2.CashSettleDate).Value(Model.Trade2.CashSettleDate).Format("yyyy-MM-dd").HtmlAttributes(new { ID = "Trade2ValueDate", @style = "width:90px;", tabindex = 48 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("SecuritySettleDate")
+                            </td>
+                            <td>
+                                @Html.Kendo().DatePickerFor(model => model.Trade2.SecuritySettleDate).Value(Model.Trade2.SecuritySettleDate).Format("yyyy-MM-dd").HtmlAttributes(new { ID = "Trade2SettlementDate", @style = "width:90px;", tabindex = 49 })
+                            </td>
+                            <td>
+                                @LabelHelper.Text("TermDate")
+                            </td>
+                            <td>
+                                @Html.Kendo().DatePickerFor(model => model.Trade2.TermDate).Value(Model.Trade2.TermDate).Format("yyyy-MM-dd").HtmlAttributes(new { ID = "Trade2TermDate", @style = "width:90px;", tabindex = 50 })
+                            </td>
+                        </tr>
+                        @if (Model.Trade2.ExecutingSystem == SL_ExecutionSystemType.LOANET)
+                        {
+                            <tr id="Trade2DomesticAdditional">
+                                <td>
+                                    @LabelHelper.Text("AmountCalcType")
+                                </td>
+                                <td>
+
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade2.AmountCalcType)
+.HtmlAttributes(new { ID = "Trade2TradeAmountCalcTypeDropdownList", @style = "width:90px;", tabindex = 51 })
+.Suggest(true)
+.AutoWidth(true)
+.BindTo(Enum.GetNames(typeof(SL_TradeAmountCalcType)).ToList())
+.Value(Model.Trade2.AmountCalcType.ToString())
+                                    )
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("PriceCalcType")
+                                </td>
+                                <td>
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade2.PriceCalcType)
+                                            .HtmlAttributes(new { ID = "Trade2PriceCalcTypeDropdownList", @style = "width:90px;", tabindex = 52 })
+                                            .Suggest(true)
+                                            .AutoWidth(true)
+                                            .DataTextField("Text")
+                                            .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                            .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLTradePriceAmountTypeEnum", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1ExecutingSystem")))
+                                            .Value(Model.Trade2.PriceCalcType.ToString())
+                                    )
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr id="Trade2DomesticAdditional" style="display:none;">
+                                <td>
+                                    @LabelHelper.Text("AmountCalcType")
+                                </td>
+                                <td>
+
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade2.AmountCalcType)
+                                                .HtmlAttributes(new { ID = "Trade2TradeAmountCalcTypeDropdownList", @style = "width:90px;", tabindex = -1 })
+                                                .Suggest(true)
+                                                .AutoWidth(true)
+                                                .BindTo(Enum.GetNames(typeof(SL_TradeAmountCalcType)).ToList())
+                                                .Value(Model.Trade2.AmountCalcType.ToString())
+                                    )
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("PriceCalcType")
+                                </td>
+                                <td>
+                                    @(Html.Kendo().AutoCompleteFor(model => model.Trade2.PriceCalcType)
+                                            .HtmlAttributes(new { ID = "Trade2PriceCalcTypeDropdownList", @style = "width:90px;", tabindex = -1 })
+                                            .Suggest(true)
+                                            .AutoWidth(true)
+                                            .DataTextField("Text")
+                                            .Template("<span class=\"k-state-default\">#:data.Text# #:data.Description# </span>")
+                                            .DataSource(dataSource => dataSource.Read(read => read.Action("Read_SLTradePriceAmountTypeEnum", "Enum", new { area = "DomesticTrading" }).Data("additionalTrade1ExecutingSystem")))
+                                            .Value(Model.Trade2.PriceCalcType.ToString())
+                                    )
+
+
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+
+                        @if (Model.Trade2.ExecutingSystem == SL_ExecutionSystemType.GLOBALONE)
+                        {
+                            <tr id="Trade2International">
+                                <td>
+                                    @LabelHelper.Text("ExpectedEndDate")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade2.ExpectedEndDate).Value(Model.Trade1.ExpectedEndDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade2ExpectedEndDate", tabindex = 53 })
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("Callable")
+                                </td>
+                                <td>
+                                    @Html.Kendo().CheckBoxFor(x => x.Trade2.Callable).HtmlAttributes(new { ID = "Trade2Callable", tabindex = 54 })
+                                </td>
+
+                                <td>
+                                    @LabelHelper.Text("TradeDAte")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade2.TradeDate).Value(Model.Trade2.TradeDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade2TradeDate", tabindex = 55 })
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @LabelHelper.Text("Comments")
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @Html.TextAreaFor(x => x.Trade2.Comment, new { @style = "width:100%;height:50px;", @maxlength = 20, tabindex = -1 })
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr id="Trade2International" style="display:none;">
+                                <td>
+                                    @LabelHelper.Text("ExpectedEndDate")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade2.ExpectedEndDate).Value(Model.Trade1.ExpectedEndDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade2ExpectedEndDate", tabindex = -1 })
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("Callable")
+                                </td>
+                                <td>
+                                    @Html.Kendo().CheckBoxFor(x => x.Trade2.Callable).HtmlAttributes(new { ID = "Trade2Callable", tabindex = -1 })
+                                </td>
+                                <td>
+                                    @LabelHelper.Text("TradeDAte")
+                                </td>
+                                <td>
+                                    @Html.Kendo().DatePickerFor(model => model.Trade2.TradeDate).Value(Model.Trade2.TradeDate).Format("yyyy-MM-dd").HtmlAttributes(new { @style = "width:90px;", ID = "Trade2TradeDate", tabindex = -1 })
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @LabelHelper.Text("Comments")
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="7">
+                                    @Html.Kendo().TextAreaFor(x => x.Trade2.Comment).HtmlAttributes( new { @style = "width:100%;height:50px;", @maxlength = 20, tabindex = -1 })
+                                </td>
+                            </tr>
+
+                        }
+
+
+
+                    </table>
+                </td>
+            </tr>
+
+        </table>
+
+        <table id="TradeFullyPaidAccountWrapper" style="width:100%;" hidden="hidden">
+            <tr>
+                <td style="width:100%;">
+                    @LabelHelper.Text("FPLPositions")
+                    @(Html.Kendo().Grid(Model.AllocationList)
+            .HtmlAttributes(new { ID = "TradeAllocationList", })
+                                                            .Name("TradeAllocationList")
+                                                            .Editable(edit => edit.Enabled(true).Mode(GridEditMode.InLine))
+                                                            .Columns(cols =>
+                                                            {
+                                                                cols.Bound(x => x.IsEnabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='chkbxTradeIsEnabled' #= (IsEnabled) ? checked ='checked' : '' #/>", "");
+                                                                cols.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                                                                cols.Bound(x => x.AccountNumber).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+                                                                cols.Bound(x => x.OriginalQuantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(OriginalQuantity)#", "");
+                                                                cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetPositionDirection(Quantity)#", "DecimalNumber");
+                                                                cols.Command(x =>
+                                                                {
+                                                                    x.Edit();
+                                                                });
+                                                            })
+                                                            .DataSource(ds =>
+                                                            {
+                                                                ds.Ajax()
+                                                                .ServerOperation(false)
+                                                                .AutoSync(true)
+                                                                .Update(update => update.Action("Upate_FPLSpecificAccountAllocationModel", "BoxCalculation", new { area = "DomesticTrading" }))
+                                                                .Model(x =>
+                                                                {
+                                                                    x.Id(q => q.AccountNumber);
+                                                                    x.Field(q => q.AccountNumber).Editable(false);
+                                                                    x.Field(q => q.AccountType).Editable(false);
+                                                                    x.Field(q => q.OriginalQuantity).Editable(false);
+                                                                    x.Field(q => q.Quantity).Editable(true);
+                                                                });
+                                                            }))
+                </td>
+            </tr>
+        </table>
+        <table id="TradeFooterWrapper" style="width:100%;">
+            <tr>
+                <td style="width:100%;">
+                    <label id="StatusLabel" class="label-status"></label>
+                </td>
+            </tr>
+            <tr>
+                <td style="width: 100%; text-align:right">
+                    @Html.Kendo().Button().Name("SaveTradePost").Enable(true).HtmlAttributes(new { tabindex = 98 }).Events(ev => ev.Click("onTradeSavePost")).Content(LabelHelper.Text("PostTradeChange"))
+
+                    @Html.Kendo().Button().Name("ConfirmTradePost").Enable(true).HtmlAttributes(new { tabindex = 99 }).Events(ev => ev.Click("onTradeConfirmPost")).Content(LabelHelper.Text("PostTradeConfirmChange"))
+                </td>
+            </tr>
+        </table>
+
+
+        @Html.HiddenFor(model => model.Trade1.EntityId);
+        @Html.HiddenFor(model => model.Trade1.EffectiveDate);
+        @Html.HiddenFor(model => model.Trade1.IssueId);
+        @Html.HiddenFor(model => model.Trade1.TradeStatus);
+        @Html.HiddenFor(model => model.Trade1.TradeNumber);
+        @Html.HiddenFor(model => model.Trade1.CashSettleDate);
+        @Html.HiddenFor(model => model.Trade1.SecuritySettleDate);
+        @Html.HiddenFor(model => model.Trade1.TermDate);
+
+        @Html.HiddenFor(model => model.Trade1.ExpectedEndDate);
+
+        @Html.HiddenFor(model => model.Trade1.Amount);
+        @Html.HiddenFor(model => model.Trade1.Price);
+        @Html.HiddenFor(model => model.Trade1.FeeOffset);
+        @Html.HiddenFor(model => model.Trade1.FeeType);
+        @Html.HiddenFor(model => model.Trade1.DividendRate);
+        @Html.HiddenFor(model => model.Trade1.DeliveryCode);
+        @Html.HiddenFor(model => model.Trade1.ExecutingSystem);
+        @Html.HiddenFor(model => model.Trade1.AmountCalcType);
+        @Html.HiddenFor(model => model.Trade1.Callable);
+        @Html.HiddenFor(model => model.Trade1.Comment);
+        @Html.HiddenFor(model => model.Trade2.EntityId);
+        @Html.HiddenFor(model => model.Trade2.EffectiveDate);
+        @Html.HiddenFor(model => model.Trade2.IssueId);
+        @Html.HiddenFor(model => model.Trade2.TradeStatus);
+        @Html.HiddenFor(model => model.Trade2.TradeNumber);
+
+        @Html.HiddenFor(model => model.Trade2.CashSettleDate);
+        @Html.HiddenFor(model => model.Trade2.SecuritySettleDate);
+        @Html.HiddenFor(model => model.Trade2.TermDate);
+
+        @Html.HiddenFor(model => model.Trade2.ExpectedEndDate);
+
+        @Html.HiddenFor(model => model.Trade2.Callable);
+        @Html.HiddenFor(model => model.Trade2.Amount);
+        @Html.HiddenFor(model => model.Trade2.Price);
+        @Html.HiddenFor(model => model.Trade2.FeeOffset);
+        @Html.HiddenFor(model => model.Trade2.FeeType);
+        @Html.HiddenFor(model => model.Trade2.DividendRate);
+        @Html.HiddenFor(model => model.Trade2.DeliveryCode);
+        @Html.HiddenFor(model => model.Trade2.ExecutingSystem);
+        @Html.HiddenFor(model => model.Trade2.AmountCalcType);
+
+        @Html.HiddenFor(model => model.Trade1.CollateralFlag);
+        @Html.HiddenFor(model => model.Trade2.CollateralFlag);
+        @Html.HiddenFor(model => model.Trade2.Comment);
+
+        @Html.HiddenFor(model => model.AllocationList);
+    }
+</div>

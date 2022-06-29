@@ -1,0 +1,127 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Tools
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+
+@model List<SL_LocateProjection>
+
+<script type="text/javascript">
+    function onSendLocateCancel() {
+        $("#SendLocateCancelButton").data("kendoButton").enable(false);
+        $("#CancelLocateCancelButton").data("kendoButton").enable(false);
+
+        $('#LocateCancelStatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+        var dataItems = getCSVDataItems('#LocateCancelGrid', true);
+
+        $.ajax({
+            url: '@Url.Action("CancelLocates", "Locates", new { area = "Locates" })',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ locateList: dataItems }),
+            success: function(valid) {
+                DisplayControllerByStringError("Info", "Canceled " + valid.length + " locate(s).");
+
+                $('#LocalDetailWindow').data("kendoWindow").close();
+            },
+            error: function (f) {
+                $("#LocateCancelStatusLabel").text("Cancel failed. - " + f.message);
+
+                $("#SendLocateCancelButton").data("kendoButton").enable(true);
+                $("#CancelLocateCancelButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+    function onCancelLocateCancel() {    
+        $('#LocalDetailWindow').data("kendoWindow").close();
+    }
+</script>
+
+@*<style scoped>
+    #LocateCancelTable td,
+    #LocateCancelTable th {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+
+
+    #LocateCancelStatusLabel {
+        font-style: normal;
+        white-space: pre-wrap;
+        border: 1px solid #ccc;
+        height: 50px;
+    }
+
+    #LocateCancelTable {
+        width: 400px;
+        max-width: 400px;
+    }
+</style>*@
+
+@if (Model == null)
+{
+    @LabelHelper.Label("NoData")
+}
+else
+{
+<table id="LocateCancelTable">
+    <tr>
+        <td>
+            @LabelHelper.Label("NumberOfLocates")  
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+    </tr>
+    <tr>
+        <td>
+       @(Html.Kendo().Grid(Model)
+        .Name("LocateCancelGrid")
+        .Columns(cols =>
+        {
+            cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.RequestedBy).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.RequestQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+            cols.Bound(x => x.AllocatedQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+        })
+        .Scrollable()
+        .DataSource(data =>
+        {
+            data.Ajax()
+                .ServerOperation(false)
+                .Aggregates(agg =>
+                {
+                    agg.Add(x => x.RequestQuantity).Sum();
+                    agg.Add(x => x.AllocatedQuantity).Sum();
+                });
+        }))
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+    </tr>
+    <tr>
+        <td colspan="2">@LabelHelper.Label("Status")</td>
+    </tr>
+    <tr>
+        <td colspan="2">
+            <label id="LocateCancelStatusLabel">Cancel @(Model.Count) Locate(s)? </label>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+    </tr>
+    <tr>
+        <td colspan="2" align="right">
+            @Html.Kendo().Button().Name("SendLocateCancelButton").Content(LabelHelper.Text("SendLocateCancel")).Events(e => e.Click("onSendLocateCancel"))
+            @Html.Kendo().Button().Name("CancelLocateCancelButton").Content(LabelHelper.Text("CancelLocateCancel")).Events(e => e.Click("onCancelLocateCancel"))
+        </td>
+    </tr>
+</table>
+}

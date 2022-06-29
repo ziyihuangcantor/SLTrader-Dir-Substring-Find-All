@@ -1,0 +1,243 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+    var _originalActivityActionMarkerGrid = null;
+    var _originalActivityActionMarkerToolBar = null;
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#ActivityActionMarkerGrid");
+    });
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalActivityActionMarkerGrid = $("#ActivityActionMarkerGrid").data('kendoGrid').getOptions();
+            _originalActivityActionMarkerToolBar = $("#ActivityActionMarkerGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#ActivityActionMarkerGrid");
+
+            $("#ActivityActionMarkerGrid .k-grid-toolbar").html(_originalActivityActionMarkerToolBar);
+            $("#ActivityActionMarkerGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onActivityActionMarkerLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ActivityActionMarkerGrid");
+        }, 5);
+    }
+
+    function onActivityActionMarkerCheckData() {
+        CheckGridData('#ActivityActionMarkerGrid');
+    }
+
+    function additionalCreateActivityActionMarkerData() {
+        var entity = $("#ActivityActionMarkerDropdownList").data("kendoDropDownList").value();
+        var dropdownList = $('#ActivityActionMarkerDropdownList').data("kendoDropDownList").dataItem();
+
+        return {
+            entityId: entity,
+            executionSystemType: dropdownList.DefaultExecutionSystem
+        };
+    }
+
+    function additionalActivityActionMarkerData() {
+        var entity = $("#ActivityActionMarkerDropdownList").data("kendoDropDownList").value();
+        
+        return {
+            entityId: entity
+        };
+    }
+
+    function onActivityActionMarkerEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () {
+            input.select();
+        }, 25);
+    }
+
+    function onActivityActionMarkerDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#ActivityActionMarkerDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#ActivityActionMarkerGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onActivityActionMarkerChange() {
+        $("#ActivityActionMarkerGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onActivityActionMarkerContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#ActivityActionMarkerGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ActivityActionMarkerGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#ActivityActionMarkerGrid");
+
+                $("#ActivityActionMarkerGrid").data('kendoGrid').setOptions(_originalActivityActionMarkerGrid);
+                $("#ActivityActionMarkerGrid .k-grid-toolbar").html(_originalActivityActionMarkerToolBar);
+                $("#ActivityActionMarkerGrid .k-grid-toolbar").addClass("k-grid-top");
+                $('#ActivityActionMarkerGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#ActivityActionMarkerGrid");
+                break;
+        }
+    }
+
+    function onSLTradeBulkUpdateData() {
+        var entityGrid = $("#ActivityActionMarkerGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var dropdownList = $('#ActivityActionMarkerDropdownList').data("kendoDropDownList").dataItem();
+
+        return {
+            executingSystem: dropdownList.DefaultExecutionSystem
+        }
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("ActivityActionMarkerToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("ActivityActionMarkerDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                                .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onActivityActionMarkerChange").DataBound("onActivityActionMarkerDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+
+<div id="ActivityActionMarkerContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<SL_ActivityActionMarker>()
+        .Name("ActivityActionMarkerGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Editable(e =>
+        {
+            e.Mode(GridEditMode.InLine).Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLInventory));
+            e.DisplayDeleteConfirmation(false);
+        })
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Events(events =>
+        {
+            events.DataBound("onActivityActionMarkerCheckData");
+            events.Edit("onActivityActionMarkerEdit");
+            events.ColumnHide("onActivityActionMarkerLayoutChange");
+            events.ColumnShow("onActivityActionMarkerLayoutChange");
+            events.ColumnResize("onActivityActionMarkerLayoutChange");
+            events.ColumnReorder("onActivityActionMarkerLayoutChange");
+        })
+        .ToolBar(toolbar => toolbar.Create())
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.SLActivityActionMarker).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.UserId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden();
+            columns.Bound(x => x.ExecutionSystemType).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden();
+            columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_TradeTypeDropdown");
+            columns.Bound(x => x.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_ActivityActionEntityTypeDropdown");
+            columns.Bound(x => x.Marker).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(Marker)#", "_ActivityActionMarkerColorDropdown");
+            columns.Bound(x => x.Description).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Field).GetColumnFormat(ColumnTypeEnum.String, false, "", "_ActivityActionActivitySelectableColumnDropdown");
+            columns.Bound(x => x.OperatorId).GetColumnFormat(ColumnTypeEnum.String, false, "", "_QuickFilterOperatorDropdown");
+            columns.Bound(x => x.Value).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+            columns.Command(x =>
+            {
+                x.Edit();
+                x.Destroy();
+            });
+        })
+        .ColumnMenu( menu =>
+        {
+            menu.Columns( true );
+            menu.Filterable( true );
+            menu.Sortable( true );
+            menu.ComponentType( "modern" );
+        } )
+
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .Read(read => read.Action("Read_ActivityActionMarker", "ActivityActionMarker", new { area = "DomesticTrading" }).Data("additionalActivityActionMarkerData"))
+            .Update(update => update.Action("Update_ActivityActionMarker", "ActivityActionMarker", new { area = "DomesticTrading" }))
+            .Destroy(delete => delete.Action("Delete_ActivityActionMarker", "ActivityActionMarker", new { area = "DomesticTrading" }))
+            .Create(create => create.Action("Create_ActivityActionMarker", "ActivityActionMarker", new { area = "DomesticTrading" }).Data("additionalCreateActivityActionMarkerData"))
+            .Model(model =>
+            {
+                model.Id(x => x.SLActivityActionMarker);
+                model.Field(x => x.SLActivityActionMarker).Editable(false);
+                model.Field(x => x.ExecutionSystemType).Editable(false);
+                model.Field(x => x.EntityId).Editable(false);
+                model.Field(x => x.DateTimeId).Editable(false);
+                model.Field(x => x.TradeType).Editable(true);
+                model.Field(x => x.Description).DefaultValue("").Editable(true);
+                model.Field(x => x.Marker).Editable(true).DefaultValue("#0000ff");
+            }))
+    )
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("ActivityActionMarkerContextMenu")
+    .Target("#ActivityActionMarkerGrid")
+    .Events(events => events.Select("onActivityActionMarkerContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+    }))

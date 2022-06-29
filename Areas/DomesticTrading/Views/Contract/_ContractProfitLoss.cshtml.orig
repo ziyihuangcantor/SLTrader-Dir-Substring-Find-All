@@ -1,0 +1,541 @@
+﻿@using System.ComponentModel
+@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Tools
+
+
+<style scoped>   
+    #ProfitLossChart {
+        width: 100%;
+        height: 100%;
+    }
+
+    #ProfitLossGrid {
+        width: 100%;
+        height: 100%;
+    }
+
+      #ProfitLossButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+
+    #ProfitLossToolBar .k-radio-label {
+        padding-left:20px;
+        vertical-align:middle;
+    }
+</style>
+
+<script type="text/javascript">
+    var _originalProfitLossGrid = null;
+    var enumType = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalProfitLossGrid = $('#ProfitLossGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#ProfitLossGrid");
+        }, 5);
+
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("ProfitLossButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#ProfitLossGrid", "ProfitLossGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+    });
+
+    $('#SharedLabelCheckBox').on('change', function () {
+        RefreshGrid("#ProfitLossGrid");
+    });
+
+    function onProfitLossCheckData(e) {
+        CheckGridData('#ProfitLossGrid');
+    }
+
+
+    function onProfitLossChange() {
+        onGridDataChange(this);
+    }
+
+    function onProfitLossStart() {
+        kendo.ui.progress($("#ProfitLossGrid"), true);
+    }
+
+    function onProfitLossEnd() {
+        kendo.ui.progress($("#ProfitLossGrid"), false);
+
+    }
+
+
+    function onProfitLossRowChange(e) {
+        try {
+            var entityGrid = $("#ProfitLossGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+
+
+            SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+        }
+        catch (e) {
+            LogError(e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onProfitLossGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ProfitLossGrid");
+        }, 5);
+    }
+
+
+    function onProfitLossDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#ProfitLossEntityDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $("#ContraEntityIdSummaryRadio").click();
+                    onGridDataChange(this);
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            LogError(e.message);
+        }
+    }
+
+    function onGridDataChange(e) {
+        kendo.ui.progress($("#ProfitLossGrid"), true);
+        try {
+            var profitLossEntity = $("#ProfitLossEntityDropdownList").data("kendoDropDownList").value();
+            var startDatepickerSource = $("#ProfitLossStartDateCalander").data("kendoDatePicker");
+            var stopDatepickerSource = $("#ProfitLossStopDateCalander").data("kendoDatePicker");
+
+            var startDate = kendo.toString(startDatepickerSource.value(), 'yyyy-MM-dd');
+            var stopDate = kendo.toString(stopDatepickerSource.value(), 'yyyy-MM-dd');
+
+
+            $.ajax({
+                url: '/Dashboard/ProfitLoss/GetProfitLossTrend',
+                type: 'POST',
+                data: JSON.stringify({
+                    startDate: startDate,
+                    stopDate: stopDate,
+                    entity: profitLossEntity,
+                    enumType: enumType
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {
+
+                    $.each(valid, function (i, obj) {
+                        obj['EffectiveDate'] = kendo.parseDate(obj['EffectiveDate']);
+                    });
+
+                    if (enumType == '@ProfitLossEnum.ContraID')
+                    {
+                        $('#ProfitLossContraEntityChart').data().kendoChart.dataSource.data(valid);
+                    }
+                    else if (enumType == '@ProfitLossEnum.Security.ToString()')
+                    {
+                        $('#ProfitLossSecIdChart').data().kendoChart.dataSource.data(valid);
+                    }
+                    else
+                    {
+                        $('#ProfitLossProfitIdChart').data().kendoChart.dataSource.data(valid);
+                    }
+
+                    $("#ProfitLossGrid").data("kendoGrid").dataSource.data(valid);                  
+                    kendo.ui.progress($("#ProfitLossGrid"), false);
+                },
+                error: function (valid) {
+                    kendo.ui.progress($("#ProfitLossGrid"), false);
+                }
+            });
+        }
+        catch (e) {
+            LogError(e.message);
+        }
+    }
+    function onProfitLossRadioChange(e) {
+        var entityGrid = $("#ProfitLossGrid").data("kendoGrid");
+        console.log($('input[name="Summary"]:checked', '#ProfitLossToolBar').val())
+
+        if ($('input[name="Summary"]:checked', '#ProfitLossToolBar').val() == '@ProfitLossEnum.ContraID.ToString()') {
+            $('#ProfitLossContraEntityChart').show();
+            $('#ProfitLossSecIdChart').hide();
+            $('#ProfitLossProfitIdChart').hide();
+
+            entityGrid.hideColumn("IssueId");
+            entityGrid.hideColumn("SecurityNumber");
+            entityGrid.hideColumn("Ticker");
+            entityGrid.hideColumn("ProfitId");
+
+            entityGrid.showColumn("ContraEntityId");
+            entityGrid.showColumn("AccountName");
+
+            enumType = '@ProfitLossEnum.ContraID';
+        } else if ($('input[name="Summary"]:checked', '#ProfitLossToolBar').val() == '@ProfitLossEnum.Security.ToString()') {
+            $('#ProfitLossContraEntityChart').hide();
+            $('#ProfitLossSecIdChart').show();
+            $('#ProfitLossProfitIdChart').hide();
+
+            entityGrid.hideColumn("IssueId");
+            entityGrid.showColumn("SecurityNumber");
+            entityGrid.showColumn("Ticker");
+
+            entityGrid.hideColumn("ProfitId");
+            entityGrid.hideColumn("ContraEntityId");
+            entityGrid.hideColumn("AccountName");
+
+            enumType = '@ProfitLossEnum.Security';
+        } else if ($('input[name="Summary"]:checked', '#ProfitLossToolBar').val() == '@ProfitLossEnum.SecurityProfitId.ToString()') {
+            $('#ProfitLossContraEntityChart').hide();
+            $('#ProfitLossSecIdChart').hide();
+            $('#ProfitLossProfitIdChart').show();
+
+            entityGrid.showColumn("SecurityNumber");
+            entityGrid.showColumn("Ticker");
+
+            entityGrid.hideColumn("IssueId");
+            entityGrid.showColumn("ProfitId");
+            entityGrid.hideColumn("ContraEntityId");
+            entityGrid.hideColumn("AccountName");
+            enumType = '@ProfitLossEnum.SecurityProfitId';
+        }
+
+        onGridDataChange(this, key);
+    }
+
+    function onProfitLossError(e) {
+        console.log(e.message);
+    }
+
+    function onProfitLossContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#ProfitLossGrid");
+                break;
+
+            case 'Unsort':
+                UnsortGrid("#ProfitLossGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ProfitLossGrid");
+                break;
+
+            case 'Select All':
+                onProfitLossSelectAll();
+                break;
+
+            case 'Export To Excel':
+                exportToProfitLossExcel();
+                break;
+        }
+    }
+
+    function onProfitLossSelectAll() {
+        try {
+            var profitLossGrid = $("#ProfitLossGrid").data("kendoGrid");
+            profitLossGrid.select(profitLossGrid.tbody.find(">tr"));
+        } catch (e) {
+            LogError(e.message);
+        }
+    }
+
+
+    function exportToProfitLossExcel() {
+        KendoGridToCSVConvertor("#ProfitLossGrid", 'ProfitLossGrid', false);
+    }
+</script>
+
+
+@(
+ Html.Kendo().ToolBar()
+        .Name( "ProfitLossToolBar" )
+    .Resizable( true )
+    .HtmlAttributes( new { @class = "tBar" } )
+    .Items( items =>
+    {
+        items.Add().Template( LabelHelper.Label( "StartDate" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DatePicker()
+            .Name( "ProfitLossStartDateCalander" )
+            .Format( "yyyy-MM-dd" )
+            .Value( DateTime.Today )
+            .Events( events => events.Change( "onProfitLossChange" ) )
+            .HtmlAttributes( new { @class = "Toolbar-Cell" } ).ToHtmlString() );
+
+        items.Add().Template( LabelHelper.Label( "StopDate" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DatePicker()
+            .Name( "ProfitLossStopDateCalander" )
+            .Format( "yyyy-MM-dd" )
+            .Value( DateTime.Today )
+             .Events( events => events.Change( "onProfitLossChange" ) )
+            .HtmlAttributes( new { @class = "Toolbar-Cell" } ).ToHtmlString() );
+
+        items.Add().Template( LabelHelper.Label( "Entity" ).ToHtmlString() );
+        items.Add().Template( Html.Kendo().DropDownList()
+                            .Name( "ProfitLossEntityDropdownList" )
+                            .HtmlAttributes( new { @style = "width: 90px" } )
+                            .DataTextField( "Custodian" )
+                            .DataValueField( "CompanyId" )
+                            .OptionLabel( LabelHelper.Text( "OptionLabel" ) )
+                            .AutoBind( true )
+                                .Template( "#if(data.Custodian == \"" + LabelHelper.Text( "OptionLabel" ) + "\")" +
+                                   "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                   "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#" )
+                            .Events( events => events.Change( "onProfitLossChange" ).DataBound( "onProfitLossDefaultLoad" ).Open( "onContraEntityAutoCompleteResize" ) )
+                            .DataSource( dataSource => dataSource
+                            .Events( events => events.Error( "onProfitLossError" ) )
+                            .Read( read => read
+                            .Action( "Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" } ) ) )
+                            .SelectedIndex( 0 ).ToHtmlString() );
+
+
+        items.Add().Template(Html.Kendo().DropDownListFor(m => m)
+            .Name("ContractProfitLossReportTypeDropdownList")
+            .HtmlAttributes(new { @style = "width:100px;", data_value_primitive = true })
+            .BindTo(Enum.GetNames(typeof(ProfitLossEnum)).AsEnumerable())
+            .Events(ev => ev.Change("onFailExposureChange"))
+            .Value(ProfitLossEnum.ContraID.ToString()).ToHtmlString());
+    } ))
+
+<hr class="hr-white">   
+<div id="ProfitLossContent" class="grid-div">
+
+    @(Html.Kendo().Splitter()
+        .Name( "ProfitLossSplitter" )
+        .HtmlAttributes( new { @class = "grid" } )
+        .Orientation( SplitterOrientation.Vertical )
+        .Panes( panes =>
+        {
+    panes.Add()
+        .Collapsible( false )
+        .Size( "70%" )
+        .Scrollable( false )
+        .Content( @<text>
+
+    @(Html.Kendo().Chart<ProfitLossModel>()
+                        .Name( "ProfitLossContraEntityChart" )
+        .Title( "Profit And Loss" )
+        .Legend( legend => legend
+            .Position( ChartLegendPosition.Top )
+        )
+        .DataSource(ds =>
+        {
+            ds.Group( group => group.Add( model =>  model.ContraEntityId) );
+                      
+            ds.Sort( sort => sort.Add( model => model.EffectiveDate ).Ascending() );
+        })
+        .Series( series =>
+        {
+            series.Bar(model => model.TotalIncome).Name("Income");
+        } )
+        .CategoryAxis( axis => axis
+            .Categories( model => model.ContraEntityId )
+            .Labels( labels => labels.Rotation( -90 ) )
+            .Crosshair( c => c.Visible( true ) )
+        )
+        .ValueAxis( axis => axis.Numeric()
+            .Labels( labels => labels.Format( "{0:N0}" ) )
+            .MajorUnit( 10000 )
+        )
+        .Tooltip( tooltip => tooltip
+            .Visible( true )
+            .Shared( true )
+            .Format( "{0:N0}" )
+        ) )
+
+    @(Html.Kendo().Chart<ProfitLossModel>()
+                        .Name("ProfitLossSecIdChart")
+        .Title("Profit And Loss")
+        .Legend(legend => legend
+           .Position(ChartLegendPosition.Top)
+        )
+        .DataSource(ds =>
+        {
+            ds.Group(group => group.Add(model => model.ContraEntityId));
+            ds.Sort(sort => sort.Add(model => model.EffectiveDate).Ascending());
+        })
+        .Series(series =>
+        {
+            series.Line(model => model.TotalIncome).Name("Income");
+        })
+        .CategoryAxis(axis => axis
+           .Categories(model => model.EffectiveDate)
+           .Labels(labels => labels.Rotation(-90))
+           .Crosshair(c => c.Visible(true))
+        )
+        .ValueAxis(axis => axis.Numeric()
+           .Labels(labels => labels.Format("{0:N0}"))
+           .MajorUnit(10000)
+        )
+        .Tooltip(tooltip => tooltip
+           .Visible(true)
+           .Shared(true)
+           .Format("{0:N0}")
+        ) )
+
+    @(Html.Kendo().Chart<ProfitLossModel>()
+                        .Name("ProfitLossProfitIdChart")
+        .Title("Profit And Loss")
+        .Legend(legend => legend
+           .Position(ChartLegendPosition.Top)
+        )
+        .DataSource(ds =>
+        {
+            ds.Group(group => group.Add(model => model.ContraEntityId));
+            ds.Sort(sort => sort.Add(model => model.EffectiveDate).Ascending());
+        })
+        .Series(series =>
+        {
+            series.Line(model => model.TotalIncome).Name("Income");
+        })
+        .CategoryAxis(axis => axis
+           .Categories(model => model.EffectiveDate)
+           .Labels(labels => labels.Rotation(-90))
+           .Crosshair(c => c.Visible(true))
+        )
+        .ValueAxis(axis => axis.Numeric()
+           .Labels(labels => labels.Format("{0:N0}"))
+           .MajorUnit(10000)
+        )
+        .Tooltip(tooltip => tooltip
+           .Visible(true)
+           .Shared(true)
+           .Format("{0:N0}")
+        ) )
+        </text> );
+        
+            panes.Add()
+                .Collapsible( false )
+                .Size( "20%" )
+                .Scrollable( false )
+                .Content( @<text>
+            @(Html.Kendo().Grid<ProfitLossModel>()
+                .Name( "ProfitLossGrid" )
+                       .HtmlAttributes( new { @class = "grid" } )
+                  .Sortable( sort =>
+                  {
+                      sort.AllowUnsort( true );
+                      sort.Enabled( true );
+                      sort.SortMode( GridSortMode.MultipleColumn );
+                  } )
+                  .Scrollable( scrollable => scrollable.Virtual( true ).Enabled( true ) )
+                  .Filterable()
+                  .Navigatable()
+                  .AutoBind( false )
+                  .ColumnMenu( menu =>
+                  {
+                      menu.Columns( true );
+                      menu.Filterable( true );
+                      menu.Sortable( true );
+                  } )
+                  .Events( events =>
+                  {
+                      events.Change( "onProfitLossRowChange" );
+                      events.DataBound( "onProfitLossCheckData" );
+                      events.ColumnResize( "onProfitLossGridLayoutChange" );
+                  } )
+                  .Selectable( selectable => selectable.Mode( GridSelectionMode.Multiple ).Type( GridSelectionType.Row ) )
+                  .Reorderable( reorder => reorder.Columns( true ) )
+                  .Resizable( resize => resize.Columns( true ) )
+                .Columns( columns =>
+                {
+                    columns.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.Date, false, "", "" );
+                    columns.Bound( x => x.Entity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+                    columns.Bound( x => x.ContraEntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( x => x.AccountName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                    columns.Bound( x => x.IssueId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+                    columns.Bound( x => x.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+                    columns.Bound( x => x.Ticker ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                    columns.Bound( x => x.ProfitId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+
+                    columns.Bound(x => x.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantity)#", "");
+                    columns.Bound( x => x.BorrowBalance ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowBalance)#", "" );
+                    columns.Bound( x => x.BorrowIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowIncome)#", "" );
+
+                    columns.Bound(x => x.LoanQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantity)#", "");
+                    columns.Bound( x => x.LoanBalance ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanBalance)#", "" );
+                    columns.Bound( x => x.LoanIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanIncome)#", "" );
+
+                    columns.Bound(x => x.DiffQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(DiffQuantity)#", "");
+                    columns.Bound(x => x.DiffBalance).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DiffBalance)#", "");
+
+                    columns.Bound( x => x.TotalIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalIncome)#", "" );
+                    columns.Bound( x => x.Spread ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(Spread)#", "" );
+
+                    columns.Bound(x => x.SpreadCloseOfBusiness).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(SpreadCloseOfBusiness)#", "");
+                    columns.Bound(x => x.DiffSpread).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(DiffSpread)#", "");
+                    columns.Bound(x => x.CashFlow).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(CashFlow)#", "");
+                } )
+                .DataSource( ds =>
+                {
+                    ds.Ajax()
+                        .ServerOperation( false )
+                        .Aggregates( agg =>
+                        {
+                            agg.Add(x => x.BorrowQuantity).Sum();
+                            agg.Add( x => x.BorrowBalance ).Sum();
+                            agg.Add( x => x.BorrowIncome ).Sum();
+
+                            agg.Add(x => x.LoanQuantity).Sum();
+                            agg.Add( x => x.LoanBalance ).Sum();
+                            agg.Add( x => x.LoanIncome ).Sum();
+
+                            agg.Add(x => x.DiffQuantity).Sum();
+                            agg.Add(x => x.DiffBalance).Sum();
+                            agg.Add( x => x.TotalIncome ).Sum();
+                            agg.Add(x => x.CashFlow).Sum();
+                        } );
+                } ))   
+    
+    
+     
+            </text> );
+        } ))
+</div>
+
+@(
+ Html.Kendo().ContextMenu()
+.Name( "ProfitLossContextMenu" )
+            .Target( "#ProfitLossGrid" )
+.Events( events => events.Select( "onProfitLossContextMenuSelect" ) )
+.Items( items =>
+{
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text( "Unsort" ).Enabled( true );
+    items.Add().Text( "Reset Filter" ).Enabled( true );
+    items.Add().Text( "Select All" ).Enabled( true );
+    items.Add().Separator( true );
+    items.Add().Text( "Copy" ).Enabled( true ).HtmlAttributes( new { ID = "ProfitLossButton" } );
+    items.Add().Text( "Export To Excel" ).Enabled( true );
+} ))

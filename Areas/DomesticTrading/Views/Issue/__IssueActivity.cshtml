@@ -1,0 +1,209 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Enums
+
+
+<style scoped>
+    .label {
+        padding-left:5px;
+    }
+
+      #InformationActivityButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+<script>
+   
+    var _IssueInformationActivityByTickerGridSelectAll = false;
+    var _originalIssueInformationActivityByTickerGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalIssueInformationActivityByTickerGrid = $('#IssueInformationActivityByTickerGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#IssueInformationActivityByTickerGrid");
+           
+            var labelActivity = '@LabelHelper.Text("Activity")';
+
+            $(".k-grid-toolbar", "#IssueInformationActivityByTickerGrid").append("<label>" + labelActivity + "</label>");
+
+            RefreshGrid("#IssueInformationActivityByTickerGrid");
+        }, 5);
+
+        var clientInformationActivityButton = new ZeroClipboard(document.getElementById("InformationActivityButton"));
+
+        clientInformationActivityButton.on("ready", function (readyEvent) {
+            clientInformationActivityButton.on("copy", function (event) {
+                var data = KendoGridToText("#IssueInformationActivityByTickerGrid", "IssueInformationActivityByTickerGrid", false);
+                clientInformationActivityButton.setText(data);
+            });
+        });
+    });
+
+    function additionalInfoActivityByTickerData(e) {
+        var datepicker = $("#InformationCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#InformationDropdownList").data("kendoDropDownList").value();
+        var criteria = document.getElementById('IssueInformationSecuritySearchTextBox').value;
+
+
+        return {
+            effectiveDate: value,
+            entityId: entityId,
+            criteria: criteria
+        }
+    }
+    function onInssueInformationActivityCheckData(e) {
+
+    }
+
+
+    function onIssueInformationActivityGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#IssueInformationActivityByTickerGrid");
+        }, 5);
+    }
+
+    function onIssueInformationActivityByTickerGridyContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#IssueInformationActivityByTickerGrid");
+                break;
+
+            case 'Unsort':
+                onIssueInformationUnsortGrid("#IssueInformationActivityByTickerGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#IssueInformationActivityByTickerGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#IssueInformationActivityByTickerGrid");
+                $('#IssueInformationActivityByTickerGrid').data('kendoGrid').setOptions(_originalIssueInformationActivityByTickerGrid);
+                $('#IssueInformationActivityByTickerGrid').data("kendoGrid").dataSource.read();
+
+                $(".k-grid-toolbar", "#IssueInformationActivityByTickerGrid").append("<label>" + '@LabelHelper.Text("Activity")' + "</label>");
+                break;
+
+            case 'Select All':
+                onIssueInformationSelectAll("#IssueInformationActivityByTickerGrid", _IssueInformationActivityByTickerGridSelectAll);
+                break;
+
+            case 'Export To Excel':
+                onIssueInformationExcel("#IssueInformationActivityByTickerGrid", "IssueInformationActivityByTickerGrid", _IssueInformationActivityByTickerGridSelectAll);
+                break;
+        }
+    }
+
+    function onIssueInformationActivityGridRowChange()
+    {
+        _IssueInformationActivityByTickerGridSelectAll = false;
+    }
+
+    function onIssueInformationSelectAll(e, selectAll) {
+        try {
+            var contractGrid = $(e).data("kendoGrid");
+            contractGrid.select(contractGrid.tbody.find(">tr"));
+
+            selectAll = true;
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onIssueInformationExcel(grid, title, selectAll) {
+        KendoGridToCSVConvertor(grid, title, selectAll);
+    }
+</script>
+
+<div class="height100p width100p" >
+    @(Html.Kendo().Grid<BondFire.Entities.Projections.SL_ActivityProjection>()
+                .Name("IssueInformationActivityByTickerGrid")
+                .Sortable()
+                .HtmlAttributes(new { @class = "grid" })
+                .AutoBind(false)
+                .Scrollable()
+                           .ColumnMenu(menu =>
+                           {
+                               menu.Columns(true);
+                               menu.Filterable(true);
+                               menu.Sortable(true);
+                               menu.ComponentType( "modern" );
+                           } )
+                   .Events(events =>
+                   {
+                       events.ColumnHide("onIssueInformationActivityGridLayoutChange");
+                       events.ColumnShow("onIssueInformationActivityGridLayoutChange");
+                       events.ColumnResize("onIssueInformationActivityGridLayoutChange");
+                       events.ColumnReorder("onIssueInformationActivityGridLayoutChange");
+                   })
+                   .NoRecords()
+                        .Filterable()
+                         .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+                        .Navigatable()
+                                    .ToolBar(t =>
+                                    {
+                                        t.Template("<label></label>");
+                                    })
+                        .Resizable(resize => resize.Columns(true))
+                        .Events(events => events.DataBound("onInssueInformationActivityCheckData"))
+                       .Columns(columns =>
+                       {
+                           columns.Bound(p => p.ActivityType).GetColumnFormat(ColumnTypeEnum.String, false, "# if (ActivityType == 1) { #" +
+                                  "<i class='fa  fa-info-circle' style='color:blue;'></i>" +
+                              "# } else { #" +
+                                  "<i class='fa fa-exclamation-triangle' style='color:red;'></i>" +
+                              "# } #", "").Title("");
+                           columns.Bound(p => p.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.DateTimeId).GetColumnFormat(ColumnTypeEnum.Time, false, "", "").Width(60).Title("Time");
+                           columns.Bound(p => p.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(false);
+                           columns.Bound(p => p.Activity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.TypeId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetTradeTypeAlias('black', TradeType)#", "");
+                           columns.Bound(p => p.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+                           columns.Bound(p => p.Amount).GetColumnFormat(ColumnTypeEnum.Money, true, "", "");
+                           columns.Bound(p => p.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.UserName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.ActivityFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.ActivityError).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.ExecutingSystem).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                           columns.Bound(p => p.InterestFrom).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                           columns.Bound(p => p.InterestTo).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+                       })
+                       .DataSource(ds => ds.Ajax()
+                           .ServerOperation(false)
+                                   .Read(read => read.Action("GetActivityByEntityAndCriteria", "Activity", new { area = "DomesticTrading" }).Data("additionalInfoActivityByTickerData"))
+                           .Aggregates(agg =>
+                           {
+                               agg.Add(x => x.Quantity).Sum();
+                               agg.Add(x => x.Amount).Sum();
+                           })))
+</div>
+
+
+
+
+
+
+
+@(Html.Kendo().ContextMenu()
+    .Name("IssueInformationActivityByTickerGridyContextMenu")
+            .Target("#IssueInformationActivityByTickerGrid")
+    .Events(events => events.Select("onIssueInformationActivityByTickerGridyContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text("Unsort").Enabled(true);
+    items.Add().Text("Reset Filter").Enabled(true);
+    items.Add().Text("Reset Grid").Enabled(true);
+    items.Add().Text("Select All").Enabled(true);
+    items.Add().Separator(true);
+    items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "InformationActivityButton" });
+    items.Add().Text("Export To Excel").Enabled(true);
+}))
+

@@ -1,0 +1,1546 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+<style scoped>  
+    #AutoLoanContent {
+        height: 100%;
+        width: auto;        
+    }
+
+    #AutoLoanSplitter {
+        height: 100%;
+    }
+
+    #AutoLoanSummaryGrid {
+        height: 100%;
+    }
+
+    #AutoLoanGrid {
+        height: 100%;
+    }
+
+ 
+    #AutoLoanButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+
+    #AutoLoanSummaryButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+
+    #AutoLoanHeaderToolBar .k-checkbox-label {
+        padding-left: 20px;
+        vertical-align: middle;
+    }
+</style>
+
+<script type="text/javascript">
+    var _AutoLoanSelectAll = false;
+    var _autoLoanEditMode = false;
+    var _autoLoanUpdateRows = [];
+    var _autoLoanSummaryUpdateRows = [];
+    var _AutoLoanSelectedRows = [];
+    var _AutoLoanSummarySelectedRows = [];
+    var _originalAutoLoanGrid = null;
+    var _originalAutoLoanSummaryGrid = null;
+    var _autoLoanInterval;
+    var _autoLoanNotificationInterval;
+    var _autoLoanSuspendIssueLookup = false;
+    var _autoLoanSummarySuspendRowChange = false;
+    var _autoLoanSummarySuspendRefresh = false;
+    var _currentBuisnessDate = true;
+    var _autoLoanIntervalExecuting = false;
+  
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalAutoLoanGrid = $("#AutoLoanGrid").data('kendoGrid').getOptions();
+            _originalAutoLoanSummaryGrid = $("#AutoLoanSummaryGrid").data('kendoGrid').getOptions();
+
+            LoadGridLayout("#AutoLoanGrid");
+            LoadGridLayout("#AutoLoanSummaryGrid");
+
+            var rateChange = '<input id="AutoLoanLocalRateChangeNumericTextBox" type="number" style="width:70px" />';
+            $(".k-grid-toolbar", "#AutoLoanGrid").append("<div class='float-right' ><table id = 'AutoLoanToolbar'><tr><td><p id='AutoLoanRateChangeLabel'>" + '@LabelHelper.Text("BulkRateChange")' + "</p></td><td>" + rateChange + "</td><td><a id='AutoLoanRateChangeLocalButton' class='AutoLoanRateChangeLocal k-button k-button-icontext' href='#'><span></span> " + '@LabelHelper.Text( "AutoLoanRateChangeApply" )' + "</a></td><td><a id='AutoLoanApproveAll' class='AutoLoanApproveAll k-button k-button-icontext' href='#'><span></span> " + '@LabelHelper.Text( "AutoLoanApproveAll" )' + "</a></td><td><a id='AutoLoanCancelAll' class='AutoLoanCancelAll k-button k-button-icontext' href='#'><span></span>" + '@LabelHelper.Text( "AutoLoanCancelAll" )' + "</a></td></tr></table></div>");
+            
+
+            $("#AutoLoanLocalRateChangeNumericTextBox").kendoNumericTextBox();
+            $("#AutoLoanRateChangeLocalButton").kendoButton();
+            $("#AutoLoanApproveAll").kendoButton();
+            $("#AutoLoanCancelAll").kendoButton();
+
+            //RefreshGrid("#AutoLoanGrid");
+        }, 5);
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("AutoLoanSummaryButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#AutoLoanSummaryGrid", "AutoLoanSummaryGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("AutoLoanButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#AutoLoanGrid", "AutoLoanGrid", _AutoLoanSelectAll);
+                clientEvent2.setText(data2);
+            });
+        });
+
+        traderHubProxy.on('updateAutoLoanOrder', function (update) {
+            updateAutoLoanOrderRow(update);
+        });
+
+        _autoLoanInterval = setInterval("onAutoLoanScreenUpdate()", 30000);
+    });
+
+    $("#AutoLoanGrid").focusout(function () {
+        _autoLoanEditMode = false;
+    });
+
+ 
+    function IsTodayCurrentBusinessDate() {     
+    }
+
+
+    function updateAutoLoanOrderRow(rows) {
+        try
+        {
+            _autoLoanSuspendIssueLookup = true;
+
+            BackupAutoLoanRowSelection();
+
+            $.each(rows, function (i, row) {
+                var currId = row.SLAutoLoanOrder;
+                var dataItem = $("#AutoLoanGrid").data("kendoGrid").dataSource.get(currId);
+
+                if (dataItem != null) {
+                    var dateTimeId = kendo.parseDate(row['DateTimeId']);
+                    row['DateTimeId'] = dateTimeId;
+
+                    var effectiveDate = kendo.parseDate(row['EffectiveDate']);
+                    row['EffectiveDate'] = effectiveDate;
+
+                    if (new Date(dataItem.DateTimeId.toString()) < new Date(row['DateTimeId'].toString())) {
+                        $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(row);
+                    }
+                }
+            });
+
+            RestoreAutoLoanRowSelection();
+            autoLoanPullNewRecords();
+        }
+        catch (e) {
+            traderHubProxy.off('updateAutoLoanOrder');
+        }
+    }
+
+    function onAutoLoanScreenUpdate() {
+        
+        _autoLoanIntervalExecuting = true;
+        _autoLoanSummarySuspendRowChange = true;
+        _autoLoanSummarySuspendRefresh = true;
+
+        BackupAutoLoanSummaryRowSelection();
+        onAutoLoanSummaryUpdate();
+        RestoreAutoLoanSummaryRowSelection();
+        
+        _autoLoanSummarySuspendRefresh = false;
+        _autoLoanSummarySuspendRowChange = false;
+        _autoLoanIntervalExecuting = false;
+
+        autoLoanPullNewRecords();
+    }
+
+    function BackupAutoLoanRowSelection() {
+        try {
+            var grid = $("#AutoLoanGrid").data("kendoGrid");
+
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                _AutoLoanSelectedRows.push(selectedItem);
+            });
+        }
+        catch (e) {
+            console.log("BackupAutoLoanRowSelection " + e.message);
+        }
+    }
+
+    function RestoreAutoLoanRowSelection() {
+        try {
+            if (_AutoLoanSelectedRows.length != 0) {
+                for (var i = 0; i < _AutoLoanSelectedRows.length; i++) {
+                    var currId = _AutoLoanSelectedRows[i].SLAutoLoanOrder;
+                    var dataItem = $("#AutoLoanGrid").data("kendoGrid").dataSource.get(currId);
+
+                    if (dataItem != null) {
+                        $('#AutoLoanGrid').data("kendoGrid").tbody.find("tr[data-uid='" + dataItem.uid + "']").addClass("k-state-selected");
+                    }
+                }
+            }
+        }
+        catch (e) {
+            console.log("RestoreAutoLoanRowSelection " + e.message);
+        }
+    }
+
+    function BackupAutoLoanSummaryRowSelection() {
+        _AutoLoanSummarySelectedRows = [];
+
+        try {
+            var grid = $("#AutoLoanSummaryGrid").data("kendoGrid");
+
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                _AutoLoanSummarySelectedRows.push(selectedItem);
+            });
+        }
+        catch (e) {
+            console.log("BackupAutoLoanSummaryRowSelection " + e.message);
+        }
+    }
+
+    function RestoreAutoLoanSummaryRowSelection() {
+        try {
+            if (_AutoLoanSummarySelectedRows.length != 0) {
+                for (var i = 0; i < _AutoLoanSummarySelectedRows.length; i++) {
+                    var currId = _AutoLoanSummarySelectedRows[i].ContraEntity;
+                    var dataItem = $("#AutoLoanSummaryGrid").data("kendoGrid").dataSource.get(currId);                    
+                    $('#AutoLoanSummaryGrid').data("kendoGrid").tbody.find("tr[data-uid='" + dataItem.uid + "']").addClass("k-state-selected");
+                }
+            }
+        }
+        catch (e) {
+            console.log("RestoreAutoLoanSummaryRowSelection " + e.message);
+        }
+    }
+
+    function onAutoLoanRequestEnd(e) {
+    }
+
+    function onAutoLoanRequestStart(e) {
+    }
+
+    function onAutoLoanSummaryRequestEnd(e) {
+    }
+
+    function onAutoLoanSummaryRequestStart(e) {
+    }
+
+    function onAutoLoanSelectAll(e) {
+        try {
+            var AutoLoanGrid = $("#AutoLoanGrid").data("kendoGrid");
+            AutoLoanGrid.select(AutoLoanGrid.tbody.find(">tr"));
+
+            _AutoLoanSelectAll = true;
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+        }
+    }
+
+    function onAutoLoanError(e) {
+        DisplayControllerByStringError("Error", e.message);
+    }
+
+    function onAutoLoanBulkRateChange() {
+        var entityGrid = $("#AutoLoanSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        try {
+            HelperPartialWindow(
+                JSON.stringify({
+                    entityId: selectedItem.EntityId,
+                    contraEntityId: selectedItem.ContraEntity,
+                    rebateRate: 0,
+                    rebateRateId: ''
+                }),
+                'Auto Loan Bulk Rate Change',
+                490,
+                490,
+                '/DomesticTrading/AutoLoan/LoadBulkRateChangeAutoLoanPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onAutoLoanSummaryContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Send':
+                onAutoLoanListSend(true);
+                break;
+
+            case 'Rate Change':
+                onAutoLoanBulkRateChange(true);
+                break;
+
+            case 'Cancel Pending':
+                onAutoLoanListCancel(true);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#AutoLoanSummaryGrid");
+                break;
+
+
+            case 'Send To AutoBorrow':
+                onAutoLoanApprovedContraEntityExportToAutoBorrow();
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#AutoLoanSummaryGrid");
+
+                $("#AutoLoanSummaryGrid").data('kendoGrid').setOptions(_originalAutoLoanSummaryGrid);
+                $('#AutoLoanSummaryGrid').data("kendoGrid").dataSource.read();
+                break;
+            case 'Export To Excel':
+                exportToAutoLoanSummaryExcel();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#AutoLoanSummaryGrid");
+                break;
+
+            case 'Unsort':
+                onAutoBorrowUnsortGrid("#AutoLoanSummaryGrid");
+                break;
+        }
+    }
+
+    function exportToAutoLoanSummaryExcel() {
+
+        try {
+            KendoGridToCSVConvertor("#AutoLoanSummaryGrid", 'AutoLoanSummary', false);
+        }
+        catch (e) {
+            DisplayControllerByStringError("Error", e.message);
+        }
+    }
+
+    function onAutoLoanSummaryLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#AutoLoanSummaryGrid");
+        }, 5);
+    }
+
+    function onAutoLoanLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#AutoLoanGrid");
+        }, 5);
+    }
+
+    function onAutoLoanContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Send':
+                onAutoLoanSend(true);
+                break;
+
+            case 'Cancel Pending':
+                onAutoLoanCancel(true);
+                break;
+
+            case 'Refresh Data':
+                onAutoLoanChange();
+                break;
+            
+            case 'AutoFill':
+                onAutoLoanFill(true);
+                break;
+
+            case 'Send To AutoBorrow':
+                onAutoLoanApprovedExportToAutoBorrow();
+                break;
+
+            case 'Unsort':
+                onAutoLoanUnsortGrid("#AutoLoanGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#AutoLoanGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#AutoLoanGrid");
+
+                $("#AutoLoanGrid").data('kendoGrid').setOptions(_originalAutoLoanGrid);
+                $('#AutoLoanGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Select All':
+                onAutoLoanSelectAll(e);
+                break;
+
+            case 'Export To Excel':
+                exportToAutoLoanExcel();
+                break;
+
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#AutoLoanGrid");
+                break;
+        }
+    }
+
+    function onAutoLoanUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onAutoLoanSummaryUpdate() {
+
+        try
+        {
+            var datepicker = $("#AutoLoanCalander").data("kendoDatePicker");
+            var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+            var entityId = $("#AutoLoanDropdownList").data("kendoDropDownList").value();
+
+            $.ajax({
+                url: '@Url.Action( "Read_AutoLoanSummarySubset", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                async: false,
+                data: JSON.stringify({
+                    entityId: entityId,
+                    effectiveDate: value
+                }),
+                success: function (valid) {
+
+                    $.each(valid, function (i, row) {
+
+                        var dateTimeId = kendo.parseDate(row['DateTimeId']);
+                        row['DateTimeId'] = dateTimeId;
+
+                        $("#AutoLoanSummaryGrid").data("kendoGrid").dataSource.pushUpdate(row);
+                    });
+
+
+                    return true;
+                },
+                error: function (valid) {
+                    DisplayControllerError(valid);
+
+                    return true;
+                }
+            });
+        }
+        catch(e)
+        {
+            clearInterval(_autoLoanInterval);
+        }
+    }
+
+    function onAutoLoanSend(e) {
+        var dataItems = [];
+
+        dataItems = getDataItems('#AutoLoanGrid',
+                _AutoLoanSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoLoanMaxItems","1000")');
+
+
+        $.ajax({
+            url: '@Url.Action( "ExecuteAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ items: dataItems }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Approved " + valid + " items.");
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onAutoLoanListSend(e) {
+        var dataItems = [];
+
+        var entityGrid = $("#AutoLoanSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        dataItems = getDataItems('#AutoLoanSummaryGrid',
+                _AutoLoanSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoLoanMaxItems","1000")');
+
+        $.ajax({
+            url: '@Url.Action( "ExecuteAutoLoanByContraEntity", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                entityId: selectedItem.EntityId,
+                contraEntity: selectedItem.ContraEntity
+            }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Sent " + valid + " items.");
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onAutoLoanFill(e) {
+        var dataItems = [];
+
+        dataItems = getDataItems('#AutoLoanGrid',
+                _AutoLoanSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoLoanMaxItems","1000")');
+
+
+        $.ajax({
+            url: '@Url.Action( "AutoFillAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ items: dataItems }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Filled " + valid + " items.");
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onAutoLoanCancel(e) {
+        var dataItems = [];
+
+        dataItems = getDataItems('#AutoLoanGrid',
+                _AutoLoanSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoLoanMaxItems","1000")');
+
+        $.ajax({
+            url: '@Url.Action( "CloseAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({ items: dataItems }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Canceled " + valid + " items.");
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onAutoLoanListCancel(e) {
+        var dataItems = [];
+
+        var entityGrid = $("#AutoLoanSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+
+        dataItems = getDataItems('#AutoLoanSummaryGrid',
+                _AutoLoanSelectAll,
+                '@DataSystemValues.LoadSystemValue("AutoLoanMaxItems","1000")');
+
+        $.ajax({
+            url: '@Url.Action( "CloseAutoLoanByContraEntity", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                entityId: selectedItem.EntityId,
+                contraEntity: selectedItem.ContraEntity
+            }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Canceled " + valid.length + " items.");
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function exportToAutoLoanExcel() {
+        try {
+            KendoGridToCSVConvertor("#AutoLoanGrid", 'AutoLoan', _AutoLoanSelectAll);
+        }
+        catch (e) {
+            DisplayControllerByStringError("Error", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onAutoLoanChange() {
+        try
+        {
+            _AutoLoanSummarySelectedRows = [];
+            _AutoLoanSelectedRows = [];
+            _AutoLoanSelectAll = false;
+
+            IsTodayCurrentBusinessDate();
+
+            $("#AutoLoanSummaryGrid").data("kendoGrid").dataSource.read();
+            $("#AutoLoanGrid").data("kendoGrid").dataSource.read();
+        }
+        catch (e)
+        {
+
+        }
+    }
+
+    function onAutoLoanSummaryRowChange(e) {
+        _AutoLoanSummarySelectedRows = [];
+
+        if (_autoLoanSummarySuspendRowChange == false) {
+            $("#AutoLoanGrid").data("kendoGrid").dataSource.read();
+        }
+
+        BackupAutoLoanSummaryRowSelection();
+    }
+
+
+   
+
+
+    function onAutoLoanRowChange(e) {
+        e.preventDefault();
+        _AutoLoanSelectedRows = [];
+
+        if ((_autoLoanSuspendIssueLookup == true)) {
+            _autoLoanSuspendIssueLookup = false;
+            return;
+        }
+        else {
+            try {
+                var entityGrid = $("#AutoLoanGrid").data("kendoGrid");
+                var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                if (selectedItem != null) {
+                    var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                    var entityId = selectedItem["EntityId"];
+                    var effectiveDate = selectedItem["EffectiveDate"];
+                    var securityNumber = selectedItem["SecurityNumber"];
+                    var issueId = selectedItem["IssueId"];
+
+                    SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+                    _AutoLoanSelectAll = false;
+                    BackupAutoLoanRowSelection();
+                }
+            }
+            catch (err) {
+                DisplayControllerByStringError("Error", err.message);
+                console.log("onAutoLoanRowChange " + err.message);
+            }
+        }
+
+        _autoLoanSuspendIssueLookup = false;
+    }
+
+    function onAutoLoanDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#AutoLoanDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#AutoLoanSummaryGrid').data("kendoGrid").dataSource.read();
+                    $('#AutoLoanGrid').data("kendoGrid").dataSource.read();
+
+                    $("#AutoLoanPendingCheckBox").click();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log("updateAutoLoanOrderRow " + e.message);
+        }
+    }
+
+    function onAutoLoanError(e) {
+        DisplayControllerByStringError("Error", e.message);
+    }
+
+    function onAutoLoanCheckData(e) {
+        BackupAutoLoanRowSelection();
+
+        try {
+            CheckGridData('#AutoLoanGrid');
+        }
+        catch (err) {
+            console.log(err.message);
+        }
+
+        disableRowButtons();
+        RestoreAutoLoanRowSelection();
+        ReInitVirtualScroll("#AutoLoanGrid");
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#AutoLoanSummaryGrid");
+        RefreshGrid("#AutoLoanGrid");
+    });
+
+    function clickAutoLoanCheck(e) {
+        var $cb = $(e);
+        var checked = $cb.is(':checked');
+
+        var grid = $("#AutoLoanGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["IncomeTracked"] = checked;
+    }
+
+    function clickAutoLoanDeliveryViaOCCCheck(e) {
+        var $cb = $(e);
+        var checked = $cb.is(':checked');
+
+        var grid = $("#AutoLoanGrid").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+
+        selectedItem["IncomeTracked"] = checked;
+    }
+
+    function onAutoLoanSummaryCheckData() {
+        try {
+            CheckGridData('#AutoLoanSummaryGrid');
+            RestoreAutoLoanSummaryRowSelection();
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function additionalAutoLoanSummaryData() {
+        var datepicker = $("#AutoLoanCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#AutoLoanDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entityId
+        }
+    }
+
+    function additionalAutoLoanData() {
+        var datepicker = $("#AutoLoanCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityId = $("#AutoLoanDropdownList").data("kendoDropDownList").value();
+        var contraEntity = "";
+
+
+        try {
+            var entityGrid = $("#AutoLoanSummaryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            contraEntity = selectedItem["ContraEntity"];
+        }
+        catch (e) {
+            contraEntity = "";
+        }
+
+        return {
+            effectiveDate: value,
+            entityId: entityId,
+            contraEntity: contraEntity,
+            pullRecords: 150,
+            pullPending: $("#AutoLoanPendingCheckBox").is(':checked')
+        }
+    }
+
+    function additionalAutoLoanEntityData() {
+        var entityId = $("#AutoLoanDropdownList").data("kendoDropDownList").value();
+
+        return {
+            entityId: entityId,
+        }
+    }
+
+    function onAutoLoanRowEdit(e) {
+        var entityGrid = $("#AutoLoanGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if ((selectedItem.LoanStatusFlag == '@Convert.ToInt32(SL_AutoLoanOrderStatusFlag.Pending).ToString()')) {
+            var input = e.container.find("input");
+            _autoLoanEditMode = true;
+            setTimeout(function () { input.select(); });
+
+        }
+        else {
+            $('#AutoLoanGrid').data("kendoGrid").closeCell();
+        }
+    }
+
+    function onAutoLoanDefaultOptions() {
+        try {
+            HelperPartialWindow(
+                null,
+                'Auto Loan Defaults',
+                490,
+                490,
+                '/DomesticTrading/AutoLoan/LoadAutoLoanDefaultOptionsPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onAutoLoanApprovedContraEntityExportToAutoBorrow() {
+        try {
+
+            var entityGrid = $("#AutoLoanSummaryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+            var entityId = selectedItem['EntityId'];
+            var contraEntityid = selectedItem['ContraEntity'];
+
+
+            HelperPartialWindow(
+                JSON.stringify({
+                    entityId: entityId,
+                    contraEntity: contraEntityid
+                }),
+                'Add items to AutoBorrow',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoLoanApprovedContraEntityProjectionPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+
+
+    function onAutoLoanApprovedExportToAutoBorrow() {
+        try {
+            var items = getDataItems('#AutoLoanGrid', _AutoLoanSelectAll);
+
+            HelperPartialWindow(
+                JSON.stringify({ items: items }),
+                'Add items to AutoBorrow',
+                490,
+                490,
+                '/DomesticTrading/AutoAction/LoadAutoLoanApprovedProjectionPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+
+
+    function onAutoLoanContraConfig() {
+        var entityId = $("#AutoLoanDropdownList").data("kendoDropDownList").value();
+
+        try {
+            HelperPartialWindow(
+                JSON.stringify({
+                    entityId : entityId
+                }),
+                'Auto Loan Contra Config',
+                490,
+                490,
+                '/DomesticTrading/AutoLoanContraConfig/UpdateAutoLoanContraConfigPartial'
+            );
+        }
+        catch (e) {
+            DisplayControllerByStringError("Info", e.message);
+            console.log(e.message);
+        }
+    }
+
+    function onAutoLoanPendingCheckBoxChange() {
+        try {
+            if ($("#AutoLoanPendingCheckBox").is(':checked')) {
+
+                $("#AutoLoanToolbar").show();
+
+                EnableContextMenuItem("#AutoLoanContextMenu", "Send", true);
+                EnableContextMenuItem("#AutoLoanContextMenu", "Cancel Pending", true);
+                EnableContextMenuItem("#AutoLoanContextMenu", "AutoFill", true);
+                EnableContextMenuItem("#AutoLoanContextMenu", "Send To AutoBorrow", false);
+
+                QuickColumnFilter($("#AutoLoanGrid").data("kendoGrid").dataSource, 'LoanStatusFlag', 3);
+                $("#AutoLoanGrid").data("kendoGrid").dataSource.read();
+            }
+            else {
+                $("#AutoLoanToolbar").hide();
+                
+                EnableContextMenuItem("#AutoLoanContextMenu", "Send", false);
+                EnableContextMenuItem("#AutoLoanContextMenu", "Cancel Pending", false);
+                EnableContextMenuItem("#AutoLoanContextMenu", "AutoFill", false);
+                EnableContextMenuItem("#AutoLoanContextMenu", "Send To AutoBorrow", true);
+
+                QuickColumnFilter($("#AutoLoanGrid").data("kendoGrid").dataSource, 'LoanStatusFlag', '');
+                $("#AutoLoanGrid").data("kendoGrid").dataSource.read();
+            }
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onAutoLoanApprove(e) {
+
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+
+        $.ajax({
+            url: '@Url.Action( "ExecuteAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                entityId: dataItem.EntityId,
+                contraEntity: dataItem.ContraEntity
+            }),
+            success: function (valid) {
+                DisplayControllerByStringError("Info", "Approved " + valid + " items.");
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    function onAutoLoanCancel(e) {
+
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+
+        $.ajax({
+            url: '@Url.Action( "CancelAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify({
+                entityId: dataItem.EntityId,
+                contraEntity: dataItem.ContraEntity
+            }),
+            success: function (valid) {
+                $.each(valid, function (i, row) {
+
+                    var dateTimeId = kendo.parseDate(row['DateTimeId']);
+                    row['DateTimeId'] = dateTimeId;
+
+                    $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(row);
+                });
+
+                autoLoanPullNewRecords();
+            },
+            error: function (valid) {
+                DisplayControllerError(valid);
+            }
+        });
+    }
+
+    $(function () {
+        $('#AutoLoanGrid').on('click', '.AutoLoanRateChangeLocal', function (e) {
+            e.preventDefault();
+
+            var dataItems = $("#AutoLoanGrid").data("kendoGrid").dataSource._view
+
+            var rebateRate = $("#AutoLoanLocalRateChangeNumericTextBox").data("kendoNumericTextBox").value();
+            var rebateRateId = '';
+
+            $("#AutoLoanRateChangeLocalButton").data("kendoButton").enable(false);
+
+            _autoLoanSuspendIssueLookup = true;
+            $.ajax({
+                url: '@Url.Action( "BulkRateChangeAutoLoanLocal", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    items: dataItems,
+                    rebateRate: rebateRate,
+                    rebateRateId : ''}),
+                success: function (valid) {
+                    $("#AutoLoanRateChangeLocalButton").data("kendoButton").enable(true);
+                    $("#AutoLoanGrid").data("kendoGrid").refresh();
+                    autoLoanPullNewRecords();
+                },
+                error: function (valid) {
+                    $("#AutoLoanRateChangeLocalButton").data("kendoButton").enable(true);
+                    kendo.ui.progress("#AutoLoanRateChangeLocalButton", false);
+
+                    DisplayControllerError(valid);
+                }
+            });
+        });
+
+
+        $('#AutoLoanGrid').on('click', '.AutoLoanApproveAll', function (e) {
+            e.preventDefault();
+
+            var dataItems = $("#AutoLoanGrid").data("kendoGrid").dataSource._view
+            _autoLoanSuspendIssueLookup = true;
+
+            $("#AutoLoanApproveAll").data("kendoButton").enable(false);
+
+            $.ajax({
+                url: '@Url.Action( "ExecuteAutoLoanLocal", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({ items: dataItems }),
+                success: function (valid) {
+                    $.each(valid, function (i, row) {
+
+                        var dateTimeId = kendo.parseDate(row['DateTimeId']);
+                        row['DateTimeId'] = dateTimeId;
+
+                        var effectiveDate = kendo.parseDate(row['EffectiveDate']);
+                        row['EffectiveDate'] = effectiveDate;
+
+                        $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(row);
+                    });
+                    $("#AutoLoanGrid").data("kendoGrid").refresh();
+                    $("#AutoLoanApproveAll").data("kendoButton").enable(true);
+                    autoLoanPullNewRecords();
+                },
+                error: function (valid) {
+                    $("#AutoLoanApproveAll").data("kendoButton").enable(true);
+                    DisplayControllerError(valid);
+                }
+            });
+        });
+
+
+
+        $('#AutoLoanGrid').on('click', '.AutoLoanCancelAll', function (e) {
+            e.preventDefault();
+
+            var dataItems = $("#AutoLoanGrid").data("kendoGrid").dataSource._view
+            _autoLoanSuspendIssueLookup = true;
+
+  
+            
+            $("#AutoLoanCancelAll").data("kendoButton").enable(false);
+
+            $.ajax({
+                url: '@Url.Action( "CloseAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({ items: dataItems }),
+                async:false,
+                success: function (valid) {
+                    $("#AutoLoanGrid").data("kendoGrid").dataSource.data([]);
+                    $("#AutoLoanGrid").data("kendoGrid").refresh();
+
+                    $("#AutoLoanCancelAll").data("kendoButton").enable(true);
+                    autoLoanPullNewRecords();
+                },
+                error: function (valid) {
+                    $("#AutoLoanCancelAll").data("kendoButton").enable(true);
+                    DisplayControllerError(valid);
+                }
+            });
+        });
+
+        $('#AutoLoanGrid').on('click', '.AutoLoanApprove', function (e) {
+            var grid = $('#AutoLoanGrid').data().kendoGrid;
+            var select = $(this).closest('tr');
+            var dataItem = grid.dataItem(select);
+
+            $("#AutoLoanGrid").data("kendoGrid").removeRow(dataItem);
+            $("#AutoLoanGrid").data("kendoGrid").refresh();
+
+            _autoLoanSuspendIssueLookup = true;
+            $.ajax({
+                url: '@Url.Action( "ExecuteSingleAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                contentType: 'application/json;',
+                async: true,
+                data: JSON.stringify({
+                    autoLoan: dataItem
+                }),
+                success: function (valid) {
+                    $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(valid);
+                    autoLoanPullNewRecords();
+                },
+                error: function (valid) {
+                    DisplayControllerError(valid);
+                    $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(dataItem);
+                    autoLoanPullNewRecords();
+                }
+            });
+        });
+
+        $('#AutoLoanGrid').on('click', '.AutoLoanCancel', function (e) {
+            var grid = $('#AutoLoanGrid').data().kendoGrid;
+            var select = $(this).closest('tr');
+            var dataItem = grid.dataItem(select);
+
+            $("#AutoLoanGrid").data("kendoGrid").removeRow(dataItem);
+            $("#AutoLoanGrid").data("kendoGrid").refresh();
+
+            _autoLoanSuspendIssueLookup = true;
+
+            $.ajax({
+                url: '@Url.Action( "CancelSingleAutoLoan", "AutoLoan", new { area = "DomesticTrading" } )',
+                type: 'POST',
+                async: true,
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    autoLoan: dataItem
+                }),
+                success: function (valid) {
+                    $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(valid);
+                    autoLoanPullNewRecords();
+                },
+                error: function (valid) {
+                    $("#AutoLoanGrid").data("kendoGrid").dataSource.pushUpdate(dataItem);
+                    autoLoanPullNewRecords();
+                }
+            });
+        });
+    });
+
+    function disableRowButtons() {
+        var grid = $("#AutoLoanGrid").data("kendoGrid");
+        var gridData = grid.dataSource.view();
+
+        for (var i = 0; i < gridData.length; i++) {
+            var currentUid = gridData[i].uid;
+
+
+            if (!$("#AutoLoanPendingCheckBox").is(':checked')) {
+                var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                var approveButton = $(currenRow).find(".AutoLoanApprove");
+                approveButton.hide();
+
+                var cancelButton = $(currenRow).find(".AutoLoanCancel");
+                cancelButton.hide();
+  
+            }
+            else {
+
+                if (gridData[i].LoanStatusFlag != '@Convert.ToInt32(SL_AutoLoanOrderStatusFlag.Pending)') {
+                    var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                    var approveButton = $(currenRow).find(".AutoLoanApprove");
+                    approveButton.hide();
+
+                    var cancelButton = $(currenRow).find(".AutoLoanCancel");
+                    cancelButton.hide();
+                }
+
+                if ((gridData[i].Price == 0) &&
+                    (gridData[i].ApprovedAmount != null)) {
+                    var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                    var approveButton = $(currenRow).find(".AutoLoanApprove");
+
+                    approveButton.css({ 'pointer-events': 'none', 'background-color':'gray' });
+                }
+
+                if (gridData[i].ApprovedQuantity == null ||
+                    gridData[i].ApprovedAmount == null ||
+                    gridData[i].ApprovedRebateRate == null) {
+                    var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                    var approveButton = $(currenRow).find(".AutoLoanApprove");
+                    approveButton.hide();
+
+                    var cancelButton = $(currenRow).find(".AutoLoanCancel");
+                    cancelButton.hide();
+                }
+            }
+        }
+    }
+
+    function ReInitVirtualScroll(e) {
+        var grid = $(e).data("kendoGrid");
+        grid._rowHeight = undefined;
+        grid.virtualScrollable.refresh();
+    }
+
+    function onAutoLoanDataBinding(e) {
+    }
+
+    function onAutoLoanSummaryDataBinding(e) {
+
+    }
+
+    function autoLoanPullNewRecords() {
+        try
+        {
+            
+
+            var gridDataSource = $("#AutoLoanGrid").data("kendoGrid").dataSource;
+
+            if (gridDataSource._view.length == 0) {
+                console.log("pulling new records");
+
+                $('#AutoLoanGrid').data("kendoGrid").dataSource.read();
+            }
+        }
+        catch (e)
+        {
+
+        }
+    }
+
+
+</script>
+    @(
+ Html.Kendo().ToolBar()
+    .Name( "AutoLoanHeaderToolBar" )
+    .Resizable( true )
+    .Items( items =>
+    {
+        items.Add().Template( LabelHelper.Label( "EffectiveDate" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DatePicker()
+            .Name( "AutoLoanCalander" )
+            .Format( "yyyy-MM-dd" )
+            .Value( DateTime.Now )
+            .HtmlAttributes( new { @class="width90" } )
+            .Events( events => events.Change( "onAutoLoanChange" ) ).ToHtmlString() );
+
+        items.Add().Template( LabelHelper.Label( "Entity" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DropDownList()
+                .Name( "AutoLoanDropdownList" )                
+                .DataTextField( "Custodian" )
+                .DataValueField( "CompanyId" )
+                .OptionLabel( LabelHelper.Text( "OptionLabel" ) )
+                .AutoBind( true )
+                .Template( "#if(data.Custodian == \"" + LabelHelper.Text( "OptionLabel" ) + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#" )
+                .Events( events => events.Change( "onAutoLoanChange" ).DataBound( "onAutoLoanDefaultLoad" ).Open( "onContraEntityAutoCompleteResize" ) )
+                .DataSource( dataSource => dataSource
+                .Read( read => read
+                .Action( "Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" } ) ) )
+                .SelectedIndex( 0 ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().Button()
+                    .Name( "AutoLoanDefaultOptionButton" )
+            .Events( e => e.Click( "onAutoLoanDefaultOptions" ) )
+            .Content( LabelHelper.Text( "DefaultOptions" ) ).ToHtmlString() );
+
+
+        items.Add().Template( Html.Kendo().Button()
+                    .Name( "AutoLoanContraConfigButton" )
+            .Events( e => e.Click( "onAutoLoanContraConfig" ) )
+            .Content( LabelHelper.Text( "ContraConfig" ) ).ToHtmlString() );
+
+        items.Add().Template(
+            Html.Kendo().CheckBox()
+            .Name("AutoLoanPending")
+            .Checked(false)
+            .HtmlAttributes(new { id = "AutoLoanPendingCheckBox", onclick = "onAutoLoanPendingCheckBoxChange()" })
+            .Label("AutoLoanPending").ToHtmlString());
+    } ))
+
+
+
+<hr class="hr-white">
+
+<div id="AutoLoanSummaryContent" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name( "AutoLoanSplitter" )
+        .Orientation( SplitterOrientation.Vertical )
+        .Panes( panes =>
+        {
+    panes.Add()
+        .Collapsible( false )
+        .Size( "30%" )
+        .Scrollable( false )
+        .Content( @<text>
+                    @(Html.Kendo().Grid<SL_AutoLoanOrderSummaryProjection>()
+    .Name( "AutoLoanSummaryGrid" )
+    .Sortable( sort =>
+    {
+        sort.AllowUnsort( true );
+        sort.Enabled( true );
+        sort.SortMode( GridSortMode.MultipleColumn );
+    } )
+    .Scrollable()
+    .Filterable()
+    .Reorderable( reorder => reorder.Columns( true ) )
+    .ColumnMenu( menu =>
+    {
+        menu.Columns( true );
+        menu.Filterable( true );
+        menu.Sortable( true );
+        menu.ComponentType( "modern" );
+    } )
+    .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ) )
+    .Events( events =>
+    {
+        events.Change( "onAutoLoanSummaryRowChange" );
+        events.DataBinding( "onAutoLoanSummaryDataBinding" );
+        events.DataBound( "onAutoLoanSummaryCheckData" );
+        events.ColumnHide( "onAutoLoanSummaryLayoutChange" );
+        events.ColumnShow( "onAutoLoanSummaryLayoutChange" );
+        events.ColumnResize( "onAutoLoanSummaryLayoutChange" );
+        events.ColumnReorder( "onAutoLoanSummaryLayoutChange" );
+    } )
+    .Columns( cols =>
+    {
+        cols.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+        cols.Bound( x => x.ContraEntity ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        cols.Bound( x => x.AccountName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        cols.Bound( x => x.EntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+
+        cols.Bound( x => x.NunberOfItemsRequested ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(NunberOfItemsRequested)#", "" );
+        cols.Bound( x => x.NotionalAmount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(NotionalAmount)#", "" );
+
+        cols.Bound( x => x.PendingItemCount ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(PendingItemCount)#", "" );
+        cols.Bound( x => x.TransmittedItemCount ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(TransmittedItemCount)#", "" );
+        cols.Bound( x => x.ApprovedItemCount ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(ApprovedItemCount)#", "" );
+        cols.Bound( x => x.ApprovedItemCountAmount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(ApprovedItemCountAmount)#", "" );
+        cols.Bound( x => x.ErrorItemCount ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(ErrorItemCount)#", "" );
+        cols.Bound( x => x.TotalItemCount ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(TotalItemCount)#", "" );
+        cols.Bound( x => x.DateTimeId ).GetColumnFormat( ColumnTypeEnum.Time, false, "", "" );
+    } )
+    .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+    .DataSource( ds => ds.Ajax()
+        .ServerOperation( false )
+        .AutoSync( true )
+        .Model( model => model.Id( "ContraEntity" ) )
+        .Read( read => read.Action( "Read_AutoLoanSummary", "AutoLoan", new { area = "DomesticTrading" } ).Data( "additionalAutoLoanSummaryData" ) )
+        .Events( events =>
+        {
+            events.RequestStart( "onAutoLoanSummaryRequestStart" );
+            events.RequestEnd( "onAutoLoanSummaryRequestEnd" );
+        } )
+        .Aggregates( agg =>
+        {
+            agg.Add( x => x.PendingItemCount ).Sum();
+            agg.Add( x => x.NotionalAmount ).Sum();
+            agg.Add( x => x.NunberOfItemsRequested ).Sum();
+            agg.Add( x => x.ApprovedItemCount ).Sum();
+            agg.Add( x => x.ApprovedItemCountAmount ).Sum();
+            agg.Add( x => x.TransmittedItemCount ).Sum();
+            agg.Add( x => x.ErrorItemCount ).Sum();
+            agg.Add( x => x.TotalItemCount ).Sum();
+        } ) ))</text> );
+
+            panes.Add()
+                .Collapsible( false )
+                .Size( "70%" )
+                .Scrollable( false )
+                .Content( @<text>
+    @(Html.Kendo().Grid<SL_AutoLoanOrderProjection>()
+        .Name( "AutoLoanGrid" )
+        .Sortable( sort =>
+        {
+            sort.AllowUnsort( true );
+            sort.Enabled( true );
+            sort.SortMode( GridSortMode.SingleColumn );
+        } )
+        .ColumnMenu( menu =>
+        {
+            menu.Columns( true );
+            menu.Filterable( true );
+            menu.Sortable( true );
+            menu.ComponentType( "modern" );
+        } )
+                      .ToolBar( t =>
+                      {
+                          t.Template( "<div></div>" );
+                      } )
+        .Scrollable( scroll => scroll.Virtual( true ) )
+        .Filterable()
+        .Reorderable( reorder => reorder.Columns( true ) )
+        .AutoBind( false )
+        .Editable( edit =>
+        {
+            edit.Mode( GridEditMode.InCell );
+            edit.Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLAutoLoan ) );
+            edit.DisplayDeleteConfirmation( false );
+        })
+        .Selectable( seclect => seclect.Mode( GridSelectionMode.Multiple ) )
+        .Events( events =>
+        {
+            events.Change( "onAutoLoanRowChange" );
+            events.Edit( "onAutoLoanRowEdit" );
+            events.DataBinding( "onAutoLoanDataBinding" );
+            events.DataBound( "onAutoLoanCheckData" );
+            events.ColumnHide( "onAutoLoanLayoutChange" );
+            events.ColumnShow( "onAutoLoanLayoutChange" );
+            events.ColumnResize( "onAutoLoanLayoutChange" );
+            events.ColumnReorder( "onAutoLoanLayoutChange" );
+        } )
+        .Columns( cols =>
+        {
+            cols.Bound(x => x.LoanStatusFlag).GetColumnFormat(ColumnTypeEnum.String, false, "# if (LoanStatusFlag == " + Convert.ToInt32(SL_AutoLoanOrderStatusFlag.Approved).ToString() + ") { #" +
+     "<div class='k-widget k-notification k-notification-success text-center'><i class='fa  fa-check'></i></div>" +
+  "# } else if (LoanStatusFlag == " + Convert.ToInt32(SL_AutoLoanOrderStatusFlag.Error).ToString() + "){ #" +
+     "<div class='k-widget k-notification k-notification-error text-center'><i class='fa fa-times' ></i></div>" +
+    "# } else if (LoanStatusFlag == " + Convert.ToInt32(SL_AutoLoanOrderStatusFlag.Canceled).ToString() + "){ #" +
+     "<div class='k-widget k-SL_AutoLoanOrderStatusFla k-notification-error text-center'><i class='fa fa-times' ></i></div>" +
+   "# } else if (LoanStatusFlag == " + Convert.ToInt32(StatusDetail.WaitingSettle).ToString() + "){ #" +
+     "<div class='k-widget k-notification k-notification-warning text-center'><i class='fa fa-pause-circle' ></i></div>" +
+  "# } else if (LoanStatusFlag == " + Convert.ToInt32(SL_AutoLoanOrderStatusFlag.InProgress).ToString() + "){ #" +
+     "<div class='k-widget k-notification k-notification-info text-center'><i class='fa fa-circle-o-notch'></i></div>" +
+        "# }#", "");
+            cols.Bound( x => x.SLAutoLoanOrder ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            cols.Bound( x => x.EffectiveDate ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            cols.Bound( x => x.EntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            cols.Bound( x => x.ContraEntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            cols.Bound( x => x.IssueId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            cols.Bound( x => x.SecurityNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            cols.Bound( x => x.Ticker ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            cols.Bound( x => x.Price ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetMoneyDirection(Price)#", "" );
+            cols.Bound( x => x.HouseExcess ).GetColumnFormat( ColumnTypeEnum.Position, false, "#=GetPositionDirection(HouseExcess)#", "QuantityDecimalNumber" ).Hidden( true );
+            cols.Bound( x => x.RequestedQuantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(RequestedQuantity)#", "QuantityDecimalNumber" );
+            cols.Bound( x => x.MinQuantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(MinQuantity)#", "QuantityDecimalNumber" );
+            cols.Bound( x => x.ApprovedQuantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(ApprovedQuantity)#", "QuantityDecimalNumber" );
+            cols.Bound( x => x.HouseRebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(HouseRebateRate)#", "RebateRateDecimalNumber" ).Hidden( true );
+            cols.Bound( x => x.MinRebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(MinRebateRate)#", "RebateRateDecimalNumber" ).Hidden( true );
+            cols.Bound( x => x.MinRebateRateId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "String" ).Hidden( true );
+            cols.Bound( x => x.ApprovedRebateRate ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetRateDirection(ApprovedRebateRate)#", "RebateRateDecimalNumber" );
+            cols.Bound( x => x.ApprovedRebateRateId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "String" );
+            cols.Bound( x => x.ApprovedAmount ).GetColumnFormat( ColumnTypeEnum.Money, false, "#=GetPositionDirection(ApprovedAmount)#", "" );
+            cols.Bound( x => x.CollateralFlag ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            cols.Bound( x => x.DividendRate ).GetColumnFormat( ColumnTypeEnum.Margin, false, "", "RebateRateNumber" ).Hidden( true );
+            cols.Bound(x => x.IsExportedAutoBorrow).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox' onClick='clickAutoLoanCheck(this)' #= (IsExportedAutoBorrow) ? checked ='checked' : '' #/>", "").Filterable(false);
+            cols.Bound( x => x.IncomeTracked ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox' onClick='clickAutoLoanCheck(this)' #= (IncomeTracked) ? checked ='checked' : '' #/>", "" ).Filterable( false );
+            cols.Bound( x => x.DeliverViaOCC ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox' onClick='clickAutoLoanDeliveryViaOCCCheck(this)' #= (DeliverViaOCC) ? checked ='checked' : '' #/>", "" ).Filterable( false );
+            cols.Bound( x => x.MinutesUntilExpiration ).GetColumnFormat( ColumnTypeEnum.Position, false, "", "" );
+            cols.Bound( x => x.Comment ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( true );
+            cols.Bound( x => x.TimeOut ).GetColumnFormat( ColumnTypeEnum.Position, false, "", "" ).Filterable( false );
+            cols.Bound( x => x.LoanStatusFlag ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+            cols.Bound( x => x.ProjectedIncome ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(ProjectedIncome)#", "" );
+
+            cols.Bound( x => x.LoanContractNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( false );
+            cols.Bound( x => x.AddContract ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( false );
+            cols.Bound( x => x.MemoInfo ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" ).Hidden( false );
+            cols.Bound( x => x.DateTimeId ).GetColumnFormat( ColumnTypeEnum.Time, false, "", "" );
+            cols.Command( command =>
+            {
+                command.Custom( "Approve" ).HtmlAttributes( new { @class = "AutoLoanApprove background-green" } );
+                command.Custom( "Cancel" ).HtmlAttributes( new { @class = "AutoLoanCancel background-red" } );
+            } );
+        } )
+        .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+        .DataSource( ds =>
+        {
+            ds.Ajax()
+            .ServerOperation( false )
+            .AutoSync( true )
+            .PageSize( 25 )
+            .Sort( sort =>
+            {
+                sort.Add(x => x.ApprovedAmount).Descending();
+            })
+                    .Events( events =>
+                    {
+                        events.Error( "onAutoLoanError" );
+                        events.RequestStart( "onAutoLoanRequestStart" );
+                        events.RequestEnd( "onAutoLoanRequestEnd" );
+                    } )
+            .Read( read =>
+            {
+                read.Action( "Read_AutoLoan", "AutoLoan", new { area = "DomesticTrading" } ).Data( "additionalAutoLoanData" );
+            } )
+            .Update( update =>
+            {
+                update.Action( "UpdateAutoLoan", "AutoLoan", new { area = "DomesticTrading" } );
+            } )
+            .Aggregates( agg =>
+            {
+                agg.Add( x => x.MinQuantity ).Sum();
+                agg.Add( x => x.RequestedQuantity ).Sum();
+                agg.Add( x => x.ApprovedQuantity ).Sum();
+                agg.Add( x => x.ProjectedIncome ).Sum();
+            } )
+            .Model( model =>
+            {
+                model.Id( x => x.SLAutoLoanOrder );
+                model.Field( x => x.SLAutoLoanOrder ).Editable( false );
+                model.Field( x => x.EntityId ).Editable( false );
+                model.Field( x => x.ContraEntityId ).Editable( false );
+                model.Field( x => x.CollateralFlag ).Editable( false );
+                model.Field( x => x.Comment ).Editable( false );
+                model.Field( x => x.DividendRate ).Editable( false );
+                model.Field( x => x.HouseExcess ).Editable( false );
+                model.Field( x => x.HouseRebateRate ).Editable( false );
+                model.Field( x => x.IncomeTracked ).Editable( false );
+                model.Field( x => x.LoanSequence ).Editable( false );
+                model.Field( x => x.LoanStatusFlag ).Editable( false );
+                model.Field( x => x.MinQuantity ).Editable( false );
+                model.Field( x => x.MinRebateRate ).Editable( false );
+                model.Field( x => x.MinRebateRateId ).Editable( false );
+                model.Field( x => x.ProjectedIncome ).Editable( false );
+                model.Field( x => x.MinutesUntilExpiration ).Editable( false );
+                model.Field(x => x.IsExportedAutoBorrow).Editable(false);                
+                model.Field( x => x.TimeOut ).Editable( false );
+                model.Field( x => x.IssueId ).Editable( false );
+                model.Field( x => x.SecurityNumber ).Editable( false );
+                model.Field( x => x.Ticker ).Editable( false );
+                model.Field( x => x.ApprovedQuantity ).Editable( true );
+                model.Field( x => x.ApprovedAmount ).Editable( true );
+                model.Field( x => x.ApprovedRebateRate ).Editable( true );
+                model.Field( x => x.ApprovedRebateRateId ).Editable( true );
+            } );
+        } ))</text>);
+    }))
+</div>
+
+@(Html.Kendo().ContextMenu()
+.Name("AutoLoanSummaryContextMenu")
+    .Target("#AutoLoanSummaryGrid")
+    .Events(events => events.Select("onAutoLoanSummaryContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Send").Enabled(false);
+        items.Add().Text( "Rate Change" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLAutoLoan ) );
+        items.Add().Text("Cancel Pending").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoLoan));
+        items.Add().Text("Send To AutoBorrow").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoLoan));
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "AutoLoanSummaryButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+    }))
+
+
+
+
+@(Html.Kendo().ContextMenu()
+.Name("AutoLoanContextMenu")
+    .Target("#AutoLoanGrid")
+    .Events(events => events.Select("onAutoLoanContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Send").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoLoan));
+        items.Add().Text("Cancel Pending").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoLoan));
+        items.Add().Text( "AutoFill" ).Enabled( false );
+        items.Add().Text("Send To AutoBorrow").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLAutoLoan));
+        items.Add().Separator(true);
+        items.Add().Text("Refresh Data").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Copy").Enabled(true).HtmlAttributes(new { ID = "AutoLoanButton" });
+        items.Add().Text("Export To Excel").Enabled(true);
+
+    }))

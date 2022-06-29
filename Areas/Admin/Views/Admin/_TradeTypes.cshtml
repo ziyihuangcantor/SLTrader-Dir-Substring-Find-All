@@ -1,0 +1,111 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+    var _originalExecutingSystemTypeTradeTypeGrid = null;
+    var _originalUserToolBar = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalExecutingSystemTypeTradeTypeGrid = $("#ExecutingSystemTypeTradeTypeGrid").data('kendoGrid').getOptions();
+            _originalUserToolBar = $("#ExecutingSystemTypeTradeTypeGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#ExecutingSystemTypeTradeTypeGrid");
+
+            $("#ExecutingSystemTypeTradeTypeGrid .k-grid-toolbar").html(_originalUserToolBar);
+            $("#ExecutingSystemTypeTradeTypeGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onTradeTypeLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ExecutingSystemTypeTradeTypeGrid");
+        }, 5);
+    }
+
+    function onTradeTypeError(e) {
+        DisplayControllerByStringError("", e.errorThrown);
+    }
+
+    function onTradeTypeChange(e) {        
+        if (e.Type == 'update') {
+            $('#ExecutingSystemTypeTradeTypeGrid').data('kendoGrid').dataSource.read();
+        }
+    }
+</script>
+
+<hr class="hr-white">
+
+    @(Html.Kendo().Grid<SL_ExecutingSystemTypeTradeType>()
+        .Name("ExecutingSystemTypeTradeTypeGrid")
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .NoRecords()
+        .AutoBind(true)
+        .Reorderable(reorder => reorder.Columns(true))
+        .Editable(edit =>
+        {
+            edit.CreateAt(GridInsertRowPosition.Top);
+            edit.DisplayDeleteConfirmation(false);
+            edit.Enabled(true);
+            edit.Mode(GridEditMode.InLine);
+        })
+        .ColumnMenu(menu =>
+        {
+            menu.Columns(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+        })
+        .ToolBar(tbar =>
+        {
+            tbar.Create();
+        })
+        .Selectable(seclect => seclect.Mode(GridSelectionMode.Single))
+        .Events(events =>
+        {
+            events.ColumnHide("onTradeTypeLayoutChange");
+            events.ColumnShow("onTradeTypeLayoutChange");
+            events.ColumnResize("onTradeTypeLayoutChange");
+            events.ColumnReorder("onTradeTypeLayoutChange");
+        })
+       .Resizable(resize => resize.Columns(true))
+       .Columns(columns =>
+       {
+           columns.Bound(x => x.SLExecutingSystemTypeTradeType).Hidden(true);
+           columns.Bound(x => x.ExecutionSystemType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_ExecutingSystemTypeTradeTypeDropdown");
+           columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "_TradeTypeCompleteDropdown");
+           columns.Bound(x => x.DefaultCashSettleLocation).GetColumnFormat(ColumnTypeEnum.String, false, "", "_CountryDropdown");
+           columns.Bound(x => x.DefaultSecuritySettleLocation).GetColumnFormat(ColumnTypeEnum.String, false, "", "_CountryDropdown");
+           columns.Bound(x => x.DefaultCurrency).GetColumnFormat(ColumnTypeEnum.String, false, "", "_CurrencyDropdown");
+           columns.Command(x =>
+           {
+               if (SessionSecurityService.IsEditable(ManagerTask.DeleteCompanyAgreementTradeType))
+               {
+                   x.Edit().Text("Edit");
+               }
+
+               if (SessionSecurityService.IsEditable(ManagerTask.DeleteCompanyAgreementTradeType))
+               {
+                   x.Destroy().Text("Remove");
+               }
+           });
+       })
+        .DataSource(dataSource => dataSource.Ajax()
+       .Model(model =>
+       {
+           model.Id(x => x.SLExecutingSystemTypeTradeType);
+       })
+       .ServerOperation(false)
+       .Batch(false)
+       .Events(ev =>
+       {
+           ev.Error("onTradeTypeError");
+           ev.Change("onTradeTypeChange");
+       })
+        .Create(create => create.Action("CreateExecutingSystemTypeTradeType", "Admin", new { area = "Admin" }))
+        .Update(update => update.Action("UpdateExecutingSystemTypeTradeType", "Admin", new { area = "Admin" }))
+        .Destroy(destroy => destroy.Action("DestroyExecutingSystemTypeTradeType", "Admin", new { area = "Admin" }))
+        .Read( read => read.Action("LoadExecutingSystemTypeTradeType", "Admin", new { area = "Admin" } ) ) ))

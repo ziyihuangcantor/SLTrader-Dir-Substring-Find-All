@@ -1,0 +1,108 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities
+
+@model SL_ContraEntityParent
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("input[data-val-length-max]").each(function () {
+            var $this = $(this);
+            var data = $this.data();
+            $this.attr("maxlength", data.valLengthMax);
+        });
+    });
+
+    function onContraParentSavePost(e) {
+        e.preventDefault();
+
+        try {
+            var form = $("#my-form");
+
+            $.ajax({
+                url: "@Url.Action("Update_ContraEntityParentDetail", "ContraEntity", new { area = "DomesticTrading" } )",
+                data: form.serializeArray(),
+                type: "POST",
+                success: function () {
+                    $("#StatusLabel").text("Legal Entity udpated.");
+
+                    $('#ContraEntitiesLegalEntityGrid').data("kendoGrid").dataSource.read();
+
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                },
+                error: function (e) {
+                    $("#StatusLabel").text("Legal Entity update failed.");
+                    console.log(e.message);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+</script>
+
+<div class="toolbar-clear">
+@using (Html.BeginForm("Action", "ControllerName", FormMethod.Post, new { id = "my-form" }))
+{
+    <table>
+        <tr>
+            <td colspan="2">
+                @LabelHelper.Label("ContraEntityName")
+                @Html.TextBoxFor(model => model.AccountName, new { @class = "k-textbox", @ID = "ContraEntityTextBox" })
+            </td>            
+            <td>
+                @LabelHelper.Label("EnabledForTrading")
+                @Html.CheckBoxFor(x => x.IsEnabled)
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>
+                @LabelHelper.Label("StockBorrowLoanLimits")
+            </td>
+        </tr>
+        <tr>
+            <td>
+                @LabelHelper.Label("BorrowAmount")
+                @Html.Kendo().NumericTextBoxFor(model => model.BorrowLmt).Format("#,##0.00").Enable(true)
+            </td>
+            <td></td>
+            <td>
+                @LabelHelper.Label("LoanAmount")
+                @Html.Kendo().NumericTextBoxFor(model => model.LoanLmt).Format("#,##0.00").Enable(true)
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>
+                @LabelHelper.Label("PrepayLimit")
+                @Html.Kendo().NumericTextBoxFor(model => model.PrepayLimit).Format("#,##0.00").Enable(true)
+            </td>
+            <td></td>
+            <td>
+            </td>
+            <td></td>
+        </tr>
+        <tr></tr>
+        <tr>
+            <td colspan="4">
+                <label id="StatusLabel" class="label-status"></label>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" style="text-align:right">
+                @Html.Kendo().Button().Name("SaveContraParentPost").Enable(true).Events(ev => ev.Click("onContraParentSavePost")).Content(LabelHelper.Text("PostContraEntityParentChange"))
+            </td>
+        </tr>
+    </table>
+
+    @Html.HiddenFor(x => x.SLContraEntityParent);
+    @Html.HiddenFor(x => x.AccountName);
+    @Html.HiddenFor(x => x.EntityId);
+}
+</div>

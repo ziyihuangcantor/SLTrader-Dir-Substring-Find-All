@@ -1,0 +1,192 @@
+﻿    @using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using SLTrader.Models.ContractRelatedModels
+@using BondFire.Entities.Projections
+
+@model IEnumerable<MarkToMarketModel>
+
+<script type="text/javascript">
+       $(document).ready(function () {
+        setTimeout(function () {
+
+            if (@Model.Count() >= 1) {
+                resizeGridColumns("#ContractMarkToMarketGrid");
+            }
+
+
+            $('#LocalDetailWindow').data("kendoWindow").center();
+        }, 5);
+    });
+
+    $(function() {
+        $('#ContractMarkToMarketGrid').on('click', '.chkbx', function() {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContractMarkToMarketGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+            dataItem['Enabled'] = checked;
+        });
+    });
+
+    function onMarkToMarketEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () { input.select(); });
+    }
+
+
+    function onSelectAllMarkToMarket() {
+        var grid = $('#ContractMarkToMarketGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 1;
+
+        $("#MarkToMarketButton").data("kendoButton").enable(false);
+        $("#SelectAllButton").data("kendoButton").enable(false);
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {
+            grid.dataSource.data()[index].Enabled = true;
+
+            processedRowCount = processedRowCount + 1;
+        }
+
+        grid.dataSource.sync();
+
+        $("#MarkToMarketButton").data("kendoButton").enable(true);
+        $("#SelectAllButton").data("kendoButton").enable(true);
+
+
+        $('#ProgressLabel').html('Selected ' + processedRowCount + ' items.');
+    }
+
+    function onMarkToMarket() {
+        var grid = $('#ContractMarkToMarketGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+
+        var rowCount = 0;
+        var processedRowCount = 0;
+
+        $("#MarkToMarketButton").data("kendoButton").enable(false);
+
+        $.each(rows, function (i, row) {
+            if (row.Enabled) {
+                rowCount++;
+            }
+        });
+
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+        $.ajax({
+            url: "@Url.Action("ProcessMarkToMarket", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify(rows),
+            success: function (valid) {
+
+                $.each(valid, function (i, obj) {
+                    var effectiveDate = kendo.parseDate(obj['EffectiveDate']);                    
+
+                    obj['EffectiveDate'] = effectiveDate;                   
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                var _grid = $("#ContractMarkToMarketGrid").data("kendoGrid");
+                var _data = _grid.dataSource.data();
+
+                $("#MarkToMarketButton").data("kendoButton").enable(false);
+
+                $.each(_data, function (i, row) {
+                    if (row.Enabled) {
+                        $("#MarkToMarketButton").data("kendoButton").enable(true);
+
+                        processedRowCount++;
+                    }
+                });
+
+                $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+
+                if (processedRowCount == rowCount) {
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                }
+            },
+            error: function (valid) {
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#MarkToMarketButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+</script>
+
+@if (!Model.Any())
+{
+    <div style="padding:20px;font-size:small;">
+        <h2>No Data Selected / Processed</h2>
+    </div>
+}
+else
+{
+@(
+ Html.Kendo().ToolBar()
+        .Name("SharedMarkToMarketToolBar")
+    .Items(items =>
+    {
+        items.Add().Template(Html.Kendo().Button().Name("MarkToMarketButton").Content("Mark To Market").Events(e => e.Click("onMarkToMarket")).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("SelectAllButton").Content("Select All").Events(e => e.Click("onSelectAllMarkToMarket")).ToHtmlString());
+        items.Add().Template("<label id='ProgressLabel'></label>");
+    })
+)
+<div id="ContractBorrowCallbackCenterDiv">
+@(Html.Kendo().Grid(Model)
+    .Name("ContractMarkToMarketGrid")
+    .HtmlAttributes(new { @class = "grid" })
+    .Scrollable()
+    .Selectable()
+    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+    .Editable(editable => editable.Mode(GridEditMode.InCell).Enabled(true).DisplayDeleteConfirmation(false))
+    .Events(e => e.Edit("onMarkToMarketEdit"))
+    .Columns(columns =>
+    {
+        columns.Bound(x => x.ModelId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.Enabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='chkbx' #= (Enabled) ? checked ='checked' : '' #/>", "");
+        columns.Bound(x => x.Entity).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.CurrentPrice).GetColumnFormat(ColumnTypeEnum.String, false, "#=GetMoneyDirection(CurrentPrice)#", "");
+        columns.Bound(x => x.CurrentContractAmount).GetColumnFormat(ColumnTypeEnum.String, true, "#=GetMoneyDirection(CurrentContractAmount)#", "");
+        columns.Bound(x => x.NewPrice).GetColumnFormat(ColumnTypeEnum.Position, false, "#=GetMoneyDirection(NewPrice)#", "DecimalNumber");
+        columns.Bound(x => x.NewContractAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(NewContractAmount)#", "");
+        columns.Bound(x => x.NewContractAmountDelta).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(NewContractAmountDelta)#", "");
+        columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Width(80);
+        columns.Command(c => c.Destroy()).Width(80);
+    })
+    .DataSource(read => read.Ajax()
+        .Aggregates(agg =>
+        {
+            agg.Add(x => x.CurrentContractAmount).Sum();
+            agg.Add(x => x.NewContractAmount).Sum();
+            agg.Add(x => x.NewContractAmountDelta).Sum();
+        })
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Destroy(destroy => destroy.Action("MarkToMarketChangeModel_Destroy", "ContractRelated", new { area = "DomesticTrading" }))
+        .Update(update => update.Action("MarkToMarketChangeModel_Update", "ContractRelated", new { area = "DomesticTrading" }))
+        .Model(model =>
+        {
+            model.Id(x => x.ModelId);
+            model.Field(x => x.SubmissionType).Editable(false);
+            model.Field(x => x.MemoInfo).Editable(false);
+        }))
+)
+</div>
+}

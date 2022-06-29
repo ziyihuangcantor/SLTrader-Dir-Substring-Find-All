@@ -1,0 +1,312 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#CnsExposureGrid");
+    });
+
+    var _originalCnsProjectionGrid = null;
+    var _cnsProjectionSelectAll = false;
+
+    $(document).ready(function () {
+        kendo.ui.Grid.fn.options.columnMenuInit = function (e) {
+            var menu = e.container.find(".k-menu").data("kendoMenu");
+            menu.bind('activate', function (e) {
+                if (e.item.is('.k-filter-item')) {
+                    // if an element in the submenu is focused first, the issue is not observed
+                    e.item.find('span.k-dropdown.k-header').first().focus();
+                    // e.item.find('input').first().focus();
+                }
+            });
+        };
+
+        setTimeout(function () {
+            _originalCnsProjectionGrid = $('#CnsProjectionGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#CnsProjectionGrid");
+        }, 5);
+    });
+
+    function onCnsProjectionCheckData() {
+        CheckGridData('#CnsProjectionGrid');
+    }
+
+    function additionalCnsProjectionData() {
+        var datepicker = $("#CnsProjectionCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#CnsProjectionDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entity
+        };
+    }
+
+    function onCnsProjectionDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#CnsProjectionDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#CnsProjectionGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onCnsProjectionError(e) {
+        DisplayControllerError(e);
+    }
+
+    function onCnsProjectionChange() {
+        $("#CnsProjectionGrid").data("kendoGrid").dataSource.read();
+    }
+
+    function onCnsProjectionRowChange(e) {
+        e.preventDefault();
+
+        try {
+            var entityGrid = $("#CnsProjectionGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var entityId = selectedItem["EntityId"];
+            var effectiveDate = selectedItem["EffectiveDate"];
+            var securityNumber = selectedItem["SecurityNumber"];
+            var issueId = selectedItem["IssueId"];
+
+
+            UpdateIssue(entityId, securityNumber);
+            UpdateBox(effectiveDate, entityId, issueId);
+            UpdateTrading(entityId, issueId);
+            UpdateSharedView(effectiveDate, entityId, securityNumber);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onCnsProjectionGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#CnsProjectionGrid");
+        }, 5);
+    }
+
+    function onCnsProjectionSearchChange(e) {
+        e.preventDefault();
+
+        try {
+            var grid = $("#CnsProjectionGrid").data("kendoGrid").dataSource;
+
+            var cusipTextBox = document.getElementById("CnsProjectionSecuritySearchTextBox").value;
+
+            QuickColumnFilter(grid, 'Ticker', cusipTextBox);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onCnsProjectionContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {           
+            case "Reset Filter":
+                ResetFilter("#CnsProjectionGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#CnsProjectionGrid");
+                $('#CnsProjectionGrid').data('kendoGrid').setOptions(_originalCnsProjectionGrid);
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#CnsProjectionGrid");
+                break;
+
+            case "Unsort":
+                onCnsExposureUnsortGrid("#CnsProjectionGrid");
+                break;
+
+            case "Select All":
+                cnsProjectionSelectAll(true);
+                break;
+
+            case "Export To Excel":
+                exportToCnsProjectionExcel();
+                break;
+        }
+    }
+
+    function onCnsExposureUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function exportToCnsProjectionExcel() {
+        try {
+            KendoGridToCSVConvertor("#CnsProjectionGrid", 'CnsProjectionGrid', _cnsProjectionSelectAll);
+
+            _cnsProjectionSelectAll = false;
+        }
+        catch (e) {
+            console.log(e.message);
+            console.log(e.message);
+        }
+    }
+
+    function cnsProjectionSelectAll(e) {
+        try {
+            var cnsProjectionGrid = $("#CnsProjectionGrid").data("kendoGrid");
+            cnsProjectionGrid.select(cnsProjectionGrid.tbody.find(">tr"));
+
+            _cnsProjectionSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("CnsProjectionToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("CnsProjectionCalander")
+                                .Format("yyyy-MM-dd")
+                                .HtmlAttributes(new { @class = "width90" })
+                                .Value(DateTime.Now)
+                                .Events(events => events.Change("onCnsProjectionChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("CnsProjectionDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onCnsProjectionChange").DataBound("onCnsProjectionDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(
+        "<table><tr><td>" +
+        LabelHelper.LabelFor("TickerSearch", "CnsProjectionSecuritySearchTextBox").ToHtmlString() + "</td><td>" +
+        Html.Kendo().AutoComplete().Name("CnsProjectionSecuritySearchTextBox").HtmlAttributes(new { @class = "width90" }).Events(eve => eve.Filtering("onCnsProjectionSearchChange")).Suggest(true).ToHtmlString() + "</td></tr></table>"
+        ).HtmlAttributes(new { @class = "tickerSearch-Text" });
+    }))
+
+<hr class="hr-white">
+
+<div id="CnsProjectionContent" class="grid-div">
+    @(
+ Html.Kendo().Grid<BondFire.Entities.Projections.SL_CnsExtendedProjection>()
+        .Name("CnsProjectionGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable(scroll => scroll.Virtual(true))
+        .Filterable()
+        .NoRecords()
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Multiple))
+        .Navigatable()
+                    .ColumnMenu(menu =>
+                    {
+                        menu.Columns(true);
+                        menu.Filterable(true);
+                        menu.Sortable(true);
+                    })
+                .Events(events =>
+                {
+                    events.Change("onCnsProjectionRowChange");
+                    events.DataBound("onCnsProjectionCheckData");
+                    events.ColumnHide("onCnsProjectionGridLayoutChange");
+                    events.ColumnShow("onCnsProjectionGridLayoutChange");
+                    events.ColumnResize("onCnsProjectionGridLayoutChange");
+                    events.ColumnReorder("onCnsProjectionGridLayoutChange");
+                })
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.CurrentCnsSettledFtd).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CurrentCnsSettledFtd)#", "");
+            columns.Bound(x => x.CurrnetCnsSettledFtr).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CurrnetCnsSettledFtr)#", "");
+            columns.Bound(x => x.CurrentNetPosition).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(CurrentNetPosition)#", "");
+            columns.Bound(x => x.TomorrowProjectedNetPosition).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(TomorrowProjectedNetPosition)#", "");
+            columns.Bound(x => x.TomorrowProjectedValue).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TomorrowProjectedValue)#", "");
+            columns.Bound(x => x.TomorrowNetSettlingTrade).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(TomorrowNetSettlingTrade)#", "");
+            columns.Bound(x => x.FollowingDaySettlingTrade).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(FollowingDaySettlingTrade)#", "");
+            columns.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        })
+         .DataSource(dataSource => dataSource
+            .Ajax()
+            .PageSize(50)
+            .ServerOperation(false)
+            .Events(events => events.Error("onCnsProjectionError"))
+            .Aggregates(agg =>
+            {
+                agg.Add(x => x.CurrentCnsSettledFtd).Sum();
+                agg.Add(x => x.CurrnetCnsSettledFtr).Sum();
+
+                agg.Add(x => x.CurrentNetPosition).Sum();
+                agg.Add(x => x.TomorrowProjectedNetPosition).Sum();
+                agg.Add(x => x.TomorrowProjectedValue).Sum();
+                agg.Add(x => x.TomorrowNetSettlingTrade).Sum();
+                agg.Add(x => x.FollowingDaySettlingTrade).Sum();
+            })
+            .Read(read => read.Action("Read_CnsProjection", "Cns", new { area = "Compliance" }).Data("additionalCnsProjectionData")))
+    )
+</div>
+
+
+
+@(Html.Kendo().ContextMenu()
+.Name("CnsProjectionContextMenuSelect")
+.Orientation(ContextMenuOrientation.Vertical)
+.Target("#CnsProjectionGrid")
+.Events(events => events.Select("onCnsProjectionContextMenuSelect"))
+.Items(items =>
+{
+    items.Add().Text("AutoFit Columns");
+    items.Add().Text("Unsort");
+    items.Add().Text("Reset Filter");
+    items.Add().Text("Reset Grid");
+    items.Add().Separator(true);
+    items.Add().Text("Select All");
+    items.Add().Text("Export To Excel");
+}))
+
+

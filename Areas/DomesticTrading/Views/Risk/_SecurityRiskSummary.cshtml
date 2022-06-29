@@ -1,0 +1,233 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Tools
+<style scoped>
+    #SecurityRiskToolBar label {
+            padding-left: 10px;
+        }
+</style>
+
+
+<script type="text/javascript">
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#SecurityRiskGrid");
+    });
+
+    function onRiskChange() {
+        var summaryKey = $("#SummaryKeyDropdown").data("kendoDropDownList").value();
+
+        if (summaryKey == '@SummaryKey.Security') {
+            onSecurityKey();
+        }
+        else {
+            onContraId();
+        }
+
+        $('#SecurityRiskGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onRiskCheckData() {
+        CheckGridData('#SecurityRiskGrid');
+    }
+
+
+    function additionalRiskData() {
+        var datepicker = $("#RiskCalander").data("kendoDatePicker");
+        var effectiveDate = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#RiskDropdownList").data("kendoDropDownList").value();
+        var summaryKey = $("#SummaryKeyDropdown").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: effectiveDate,
+            entityId: entity,
+            summarykey: summaryKey,
+        }
+    }
+
+    function onRiskError(e) {
+        console.log(e.message);
+    }
+
+    function onRiskRowChange(e) {
+        var entityGrid = $("#SecurityRiskGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var entityId = selectedItem["EntityId"];
+        var securityNumber = selectedItem["SecurityNumber"];
+        var effectiveDate = selectedItem["EffectiveDate"];
+
+        UpdateIssue(securityNumber);
+    }
+
+    function onSecurityKey() {
+        try {
+            var grid = $("#SecurityRiskGrid").data("kendoGrid");
+
+            grid.showColumn(4);
+            grid.showColumn(9);
+            grid.showColumn(10);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onContraId() {
+        try {
+            var grid = $("#SecurityRiskGrid").data("kendoGrid");
+
+            grid.hideColumn(4);
+            grid.hideColumn(9);
+            grid.hideColumn(10);
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onRiskDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#RiskDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#SecurityRiskGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            })
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onContractRiskContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Export To Excel':
+                exportToRiskExcel();
+                break;
+        }
+    }
+
+    function exportToRiskExcel() {
+        KendoGridToCSVConvertor("#SecurityRiskGrid", 'SecurityRisk');
+    }
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("SecurityRiskToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("RiskCalander")
+                                .Format("yyyy-MM-dd")
+                                .Value(DateTime.Now)
+                            .HtmlAttributes(new { @class = "width90" }) 
+                                .Events(events => events.Change("onRiskChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("RiskDropdownList")
+                            .HtmlAttributes(new { @class = "width90" }) 
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onRiskChange").DataBound("onRiskDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Events(events => events.Error("onRiskError"))
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("SummaryKey").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                          .Name("SummaryKeyDropdown")
+                          .BindTo(Enum.GetNames(typeof(SummaryKey)).ToList())
+                          .Events(events => events.Change("onRiskChange"))
+                          .Value(SummaryKey.Security.ToString()).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+<div id="SecurityRiskContent"  class="grid-div">
+
+ @(
+ Html.Kendo().Grid<SecurityRiskModel>()
+        .Name("SecurityRiskGrid")
+        .HtmlAttributes(new { @class = "grid" })
+        .Sortable()
+        .Scrollable()
+        .Filterable()
+        .Navigatable()
+        .NoRecords()
+                .Events(events => events.Change("onRiskRowChange").DataBound("onRiskCheckData"))
+        .Selectable(selectable => selectable
+                        .Mode(GridSelectionMode.Multiple)
+                        .Type(GridSelectionType.Row))
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "").Hidden(true);
+            columns.Bound(x => x.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.SummaryKey).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Classification).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Deliverable).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Deliverable)#", "");
+            columns.Bound(x => x.DeliverableAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(DeliverableAmount)#", "");
+            columns.Bound(x => x.Recieveable).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Recieveable)#", "");
+            columns.Bound(x => x.RecieveableAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RecieveableAmount)#", "");
+            columns.Bound(x => x.Holding).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetMoneyDirection(Holding)#", "");
+            columns.Bound(x => x.HoldingAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(HoldingAmount)#", "");
+            columns.Bound(x => x.Volatility).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "");
+        })
+        .ColumnMenu( menu =>
+        {
+            menu.Columns( false );
+            menu.Filterable( true );
+            menu.Sortable( false );
+            menu.ComponentType( "modern" );
+        } )
+        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true")))).DataSource(dataSource => dataSource
+        .Ajax()
+        .ServerOperation(false)
+        .Read(read => read
+            .Action("Read_SecurityRisk", "Risk", new { area = "DomesticTrading" })
+                .Data("additionalRiskData")
+            )
+            .Aggregates(agg =>
+            {
+                agg.Add(x => x.Deliverable).Sum();
+                agg.Add(x => x.DeliverableAmount).Sum();
+                agg.Add(x => x.Recieveable).Sum();
+                agg.Add(x => x.RecieveableAmount).Sum();
+                agg.Add(x => x.Holding).Sum();
+                agg.Add(x => x.HoldingAmount).Sum();
+            })
+                .Events(events => events.Error("onRiskError"))
+))
+</div>
+@(Html.Kendo().ContextMenu()
+    .Name("SecurityRiskContextMenu")
+    .Target("#SecurityRiskGrid")
+    .Events(events => events.Select("onContractRiskContextMenuSelect"))
+    .Items(items => items.Add().Text("Export To Excel")))

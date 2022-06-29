@@ -1,0 +1,51 @@
+﻿@using System.ComponentModel
+@using BondFire.Managers
+@using SLTrader.Enums
+@using SLTrader.Tools
+@model IEnumerable<BondFire.Entities.Projections.SL_ActivityProjection>
+
+<script type="text/javascript">
+    function onCheckData() {
+        CheckGridData('#ActivityByTypeIdGrid');
+    }
+</script>
+
+<div class="grid-div" id="ActivityByTypeIdDiv">
+    @(Html.Kendo().Grid(Model)
+    .Name("ActivityByTypeIdGrid")
+    .Sortable()
+    .HtmlAttributes(new { @class = "grid" })
+    .Scrollable()
+    .Filterable()
+    .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+    .Navigatable()
+    .Events(events => events.DataBound("onCheckData"))
+   .Columns(columns =>
+   {
+       columns.Bound(p => p.ActivityType).GetColumnFormat(ColumnTypeEnum.String, false, "# if (ActivityType == 1) { #" +
+              "<i class='fa  fa-info-circle color-blue'></i>" +
+          "# } else { #" +
+              "<i class='fa fa-exclamation-triangle color-red'></i>" +
+          "# } #", "").Title("").Width(30);       
+       columns.Bound(p => p.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.DateTimeId).GetColumnFormat(ColumnTypeEnum.DateTime, false, "", "").Width(120);
+       columns.Bound(p => p.EntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(false);
+       columns.Bound(p => p.Activity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.TypeId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+       columns.Bound(p => p.Amount).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+       columns.Bound(p => p.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.UserName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.ActivityResponse).GetColumnFormat(ColumnTypeEnum.String, false, "# if (ActivityResponse.length > 0) { #<i class='fa  fa-info-circle color-red'></i># } #", "").Title("").HtmlAttributes(new { title = "Reponse - #= ActivityResponse # " });
+       columns.Bound(p => p.ActivityFlag).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+       columns.Bound(p => p.ActivityError).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+   })
+   .DataSource( ds => ds.Ajax().ServerOperation(false))
+    )
+
+    
+    @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#ActivityByTypeIdGrid").Filter("td[title]")
+</div>

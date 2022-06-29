@@ -1,0 +1,46 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+@model IEnumerable<IssueLookupModel>
+
+<style scoped>
+    #IssueSearchCriteriaContent {
+        width:600px;
+        height:300px;
+    }
+</style>
+
+
+<div id="IssueSearchCriteriaContent" class="grid-div">
+    @(
+ Html.Kendo().Grid(Model)
+        .Name("IssueSearchCriteriaGrid")
+        .Sortable()
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .Filterable()
+        .NoRecords()
+        .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+        .Navigatable()
+        .Columns(columns =>
+        {
+            columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            columns.Bound(x => x.DateTimeLookup).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+            columns.Bound(x => x.Cusip).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.ISIN).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.Description).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(x => x.IntradayRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(IntradayRate)#", "");
+        })
+        .DataSource(ds =>
+        {
+            ds.Ajax()
+            .Model(m =>
+            {
+                m.Id(x => x.IssueId);
+            });
+        }))
+</div>

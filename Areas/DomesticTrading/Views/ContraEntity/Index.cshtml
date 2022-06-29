@@ -1,0 +1,1111 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+<style scoped>
+            #ContraEntitySummaryButton.zeroclipboard-is-hover {
+        background-color: #1ba1e2;
+    }
+</style>
+
+<script type="text/javascript">
+    var _originalContraEntityGrid = null;
+    var _originalContraEntityDetailGrid = null;
+    var _originalLegalEntityGrid = null;
+
+      var _originalContraEntityGridSelectAll= false;
+    var _originalContraEntityDetailGridSelectAll = false;
+    var _originalLegalEntityGridSelectAll = false; 
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalContraEntityGrid = $('#ContraEntitiesSummaryGrid').data('kendoGrid').getOptions();
+            _originalContraEntityDetailGrid = $('#ContraEntitiesDetailGrid').data('kendoGrid').getOptions();
+            _originalLegalEntityGrid = $('#ContraEntitiesLegalEntityGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#ContraEntitiesSummaryGrid");
+            LoadGridLayout("#ContraEntitiesDetailGrid");
+            LoadGridLayout("#ContraEntitiesLegalEntityGrid");
+
+        }, 5);
+
+
+        var clientEvent1 = new ZeroClipboard(document.getElementById("ContraEntitySummaryButton"));
+
+        clientEvent1.on("ready", function (readyEvent) {
+            clientEvent1.on("copy", function (event) {
+                var data1 = KendoGridToText("#ContraEntitiesSummaryGrid", "ContraEntitiesSummaryGrid", false);
+                clientEvent1.setText(data1);
+            });
+        });
+
+        var clientEvent2 = new ZeroClipboard(document.getElementById("ContraEntityDetailButton"));
+
+        clientEvent2.on("ready", function (readyEvent) {
+            clientEvent2.on("copy", function (event) {
+                var data2 = KendoGridToText("#ContraEntitiesDetailGrid", "ContraEntitiesDetailGrid", false);
+                clientEvent2.setText(data1);
+            });
+        });
+
+        $("#ContraEntitiesDetailGrid").hide();
+        $("#ContraEntitiesLegalEntityGrid").hide();
+    });
+
+
+    function onContraEntityGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ContraEntitiesSummaryGrid");
+        }, 5);
+    }
+
+
+    function onContraEntityDetailGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ContraEntitiesDetailGrid");
+        }, 5);
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        RefreshGrid("#ContraEntitiesSummaryGrid");        
+        RefreshGrid("#ContraEntitiesDetailGrid");
+        RefreshGrid("#ContraEntitiesLegalEntityGrid");
+    });
+
+    function onContraEntityDetailContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Add':
+                addContraEntityDetails();
+                break;
+
+            case 'Edit':
+                editsContraEntityDetails();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#ContraEntitiesDetailGrid");
+                break;
+
+            case 'Unsort':
+                onContraEntityUnsortGrid("#ContraEntitiesDetailGrid");
+                break;
+
+            case 'Reset Grid':
+                ResetUserLayout("#ContraEntitiesDetailGrid");
+                $('#ContraEntitiesDetailGrid').data('kendoGrid').setOptions(_originalContraEntityDetailGrid);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ContraEntitiesDetailGrid");
+                break;
+
+            case 'Select All':
+                onContraEntityDetailSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                exportToContraEntityExcel("#ContraEntitiesDetailGrid", "ContraEntitiesDetailGrid", _originalContraEntityDetailGridSelectAll);
+                break;
+        }
+    }
+
+    function onContraEntityContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Add':
+                addContraEntityDetails();
+                break;
+
+            case 'Edit':
+                editsContraEntityDetails();
+                break;
+
+            case 'Details':
+                showContraEntityDetails();
+                break;
+
+            case 'Profile':
+                showContraEntityProfiles();
+                break;
+
+            case 'People':
+                showContraEntityContacts();
+                break;
+
+            case 'Contracts':
+                showContraEntityContracts(true);
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#ContraEntitiesSummaryGrid");
+                break;
+
+            case 'Unsort':
+                onContraEntityUnsortGrid("#ContraEntitiesSummaryGrid");
+                break;
+
+            case 'Reset Grid':
+                ResetUserLayout("#ContraEntitiesSummaryGrid");
+                $('#ContraEntitiesSummaryGrid').data('kendoGrid').setOptions(_originalContraEntityGrid);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ContraEntitiesSummaryGrid");
+                break;
+
+            case 'Select All':
+                onContraEntitySelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                exportToContraEntityExcel("#ContraEntitiesSummaryGrid", "ContraEntitiesSummaryGrid", _originalContraEntityGridSelectAll);
+                break;
+        }
+    }
+
+    function onContraEntityParentContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {         
+
+            case 'Edit':
+                editsContraEntityParentDetails();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#ContraEntitiesLegalEntityGrid");
+                break;
+
+            case 'Unsort':
+                onContraEntityUnsortGrid("#ContraEntitiesLegalEntityGrid");
+                break;
+
+            case 'Reset Grid':
+                ResetUserLayout("#ContraEntitiesLegalEntityGrid");
+                $('#ContraEntitiesLegalEntityGrid').data('kendoGrid').setOptions(_originalContraEntityGrid);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ContraEntitiesLegalEntityGrid");
+                break;
+
+            case 'Select All':
+                onContraEntityParentDetailSelectAll(true);
+                break;
+
+            case 'Export To Excel':
+                exportToContraEntityExcel("#ContraEntitiesLegalEntityGrid", "ContraEntitiesLegalEntityGrid", _originalLegalEntityGridSelectAll);
+                break;
+        }
+    }
+
+    function  onContraEntityUnsortGrid(e)
+    {
+        UnsortGrid(e);
+    }
+
+    function exportToContraEntityExcel(gridName, spreadSheetName, selectAll) {
+        KendoGridToCSVConvertor(gridName, spreadSheetName, selectAll);
+    }
+
+    function onContraEntitySelectAll(e) {
+        try {
+            var contraGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+            contraGrid.select(contraGrid.tbody.find(">tr"));
+
+            _originalContraEntityGridSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onContraEntityDetailSelectAll(e) {
+        try {
+            var contraGrid = $("#ContraEntitiesDetailGrid").data("kendoGrid");
+            contraGrid.select(contraGrid.tbody.find(">tr"));
+
+            _originalContraEntityDetailGridSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onContraEntityParentDetailSelectAll(e) {
+        try {
+            var contraGrid = $("#ContraEntitiesLegalEntityGrid").data("kendoGrid");
+            contraGrid.select(contraGrid.tbody.find(">tr"));
+
+            _originalLegalEntityGridSelectAll = true;
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    function onContraEntityDefaultLoad() {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function(valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#ContraEntityDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function(dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+                    if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+                        $('#ContraEntitiesSummaryGrid').data("kendoGrid").dataSource.read();
+                    } else if (summaryType == '@ContraEntityDetailTypeEnum.Detail') {
+                        $('#ContraEntitiesDetailGrid').data("kendoGrid").dataSource.read();
+                    } else if (summaryType == '@ContraEntityDetailTypeEnum.LegalEntity') {
+                        $('#ContraEntitiesLegalEntityGrid').data("kendoGrid").dataSource.read();
+                    }
+                },
+                error: function(valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onContraEntityDetailChange()  {
+        var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            $('#ContraEntitiesSummaryGrid').data("kendoGrid").dataSource.read();
+        } else if (summaryType == '@ContraEntityDetailTypeEnum.Detail') {
+            $('#ContraEntitiesDetailGrid').data("kendoGrid").dataSource.read();
+        } else if (summaryType == '@ContraEntityDetailTypeEnum.LegalEntity') {
+            $('#ContraEntitiesLegalEntityGrid').data("kendoGrid").dataSource.read();
+        }
+    }
+
+    function additionalContraEntityData() {
+
+        var datepicker = $("#ContraEntityCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#ContraEntityDropdownList").data("kendoDropDownList");
+
+        return {
+            entityId: entity.value(),
+            effectiveDate: value
+        };
+    }
+
+    function onContraEntityError(e) {
+        console.log(e.message);
+    }
+
+    function onContraEntityDetailError(e) {
+        console.log(e.message);
+    }
+
+    function onContraEntityCheckData() {
+        CheckGridData('#ContraEntitiesSummaryGrid');
+    }
+
+    function onContraEntityDetailCheckData() {
+        CheckGridData('#ContraEntitiesDetailGrid');
+    }
+
+    function onContraEntityChange() {
+        var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            $("#ContraEntitiesSummaryGrid").data("kendoGrid").dataSource.read();
+        }
+        else if (summaryType == '@ContraEntityDetailTypeEnum.Detail') {
+            $("#ContraEntitiesDetailGrid").data("kendoGrid").dataSource.read();
+        }
+        else {
+            $("#ContraEntitiesLegalEntityGrid").data("kendoGrid").dataSource.read();
+        }
+    }
+
+    function showContraEntityDetails() {
+        var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+        var contraEntity = selectedItem["ContraEntityId"];
+        var entity = $("#ContraEntityDropdownList").data("kendoDropDownList").value();
+
+
+        HelperPartialWindow(
+            JSON.stringify({
+                entityId: entity,
+                contraEntityId: contraEntity,
+            }),
+            'Details',
+            1100,
+            450,
+            '/DomesticTrading/ContraEntity/Read_ContraEntityDetail'
+            );
+    }
+
+    function editsContraEntityDetails() {
+        var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+        }
+        else {
+            var entityGrid = $("#ContraEntitiesDetailGrid").data("kendoGrid");
+        }
+
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            var contraEntity = selectedItem["ContraEntityId"];
+        }
+        else {
+            var contraEntity = selectedItem["ContraEntity"];
+        }
+
+        var entity = $("#ContraEntityDropdownList").data("kendoDropDownList").value();
+
+
+        HelperPartialWindow(
+            JSON.stringify({
+                entityId: entity,
+                contraEntityId: contraEntity,
+            }),
+            'Edit Contra',
+            1100,
+            450,
+            '/DomesticTrading/ContraEntity/Read_ContraEntityDetail'
+            );
+    }
+
+    function editsContraEntityDetails() {
+        var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+        }
+        else {
+            var entityGrid = $("#ContraEntitiesDetailGrid").data("kendoGrid");
+        }
+
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            var contraEntity = selectedItem["ContraEntityId"];
+        }
+        else {
+            var contraEntity = selectedItem["ContraEntity"];
+        }
+
+        var entity = $("#ContraEntityDropdownList").data("kendoDropDownList").value();
+
+
+        HelperPartialWindow(
+            JSON.stringify({
+                entityId: entity,
+                contraEntityId: contraEntity,
+            }),
+            'Edit Contra',
+            1100,
+            450,
+            '/DomesticTrading/ContraEntity/Read_ContraEntityDetail'
+            );
+    }
+
+    function editsContraEntityParentDetails() {
+        var entityGrid = $("#ContraEntitiesLegalEntityGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+        var contraEntity = selectedItem["SLContraEntityParent"];
+
+        HelperPartialWindow(
+            JSON.stringify({
+                contraEntityParentId: contraEntity
+            }),
+            'Edit Legal Entity',
+            1100,
+            450,
+            '/DomesticTrading/ContraEntity/Read_ContraEntityParentDetail'
+            );
+    }
+
+    
+    function addContraEntityDetails() {
+        var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+            var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+        }
+        else if (summaryType == '@ContraEntityDetailTypeEnum.Detail') {
+            var entityGrid = $("#ContraEntitiesDetailGrid").data("kendoGrid");
+        }
+        else if (summaryType == '@ContraEntityDetailTypeEnum.LegalEntity') {
+            
+        }
+
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+        var entity = $("#ContraEntityDropdownList").data("kendoDropDownList").value();
+
+
+        HelperPartialWindow(
+            JSON.stringify({
+                entityId: entity,
+                contraEntityId: '',
+            }),
+            'Add Contra',
+            1100,
+            450,
+            '/DomesticTrading/ContraEntity/Read_ContraEntityDetail'
+            );
+    }
+
+    function showContraEntityContracts(e) {
+        if (e) {
+            var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+            var contraEntity = selectedItem["ContraEntityId"];
+            var entity = $("#ContraEntityDropdownList").data("kendoDropDownList").value();
+            var datepicker = $("#ContraEntityCalander").data("kendoDatePicker");
+            var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+            HelperPartialWindow(
+                JSON.stringify({
+                    effectiveDate: value,
+                    entityId: entity,
+                    contraEntityId: contraEntity,
+                }),
+                'Details',
+                1100,
+                450,
+                '/DomesticTrading/Contract/ReadContractPartial'
+                );
+        }
+    }
+
+    function showContraEntityContacts() {
+        var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+        var contraEntity = selectedItem["SLContraEntity"];        
+
+
+        HelperPartialWindow(
+        JSON.stringify({            
+            contraEntityId: contraEntity,
+        }),
+        'Details',
+        1100,
+        450,
+        '/DomesticTrading/ContraEntity/Read_ContraEntityDetailContact'
+        );
+    }
+
+    function showContraEntityProfiles() {
+        var entityGrid = $("#ContraEntitiesSummaryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+        var entityId = selectedItem["EntityId"];
+        var contraEntity = selectedItem["SLContraEntity"];
+
+
+        HelperPartialWindow(
+            JSON.stringify({
+                entityId : entityId,
+                contraEntityId: contraEntity,
+            }),
+            'Trading Profiles',
+            1100,
+            450,
+            '/DomesticTrading/ContraEntity/Read_ContraEntityDetailProfile'
+        );
+    }
+    
+
+    $(function () {
+
+        $('#ContraEntitiesDetailGrid').on('click', '.enableAlternateContractCompareChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesDetailGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('AlternateContractCompare', checked);
+
+        });
+
+
+        $('#ContraEntitiesSummaryGrid').on('click', '.enabledContraEntityChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesSummaryGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('IsEnabled ', checked);
+           
+        });
+
+        $('#ContraEntitiesDetailGrid').on('click', '.enabledContraEntityDetailChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesDetailGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('IsEnabled', checked);
+             
+        });
+
+
+        $('#ContraEntitiesSummaryGrid').on('click', '.enabledAllowBorrowChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesSummaryGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('ContraEntity.AllowBorrow', checked);
+          
+        });
+
+        $('#ContraEntitiesSummaryGrid').on('click', '.enabledAllowLoanChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesSummaryGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('ContraEntity.AllowLoan', checked);
+           
+        });
+
+        $('#ContraEntitiesDetailGrid').on('click', '.enabledAllowBorrowDetailChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesDetailGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('AllowBorrow', checked);            
+        });
+
+        $('#ContraEntitiesDetailGrid').on('click', '.enabledAllowLoanDetailChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesDetailGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('AllowLoan', checked);           
+        });
+
+        $('#ContraEntitiesSummaryGrid').on('click', '.enabledIsFPLChxBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#ContraEntitiesSummaryGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+
+            dataItem.set('IsFPL', checked);
+        });
+
+
+        
+    });
+
+    function onContraEntityDetailDropdownChange() {
+        var summaryType = $("#ContraEntityDetailDropdownList").data("kendoDropDownList").value();
+
+        if (summaryType == '@ContraEntityDetailTypeEnum.Summary') {
+                $("#ContraEntitiesDetailGrid").hide();
+                $("#ContraEntitiesSummaryGrid").show();
+                $("#ContraEntitiesLegalEntityGrid").hide();
+                RefreshGrid("#ContraEntitiesSummaryGrid");
+                $("#ContraEntitiesSummaryGrid").data("kendoGrid").dataSource.read();
+            }
+            else if (summaryType == '@ContraEntityDetailTypeEnum.Detail') {
+                $("#ContraEntitiesSummaryGrid").hide();
+                $("#ContraEntitiesDetailGrid").show();
+                $("#ContraEntitiesLegalEntityGrid").hide();
+                RefreshGrid("#ContraEntitiesDetailGrid");
+                $("#ContraEntitiesDetailGrid").data("kendoGrid").dataSource.read();
+            }
+            else if (summaryType == '@ContraEntityDetailTypeEnum.LegalEntity') {
+                $("#ContraEntitiesSummaryGrid").hide();
+                $("#ContraEntitiesDetailGrid").hide();
+                $("#ContraEntitiesLegalEntityGrid").show();
+                RefreshGrid("#ContraEntitiesLegalEntityGrid");
+                $("#ContraEntitiesLegalEntityGrid").data("kendoGrid").dataSource.read();
+            }
+        }
+
+        function additionalCreateContraEntityDetailData() {
+            var entity = $("#ContraEntityDropdownList").data("kendoDropDownList").value();
+
+            return {
+                entityId: entity,
+                contraEntity:'TEST'
+            };
+        }
+
+        function onLegalEntityAssignMgt() {
+            try {
+                var entity = $("#ContraEntityDropdownList").data("kendoDropDownList");
+
+
+                HelperPartialWindow(
+                    JSON.stringify({ entityId: entity.value() }),
+                    'Assign Contra(s)',
+                    1100,
+                    450,
+                    '/DomesticTrading/ContraEntity/LoadLegalEntityAssignment'
+                    );
+            }
+            catch (e) {
+                console.log(e.message);
+            }
+    }
+
+    function onContraEntityRowChange() {
+        _originalContraEntityGridSelectAll = false;
+    }
+
+    function onContraEntityDetailRowChange() {
+        _originalContraEntityDetailGridSelectAll = false;
+    }
+
+    function onLegalEntityRowChange() {
+        _originalLegalEntityGridSelectAll = false;
+    }
+</script>
+
+@(Html.Kendo().ToolBar()
+        .Name("ContraEntityToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                                .Name("ContraEntityCalander")
+                                .Format("yyyy-MM-dd")
+                                .Value(DateTime.Now)
+                                .HtmlAttributes(new { @style = "width: 90px" })
+                                .Events(events => events.Change("onContraEntityChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("ContraEntityDropdownList")                            
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onContraEntityChange").DataBound("onContraEntityDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Events(events => events.Error("onContraEntityError"))
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template( LabelHelper.Label( "SummaryDetail" ).ToHtmlString() );
+
+        items.Add().Template( Html.Kendo().DropDownListFor( m => m )
+            .Name( "ContraEntityDetailDropdownList" )
+            .HtmlAttributes( new { @style = "width:100px;", data_value_primitive = true } )
+            .Events( events => events.Change( "onContraEntityDetailDropdownChange" ) )
+            .BindTo( Enum.GetNames( typeof( ContraEntityDetailTypeEnum ) ).AsEnumerable() )
+            .Value( ContraEntityDetailTypeEnum.Summary.ToString() ).ToHtmlString() );
+
+        items.Add().Template(Html.Kendo().Button().Name("ContraEntityDetailRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onContraEntityDetailChange")).Enable(SessionSecurityService.IsEditable(ManagerTask.EditSLContraEntity)).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("ContraEntityLegalEntityButton").Content("<i class='fa fa-pencil fa-1x'></i>").Events(ev => ev.Click("onLegalEntityAssignMgt")).Enable(SessionSecurityService.IsEditable(ManagerTask.EditSLContraEntity)).ToHtmlString());
+    }))
+
+<hr class="hr-white">
+<script id="ContraEntityDetailTemplate" type="text/kendo-tmpl">
+    @(Html.Kendo().Grid<SL_ContraEntitiesSummaryProjection>()
+        .Name( "grid_#=SLContraEntityParent#" )
+        .Resizable( resize => resize.Columns( false ) )
+        .Columns( columns =>
+        {
+            columns.Bound(p => p.Company.Custodian).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(p => p.ContraEntityId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(p => p.ContraEntityName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            columns.Bound(p => p.ContraEntity.IsEnabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledContraEntityChxBox' \\#= (ContraEntity.IsEnabled) ? checked ='checked' : '' \\#/>", "");
+            columns.Bound(p => p.ContraEntity.IsFPL).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledIsFPLChxBox' \\#= (ContraEntity.IsFPL) ? checked ='checked' : '' \\#/>", "");
+            columns.Bound(p => p.ContraEntity.AllowBorrow).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledAllowBorrowChxBox' \\#= (ContraEntity.AllowBorrow) ? checked ='checked' : '' \\#/>", "");
+            columns.Bound(p => p.ContraEntity.AllowLoan).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledAllowLoanChxBox' \\#= (ContraEntity.AllowLoan) ? checked ='checked' : '' \\#/>", "");
+            columns.Bound(p => p.InternalLimit).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetMoneyDirection(InternalLimit)\\#", "");
+            columns.Bound(p => p.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetPositionDirection(BorrowQuantity)\\#", "");
+            columns.Bound(p => p.BorrowAmount).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetMoneyDirection(BorrowAmount)\\#", "");
+            columns.Bound(p => p.BorrowLimit).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetMoneyDirection(BorrowLimit)\\#", "");
+            columns.Bound(p => p.BorrowPercentage).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetPercentDirection(BorrowPercentage)\\#", "");
+            columns.Bound(p => p.LoanQuantity).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetPositionDirection(LoanQuantity)\\#", "");
+            columns.Bound(p => p.LoanAmount).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetMoneyDirection(LoanAmount)\\#", "");
+            columns.Bound(p => p.LoanLimit).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetMoneyDirection(LoanLimit)\\#", "");
+            columns.Bound(p => p.LoanPercentage).GetColumnFormat(ColumnTypeEnum.String, false, "\\#=GetPercentDirection(LoanPercentage)\\#", "");
+            columns.Bound(p => p.ContraEntity.ExecutionSystemType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        } )
+        .Scrollable()
+        .NoRecords()
+        .DataSource( dataSource => dataSource
+            .Ajax()
+            .ServerOperation( false )
+                   .Read( read => read.Action( "Read_ContraEntityByContraParent", "ContraEntity", new
+                   {
+                       area = "DomesticTrading",
+                       entityId = "#=EntityId#",
+                       contraEntityParent = "#=SLContraEntityParent#"
+                   } ) ))
+        .Sortable()
+        .ToClientTemplate())
+</script>
+
+<div id="ContraEntityContent"  class="grid-div">
+    @(   Html.Kendo().Grid<SL_ContraEntitiesSummaryProjection>
+    ()
+    .Name( "ContraEntitiesSummaryGrid" )
+    .HtmlAttributes( new { @class = "grid" } )
+    .Sortable()
+    .Scrollable( scrollable => scrollable.Virtual( true ) )
+    .Filterable(fBar =>
+    {
+        fBar.Mode(GridFilterMode.Menu);
+    })
+    .Navigatable()
+    .Events( events =>
+    {
+        events.DataBound( "onContraEntityCheckData" );
+        events.Change("onContraEntityRowChange");
+        events.ColumnHide( "onContraEntityGridLayoutChange" );
+        events.ColumnShow( "onContraEntityGridLayoutChange" );
+        events.ColumnResize( "onContraEntityGridLayoutChange" );
+        events.ColumnReorder( "onContraEntityGridLayoutChange" );
+    } )
+    .ColumnMenu( columnMenu =>
+    {
+        columnMenu.Filterable( true );
+        columnMenu.Columns( true );
+        columnMenu.Sortable( true );
+        columnMenu.ComponentType( "modern" );
+    } )
+    .Pageable(pagable =>
+    {
+        pagable.Numeric(false);
+        pagable.PreviousNext(false);
+        pagable.Messages(config =>
+        {
+            config.Display("Showing {2} item(s)");
+        });
+    })
+    .Editable( e => e.Mode( GridEditMode.InCell ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) ) )
+    .Reorderable( reorder =>
+    {
+        reorder.Columns( true );
+    } )
+    .Selectable( select => select.Mode( GridSelectionMode.Multiple ).Type( GridSelectionType.Row ) )
+    .Columns( columns =>
+    {
+        columns.Bound( p => p.EntityId ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        columns.Bound( p => p.SLContraEntity ).Hidden( true ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        columns.Bound( p => p.ContraEntityId ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        columns.Bound( p => p.ContraEntityName ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        columns.Bound( p => p.FaxNumber ).GetColumnFormat( ColumnTypeEnum.String, false, "", "" );
+        columns.Bound( p => p.IsEnabled ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox' class='enabledContraEntityChxBox' #=(IsEnabled) ? checked='checked' : '' # />", "" );
+        columns.Bound( p => p.AllowBorrow ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox' class='enabledAllowBorrowChxBox' #=(AllowBorrow) ? checked='checked' : '' # />", "" );
+        columns.Bound( p => p.AllowLoan ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox' class='enabledAllowLoanChxBox' #=(AllowLoan) ? checked='checked' : '' # />", "" );
+        columns.Bound( p => p.IsFPL).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledIsFPLChxBox' #= (IsFPL) ? checked ='checked' : '' #/>", "");
+        columns.Bound( p => p.InternalLimit).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(InternalLimit)#", "DecimalNumber");
+        columns.Bound( p => p.BorrowQuantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(BorrowQuantity)#", "" );
+        columns.Bound( p => p.BorrowAmount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowAmount)#", "" );
+        columns.Bound( p => p.BorrowLimit ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowLimit)#", "" );
+        columns.Bound( p => p.BorrowPercentage ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetPercentDirection(BorrowPercentage)#", "" );
+        columns.Bound( p => p.BorrowExposure).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowExposure)#", "");
+        columns.Bound( p => p.LoanQuantity ).GetColumnFormat( ColumnTypeEnum.Position, true, "#=GetPositionDirection(LoanQuantity)#", "" );
+        columns.Bound( p => p.LoanAmount ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanAmount)#", "" );
+        columns.Bound( p => p.LoanLimit ).GetColumnFormat( ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanLimit)#", "" );
+        columns.Bound( p => p.LoanPercentage ).GetColumnFormat( ColumnTypeEnum.Rate, false, "#=GetPercentDirection(LoanPercentage)#", "" );
+        columns.Bound( p => p.LoanExposure).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanExposure)#", "");
+        columns.Bound( p => p.TotalExposure).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalExposure)#", "");
+    } )
+    .Resizable( cols => cols.Columns( bool.Parse( DataSystemValues.LoadSystemValue( "ResizeableGrid", "true" ) ) ) )
+    .DataSource( dataSource => dataSource
+    .Ajax()
+    .AutoSync( true )
+    .PageSize(30)
+    .Read( read => read.Action( "Read_ContraEntitySummary", "ContraEntity", new { Area = "DomesticTrading" } ).Data( "additionalContraEntityData" ) )
+    .Update( update => update.Action( "Update_ContraEntity", "ContraEntity", new { Area = "DomesticTrading" } ) )
+    .Events( events => events
+    .Error( "onContraEntityError" ) )
+    .ServerOperation( false )
+    .Model( model =>
+    {
+        model.Id( x => x.SLContraEntity );
+        model.Field( x => x.EntityId ).Editable( false );
+        model.Field( x => x.ContraEntityId ).Editable( false );
+        model.Field( x => x.ContraEntityName ).Editable( false );
+        model.Field( x => x.ContraEntity ).Editable( true );
+        model.Field( x => x.ContraEntity.IsEnabled ).Editable( true );
+        model.Field( x => x.ContraEntity.FaxNumber ).Editable( true );
+        model.Field(x => x.InternalLimit).Editable(true);
+        model.Field( x => x.BorrowQuantity ).Editable( false );
+        model.Field( x => x.BorrowAmount ).Editable( false );
+        model.Field( x => x.BorrowLimit ).Editable( false );
+        model.Field( x => x.BorrowPercentage ).Editable( false );
+        model.Field( x => x.LoanQuantity ).Editable( false );
+        model.Field( x => x.LoanAmount ).Editable( false );
+        model.Field( x => x.LoanLimit ).Editable( false );
+        model.Field( x => x.LoanPercentage ).Editable( false );
+        model.Field(x => x.BorrowExposure).Editable(false);
+        model.Field(x => x.LoanExposure).Editable(false);
+        model.Field(x => x.TotalExposure).Editable(false);
+    } )
+    .Aggregates( aggregates =>
+    {
+        aggregates.Add( p => p.BorrowQuantity ).Sum();
+        aggregates.Add( p => p.BorrowAmount ).Sum();
+        aggregates.Add( p => p.BorrowLimit ).Sum();
+        aggregates.Add( p => p.LoanQuantity ).Sum();
+        aggregates.Add( p => p.LoanAmount ).Sum();
+        aggregates.Add( p => p.LoanLimit ).Sum();
+
+        aggregates.Add(p => p.BorrowExposure).Sum();
+        aggregates.Add(p => p.LoanExposure).Sum();
+        aggregates.Add(p => p.TotalExposure).Sum();
+    } )
+    )
+    )
+
+    @( Html.Kendo().Grid<SL_ContraEntity>()
+                    .Name("ContraEntitiesDetailGrid")
+                    .HtmlAttributes(new { @class = "grid" })
+                    .Sortable()
+                    .Scrollable(scrollable => scrollable.Virtual(true))
+                    .Filterable()
+                    .Navigatable()
+                    .Events(events =>
+                    {
+                        events.DataBound("onContraEntityDetailCheckData");
+                        events.DataBound("onContraEntityDetailRowChange");
+                        events.ColumnHide("onContraEntityDetailGridLayoutChange");
+                        events.ColumnShow("onContraEntityDetailGridLayoutChange");
+                        events.ColumnResize("onContraEntityDetailGridLayoutChange");
+                        events.ColumnReorder("onContraEntityDetailGridLayoutChange");
+                    })
+                    .ColumnMenu(columnMenu =>
+                    {
+                        columnMenu.Filterable(true);
+                        columnMenu.Columns(true);
+                        columnMenu.Sortable(true);
+                        columnMenu.ComponentType( "modern" );
+                    } )
+                    .Editable(e => e.Mode(GridEditMode.InCell).Enabled(false))
+                    .Reorderable(reorder =>
+                    {
+                        reorder.Columns(true);
+                    })
+                            .Pageable(pagable =>
+                            {
+                                pagable.Numeric(false);
+                                pagable.PreviousNext(false);
+                                pagable.Messages(config =>
+                                {
+                                    config.Display("Showing {2} item(s)");
+                                });
+                            })
+                    .Selectable(select => select.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+                    .Columns(columns =>
+                    {
+                        columns.Bound(p => p.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.SLContraEntity).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.IsEnabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledContraEntityDetailChxBox' #= (IsEnabled) ? checked ='checked' : '' #/>", "");
+                        columns.Bound(p => p.AllowBorrow).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledAllowBorrowDetailChxBox' #= (AllowBorrow) ? checked ='checked' : '' #/>", "");
+                        columns.Bound(p => p.AllowLoan).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledAllowLoanDetailChxBox' #= (AllowLoan) ? checked ='checked' : '' #/>", "");
+                        columns.Bound(p => p.AlternateContractCompare).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enableAlternateContractCompareChxBox' #= (AlternateContractCompare) ? checked ='checked' : '' #/>", "");
+                        columns.Bound(p => p.LEINumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.AddressLine1).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.AddressLine2).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.AddressLine3).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.AddressLine4).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.STKBorrowRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "").Hidden(true);
+                        columns.Bound(p => p.STKLoanRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "", "").Hidden(true);
+
+                        columns.Bound(p => p.MarkRndHse).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                        columns.Bound(p => p.MarkRndInst).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                        columns.Bound(p => p.MarkValHse).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+                        columns.Bound(p => p.MarkValInst).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+
+                        columns.Bound(p => p.BorrowColl).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.BorrowMarkCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.LoanColl).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                        columns.Bound(p => p.LoanMarkCode).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+
+                        columns.Bound(p => p.BorrowLmt).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+                        columns.Bound(p => p.LoanLmt).GetColumnFormat(ColumnTypeEnum.Money, false, "", "");
+                    })
+                        .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+                        .DataSource(dataSource => dataSource
+                       .Ajax()
+                              .PageSize(30)
+                       .AutoSync(true)
+                                       .Read(read => read.Action("Read_ContraEntityDetailList", "ContraEntity", new { Area = "DomesticTrading" }).Data("additionalContraEntityData"))
+                       .Update(update => update.Action("Update_ContraEntityDetail", "ContraEntity", new { Area = "DomesticTrading" }))
+                           .Events(events => events
+                                  .Error("onContraEntityDetailError"))
+                           .ServerOperation(false)
+                           .Model(model =>
+                           {
+                               model.Id(x => x.SLContraEntity);
+                               model.Field(x => x.EntityId).Editable(false);
+                               model.Field(x => x.ContraEntity).Editable(false);
+
+                           })))
+
+
+    @(Html.Kendo().Grid<SL_ContraEntitiesParentProjection>()
+            .Name("ContraEntitiesLegalEntityGrid")
+            .HtmlAttributes(new { @class = "grid" })
+            .Sortable()
+            .Scrollable(scrollable => scrollable.Virtual(true))
+            .Filterable()
+            .Navigatable()
+            .ClientDetailTemplateId("ContraEntityDetailTemplate")
+                .ColumnMenu(columnMenu =>
+                {
+                    columnMenu.Filterable(true);
+                    columnMenu.Columns(true);
+                    columnMenu.Sortable(true);
+                    columnMenu.ComponentType( "modern" );
+                } )
+                .Editable(e => e.Mode(GridEditMode.InCell).Enabled(false))
+                .Reorderable(reorder =>
+                {
+                    reorder.Columns(true);
+                })
+                .Events(events =>
+                {
+                    events.Change("onLegalEntityRowChange");
+                })
+                .Selectable(select => select.Mode(GridSelectionMode.Multiple).Type(GridSelectionType.Row))
+                .Columns(columns =>
+                {
+                    columns.Bound(p => p.EntityId).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(p => p.SLContraEntityParent).Hidden(true).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(p => p.AccountName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    columns.Bound(p => p.IsEnabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='enabledContraEntityDetailChxBox' #= (IsEnabled) ? checked ='checked' : '' #/>", "");
+                    columns.Bound(p => p.PrepayLimit).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(PrepayLimit)#", "");
+
+                    columns.Bound(p => p.BorrowQuantitySettlingToday).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(BorrowQuantitySettlingToday)#", "");
+                    columns.Bound(p => p.BorrowAmountSettlingToday).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowAmountSettlingToday)#", "");
+
+                    columns.Bound(p => p.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(BorrowQuantity)#", "");
+                    columns.Bound(p => p.BorrowAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowAmount)#", "");
+
+                    columns.Bound(p => p.BorrowAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowAmount)#", "");
+                    columns.Bound(p => p.BorrowLimit).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(BorrowLimit)#", "");
+
+                    columns.Bound(p => p.LoanQuantitySettlingToday).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(LoanQuantitySettlingToday)#", "");
+                    columns.Bound(p => p.LoanAmountSettlingToday).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanAmountSettlingToday)#", "");
+
+                    columns.Bound(p => p.LoanQuantity).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetPositionDirection(LoanQuantity)#", "");
+                    columns.Bound(p => p.LoanAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanAmount)#", "");
+
+                    columns.Bound(p => p.LoanLimit).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(LoanLimit)#", "");
+                    columns.Bound(p => p.TotalAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalAmount)#", "");
+                    columns.Bound(p => p.TotalLimit).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(TotalLimit)#", "");
+                    columns.Bound(p => p.Currency).GetColumnFormat(ColumnTypeEnum.String, true, "", "");
+                })
+                    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+                    .DataSource(dataSource => dataSource
+                   .Ajax()
+                   .AutoSync(true)
+                                   .Read(read => read.Action("Read_ContraEntityParentSummary", "ContraEntity", new { Area = "DomesticTrading" }).Data("additionalContraEntityData"))
+                   .Update(update => update.Action("Update_ContraEntityDetail", "ContraEntity", new { Area = "DomesticTrading" }))
+                       .Events(events => events
+                              .Error("onContraEntityDetailError"))
+                       .ServerOperation(false)
+                       .Aggregates(agg =>
+                       {
+                           agg.Add(x => x.PrepayLimit).Sum();
+                           agg.Add(x => x.BorrowQuantitySettlingToday).Sum();
+                           agg.Add(x => x.BorrowAmountSettlingToday).Sum();
+                           agg.Add(x => x.BorrowQuantity).Sum();
+                           agg.Add(x => x.BorrowAmount).Sum();
+                           agg.Add(x => x.BorrowLimit).Sum();
+                           agg.Add(x => x.LoanQuantitySettlingToday).Sum();
+                           agg.Add(x => x.LoanAmountSettlingToday).Sum();
+                           agg.Add(x => x.LoanQuantity).Sum();
+                           agg.Add(x => x.LoanAmount).Sum();
+
+                           agg.Add(x => x.LoanLimit).Sum();
+                           agg.Add(x => x.TotalAmount).Sum();
+                           agg.Add(x => x.TotalLimit).Sum();
+                       })
+                       .Model(model =>
+                       {
+                           model.Id(x => x.SLContraEntity);
+                           model.Field(x => x.EntityId).Editable(false);
+                           model.Field(x => x.SLContraEntityParent).Editable(false);
+                       })))
+</div>
+
+
+@(Html.Kendo().ContextMenu()
+.Name( "ContraEntityContextMenu" )
+    .Target( "#ContraEntitiesSummaryGrid" )
+    .Events( events => events.Select( "onContraEntityContextMenuSelect" ) )
+    .Items( items =>
+    {
+        items.Add().Text( "Add" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) );
+        items.Add().Text( "Edit" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) );
+        items.Add().Text( "Details" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) );
+        items.Add().Text("Profile").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLContraEntity));
+        items.Add().Text( "People" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) );
+        items.Add().Text( "Contracts" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.ViewSLContract ) );
+        items.Add().Separator( true );
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text( "Unsort" ).Enabled( true );
+        items.Add().Text( "Reset Filter" ).Enabled( true );
+        items.Add().Text( "Reset Grid" ).Enabled( true );
+        items.Add().Separator( true );
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text( "Export To Excel" ).Enabled( true );
+    } )
+)
+
+@(Html.Kendo().ContextMenu()
+.Name( "ContraEntityDetailContextMenu" )
+        .Target( "#ContraEntitiesDetailGrid" )
+    .Events( events => events.Select( "onContraEntityDetailContextMenuSelect" ) )
+    .Items( items =>
+    {
+        items.Add().Text( "Add" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) );
+        items.Add().Text( "Edit" ).Enabled( SessionSecurityService.IsEditable( ManagerTask.EditSLContraEntity ) );
+        items.Add().Separator( true );
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text( "Unsort" ).Enabled( true );
+        items.Add().Text( "Reset Filter" ).Enabled( true );
+        items.Add().Text( "Reset Grid" ).Enabled( true );
+        items.Add().Separator( true );
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text( "Export To Excel" ).Enabled( true );
+    } )
+)
+
+@(Html.Kendo().ContextMenu()
+.Name("ContraEntityLegalEntityContextMenu")
+        .Target("#ContraEntitiesLegalEntityGrid")
+    .Events(events => events.Select("onContraEntityParentContextMenuSelect"))
+    .Items(items =>
+    {
+        items.Add().Text("Edit").Enabled(SessionSecurityService.IsEditable(ManagerTask.EditSLContraEntity));
+        items.Add().Separator(true);
+        items.Add().Text("AutoFit Columns");
+        items.Add().Text("Unsort").Enabled(true);
+        items.Add().Text("Reset Filter").Enabled(true);
+        items.Add().Text("Reset Grid").Enabled(true);
+        items.Add().Separator(true);
+        items.Add().Text("Select All").Enabled(true);
+        items.Add().Text("Export To Excel").Enabled(true);
+    })
+)
+

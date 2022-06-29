@@ -1,0 +1,629 @@
+﻿@using BondFire.Entities.Projections
+@using SLTrader.Enums
+@using SLTrader.Tools
+<script>
+    var _clientInventoryGridSelectAll = false;
+    var _clientInventoryDetailGridSelectAll = false;
+    var _originalClientInventoryGrid = null;
+    var _originalClientInventoryDetailGrid = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalClientInventoryGrid = $('#ClientInventoryGrid').data('kendoGrid').getOptions();
+            _originalClientInventoryDetailGrid = $('#ClientInventoryDetailGrid').data('kendoGrid').getOptions();
+
+            LoadGridLayout("#ClientInventoryGrid");
+            LoadGridLayout("#ClientInventoryDetailGrid");
+        }, 5);
+    });
+
+    function onClientInventoryRequestEnd(e) {       
+        traderHubProxy.on('updateInventory', function (update) {            
+            $('#ClientInventoryGrid').data("kendoGrid").dataSource.read();
+        });
+    }
+
+    function onClientInventoryRequestStart(e) {        
+        traderHubProxy.off('updateInventory');
+    }
+
+    function onClientInventoryDetailRequestEnd(e) {
+        ReInitVirtualScroll('#ClientInventoryDetailGrid');
+    }
+
+    function onClientInventoryDetailRequestStart(e) {        
+    }
+
+    function onClientInventoryGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ClientInventoryGrid");
+        }, 5);
+    }
+
+    function onClientInventoryDetailGridLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#ClientInventoryDetailGrid");
+        }, 5);
+    }
+
+    $('#SharedLabelCheckBox').change(function () {
+        $("#ClientInventoryGrid").data("kendoGrid").refresh();
+    })
+ 
+    function onClientInventoryDetailCheckData(e) {
+        //ReInitVirtualScroll('#ClientInventoryDetailGrid');
+    }    
+
+    function onClientFileData() {
+        var entityId = $("#ClientFileDropdownList").data("kendoDropDownList").value();
+
+        var datepicker = $("#ClientFileCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        return {
+            effectiveDate: value,
+            entity: entityId,
+        };
+    }
+
+    function onClientInventoryGridData() {
+        var entityId = $("#ClientFileDropdownList").data("kendoDropDownList").value();
+
+        var datepicker = $("#ClientFileCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entityGrid = $("#ClientInventoryGrid").data("kendoGrid");
+        var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+        var source = selectedItem["Source"];
+        var clientEmailAction = selectedItem["SLClientEmailActionId"];
+
+        return {
+            effectiveDate: value,
+            entity: entityId,
+            source: source,
+            clientEmailAction: clientEmailAction
+        };
+
+    }
+
+    function onClientInventoryGridRowChange(e) {
+        $('#ClientInventoryDetailGrid').data("kendoGrid").dataSource.read();
+    }
+
+    function onClientFileChange(e) {
+        $('#ClientInventoryGrid').data("kendoGrid").dataSource.read();
+    }
+
+    function onDefaultLoad() {
+        try {
+            var UserPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    UserPreference = valid;
+
+                    var dropdownList = $('#ClientFileDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == UserPreference.DefaultFirm;
+                    });
+
+                    $('#ClientInventoryGrid').data("kendoGrid").dataSource.read();
+                },
+                error: function (valid) {
+                    UserPreference = null;
+                }
+            })
+        }
+        catch (e) { }
+    }
+
+
+
+    function onDeleteInventory() {
+        try {
+            var entity = $("#ClientFileDropdownList").data("kendoDropDownList").value();
+
+            var entityGrid = $("#ClientInventoryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+            var source = selectedItem["Source"];
+            var slClientEmailActionId = selectedItem["SLClientEmailActionId"];
+
+
+            HelperPartialLocateWindow(
+                JSON.stringify({
+                    entityId: entity,
+                    source: source,
+                    slClientEmailActionId: slClientEmailActionId
+                }),
+                "Delete Inventory",
+                0,
+                0,
+                "/Locates/Inventory/Delete_InventorySourcePartial");
+        }
+        catch (e) {
+            console.log(e.messaege);
+        }
+    }
+
+    function onClientDeleteMarker(e) {
+        e.preventDefault;
+
+        try {
+            var entityGrid = $("#ClientInventoryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+            var slClientEmailActionId = selectedItem["SLClientEmailActionId"];
+
+            $.ajax({
+                url: "@Url.Action("UpdateClientEmailActionMarker", "ClientEmailActionMarker", new { area = "Locates" })",
+                type: 'POST',
+                contentType: 'application/json;',
+                data: JSON.stringify({
+                    clientEmailActionId: slClientEmailActionId,
+                    clientEmailActionMarkerId: -1
+                }),
+                success: function (valid) {
+                    //$('#LocalDetailWindow').data("kendoWindow").close();
+                },
+                error: function (valid) {
+                    //$("#ReturnAllButton").data("kendoButton").enable(true);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.messaege);
+        }
+    }
+
+    function onClientAddMarker(e) {
+        e.preventDefault;
+
+        try {
+            var entity = $("#ClientFileDropdownList").data("kendoDropDownList").value();
+
+            var entityGrid = $("#ClientInventoryGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var slClientEmailActionId = selectedItem["SLClientEmailActionId"];
+
+
+            HelperPartialLocateWindow(
+                JSON.stringify({
+                    entityId: entity,
+                    SLCLientEmailActionId: slClientEmailActionId
+                }),
+                "Add Marker",
+                0,
+                0,
+                "/Locates/Inventory/ClientAddInventoryMarkerPartial");
+        }
+        catch (e) {
+            console.log(e.messaege);
+        }
+    }
+
+    function onClientInventoryExport(e) {
+        e.preventDefault;
+        
+        try {
+            var entity = $("#ClientFileDropdownList").data("kendoDropDownList").value();
+         
+            var dataItems = [];
+            var grid = $('#ClientInventoryGrid').data('kendoGrid');
+            var rows = grid.select();
+
+            rows.each(function (index, row) {
+                var selectedItem = grid.dataItem(row);
+                dataItems.push(selectedItem);
+            });
+
+            HelperPartialLocateWindow(
+                JSON.stringify({
+                    list: dataItems
+                }),
+                "Export Inventory",
+                0,
+                0,
+                "/Locates/Inventory/ClientAddInventoryExportPartial");
+        }
+        catch (e) {
+            console.log(e.messaege);
+        }
+    }
+
+
+    function onClientInventoryUnsortGrid(e) {
+        UnsortGrid(e);
+    }
+
+    function onClientInventorySelectAll(e) {
+        try {
+            var clientInventoryDetailGrid = $(e).data("kendoGrid");
+            clientInventoryDetailGrid.select(clientInventoryDetailGrid.tbody.find(">tr"));
+
+            _clientInventoryGridSelectAll = true;
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onClientInventoryDetailSelectAll(e) {
+        try {
+            var clientInventoryDetailGrid = $(e).data("kendoGrid");
+            clientInventoryDetailGrid.select(clientInventoryDetailGrid.tbody.find(">tr"));
+
+            _clientInventoryDetailGridSelectAll = true;
+        } catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onClientInventoryExcel(grid, title, selectAll) {
+        KendoGridToCSVConvertor(grid, title, selectAll);
+    }
+
+
+    function onClientInventoryGridContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'Delete Inventory':
+                onDeleteInventory();
+                break;
+
+            case 'AutoFit Columns':
+                resizeGridColumns("#ClientInventoryGrid");
+                break;
+
+            case 'Unsort':
+                onClientInventoryUnsortGrid("#ClientInventoryGrid");
+                break;
+
+            case "Export Inventory To Excel":
+                onClientInventoryExport(e);
+                break;
+
+            case "Edit Marker":
+                onClientAddMarker(e);
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ClientInventoryGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#ClientInventoryGrid");
+                $('#ClientInventoryGrid').data('kendoGrid').setOptions(_originalClientInventoryGrid);
+                $('#ClientInventoryGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Select All':
+                onClientInventorySelectAll("#ClientInventoryGrid");
+                break;
+
+            case 'Export To Excel':
+                KendoGridToCSVConvertor("#ClientInventoryGrid", "ClientInventoryGrid", _clientInventoryGridSelectAll);
+                break;
+        }
+    }
+
+    function onClientInventoryDetailGridContextMenuSelect(e) {
+        switch ($(e.item).children(".k-link").text()) {
+            case 'AutoFit Columns':
+                resizeGridColumns("#ClientInventoryDetailGrid");
+                break;
+
+            case 'Unsort':
+                onClientInventoryUnsortGrid("#ClientInventoryDetailGrid");
+                break;
+
+            case "Reset Filter":
+                ResetFilter("#ClientInventoryDetailGrid");
+                break;
+
+            case "Reset Grid":
+                ResetUserLayout("#ClientInventoryDetailGrid");
+                $('#ClientInventoryDetailGrid').data('kendoGrid').setOptions(_originalClientInventoryDetailGrid);
+                $('#ClientInventoryDetailGrid').data("kendoGrid").dataSource.read();
+                break;
+
+            case 'Select All':
+                onClientInventoryDetailSelectAll("#ClientInventoryDetailGrid");
+                break;
+
+            case 'Export To Excel':
+                KendoGridToCSVConvertor("#ClientInventoryDetailGrid", "ClientInventoryDetailGrid", _clientInventoryDetailGridSelectAll);
+                break;
+        }
+    }
+
+    function onClientInventoryError(e) {
+        console.log(e);
+    }
+
+    function ReInitVirtualScroll(e) {
+        var grid = $(e).data("kendoGrid");
+        grid._rowHeight = undefined;
+        grid.virtualScrollable.refresh();
+    }
+
+    function onClientInventoryDetailRowChange(e) {
+          try {
+                var entityGrid = $("#ClientInventoryDetailGrid").data("kendoGrid");
+                var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+                var entityId = selectedItem["EntityId"];
+                var effectiveDate = selectedItem["EffectiveDate"];
+                var securityNumber = selectedItem["SecurityNumber"];
+
+                if ((securityNumber == null) || (securityNumber == ''))
+                {
+                    securityNumber = selectedItem["Sedol"];
+                }
+
+                var issueId = selectedItem["IssueId"];
+
+                SidePanelUpdate(effectiveDate, entityId, issueId, securityNumber);
+        }
+        catch (e) {            
+            console.log(e.message);
+        }        
+    }
+</script>
+
+<style scoped>
+
+    #ClientInventoryGrid .k-grid-content td {
+        height: 25px;
+    }
+
+    #ClientInventoryDetailGrid .k-grid-content td {
+        height: 25px;
+    } 
+</style>
+@(
+ Html.Kendo().ToolBar()
+    .Name("ClientFileToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("ClientFileCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .Events(events => events.Change("onClientFileChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                            .Name("ClientFileDropdownList")
+                            .HtmlAttributes(new { @class = "width90" })
+                            .DataTextField("Custodian")
+                            .DataValueField("CompanyId")
+                            .OptionLabel(LabelHelper.Text("OptionLabel"))
+                            .AutoBind(true)
+                            .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                            .Events(events => events.Change("onClientFileChange").DataBound("onDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                            .DataSource(dataSource => dataSource
+                            .Read(read => read
+                            .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                            .SelectedIndex(0).ToHtmlString());
+
+        items.Add().Template(Html.Kendo().Button().Name("ClientInventoryFilesRefreshButton").Content("<i class='fa fa-refresh fa-1x'></i>").Events(ev => ev.Click("onClientFileChange")).ToHtmlString());
+
+    }))
+
+<hr class="hr-white">
+
+<div id="ClientFileDiv" class="grid-div">
+    @(Html.Kendo().Splitter()
+        .Name("ClientFileSplitter")
+        .HtmlAttributes(new { @class = "grid" })
+        .Orientation(SplitterOrientation.Vertical)
+        .Panes(panes =>
+        { 
+        panes.Add()
+        .Collapsible(false)
+        .Size("30%")
+        .Scrollable(false)
+        .Content(@<text>
+        @(Html.Kendo().Grid<SL_InventorySummaryFileProjection>()
+        .Name("ClientInventoryGrid")
+        .Filterable()
+        .Scrollable(scroll =>
+        {
+            scroll.Enabled(true);
+            scroll.Virtual(true);
+        })
+        .Selectable(x =>
+        {
+            x.Mode(GridSelectionMode.Multiple);
+            x.Enabled(true);
+            x.Type(GridSelectionType.Row);
+        })
+        .Sortable()
+        .Navigatable()
+        .NoRecords()
+        .ColumnMenu(menu=>
+        {
+            menu.ComponentType("modern");
+        })
+        .Pageable(pagable =>
+        {
+            pagable.Numeric(false);
+            pagable.PreviousNext(false);
+            pagable.Messages(config =>
+            {
+                config.Display("Showing {2} file(s)");
+            });
+        })
+        .Resizable(cols => cols.Columns(true))
+        .HtmlAttributes(new { @class = "grid" })
+        .Columns(cols =>
+        {
+            cols.Bound(x => x.SLClientEmailActionId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+            cols.Bound(x => x.EffectiveDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+            cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+            cols.Bound(x => x.FileLocation).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.FileDescription).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.SLClientEmailActionMarkerId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.CLientEmailActionMarker).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(CLientEmailActionMarker)#", "").HtmlAttributes(new { title = "#= OnColorPreviewDescription(CLientEmailActionMarkerDescription)#" }).Title("").Filterable(false);
+            cols.Bound(x => x.CLientEmailActionMarkerDescription).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+            cols.Bound(x => x.ItemCount).GetColumnFormat(ColumnTypeEnum.Position, true, "", "");
+            cols.Bound(x => x.UploadTime).GetColumnFormat(ColumnTypeEnum.Time, false, "", "");
+            cols.Bound(x => x.IsEasySource).GetColumnFormat(ColumnTypeEnum.Time, false, "<input type='checkbox'  class='isActiveChkbx' #= (IsEasySource) ? checked ='checked' : '' #/>", "");
+        })
+             .Events(events =>
+             {
+                 events.ColumnHide("onClientInventoryGridLayoutChange");
+                 events.ColumnShow("onClientInventoryGridLayoutChange");
+                 events.ColumnResize("onClientInventoryGridLayoutChange");
+                 events.ColumnReorder("onClientInventoryGridLayoutChange");
+                 events.Change("onClientInventoryGridRowChange");
+             })
+            .DataSource(ds =>
+            {
+                ds.Ajax()
+                    .ServerOperation(false)
+                    .PageSize(20)
+                    .Events(events =>
+                    {
+                        events.RequestStart("onClientInventoryRequestStart");
+                        events.RequestEnd("onClientInventoryRequestEnd");
+                    })
+                    .Read(read => read.Action("LoadClientInventoryFiles", "Inventory", new { area = "Locates" }).Data("onClientFileData"))
+                    .Aggregates(agg =>
+                    {
+                        agg.Add(x => x.ItemCount).Sum();
+                    });
+            }))</text>);
+
+        panes.Add()
+                .Collapsible(false)
+                .Size("70%")
+                .Scrollable(false)
+                .Content(@<text>
+            @(Html.Kendo().Grid<SL_InventoryProjection>()
+                .Name("ClientInventoryDetailGrid")
+                .Scrollable(scroll =>
+                {
+                    scroll.Enabled(true);
+                    scroll.Virtual(true);
+                })
+                .Selectable(select => select.Enabled(true).Mode(GridSelectionMode.Multiple))
+                .Navigatable()
+                .NoRecords()
+                .Filterable()
+                .Sortable()
+                   .Pageable(pagable =>
+                   {
+                       pagable.Numeric(false);
+                       pagable.PreviousNext(false);
+                       pagable.Messages(config =>
+                       {
+                           config.Display("Showing {2} item(s)");
+                       });
+                   })
+          .Events(events =>
+          {
+              events.ColumnHide("onClientInventoryDetailGridLayoutChange");
+              events.ColumnShow("onClientInventoryDetailGridLayoutChange");
+              events.ColumnResize("onClientInventoryDetailGridLayoutChange");
+              events.ColumnReorder("onClientInventoryDetailGridLayoutChange");
+              events.Change("onClientInventoryDetailRowChange");
+          })
+                .ColumnMenu(menu =>
+                {
+                    menu.Sortable(true);
+                    menu.Filterable(true);
+                    menu.Columns(true);
+                    menu.ComponentType("modern");
+                })
+                .Resizable(cols => cols.Columns(true))
+                .HtmlAttributes(new { @class = "grid" })
+                .AutoBind(false)
+                .Columns(cols =>
+                {
+                    cols.Bound(x => x.MarkerColor).GetColumnFormat(ColumnTypeEnum.String, false, "#=OnColorPreview(MarkerColor)#", "").HtmlAttributes(new { title = "#= OnColorPreviewDescription(MarkerDesceiption)#" }).Title("").Filterable(false).Hidden(!SessionService.UserPreference.ShowMatchingIssues);
+                    cols.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden();
+                    cols.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.SecNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Isin).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Sedol).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Quick).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Source).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                    cols.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, false, "", "");
+                    cols.Bound(x => x.RebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(RebateRate)#", "");
+                    cols.Bound(x => x.IntradayLendingRebateRate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(IntradayLendingRebateRate)#", "");
+
+                    cols.Bound(x => x.BorrowQuantity).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetPositionDirection(BorrowQuantity)#", "");
+                    cols.Bound(x => x.PreviousAmountDetla).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetMoneyDirection(PreviousAmountDetla)#", "");
+                    cols.Bound(x => x.BorrowHypothication).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(BorrowHypothication)#", "");
+                    cols.Bound(x => x.TotalUnitsAstec).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetPositionDirection(TotalUnitsAstec)#", "");
+                    cols.Bound(x => x.TotalTicketsAstec).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetPositionDirection(TotalTicketsAstec)#", "");
+                    cols.Bound(x => x.MarketValueAstec).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetMoneyDirection(MarketValueAstec)#", "");
+
+                    cols.Bound(x => x.SLClientEmailActionId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+                })
+                .DataSource(ds =>
+                {
+                    ds.Ajax()
+                    .ServerOperation(false)
+                    .PageSize(50)
+                    .Events(events =>
+                    {
+                        events.RequestStart("onClientInventoryDetailRequestStart");
+                        events.RequestEnd("onClientInventoryDetailRequestEnd");
+                    })
+                    .Events(events => events.Error("onClientInventoryError"))
+                    .Read(read => read.Action("LoadClientInventoryFileBySource", "Inventory", new { area = "Locates" }).Data("onClientInventoryGridData"));
+                }))</text>);
+                                        }))    
+        </div>
+        @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#ClientInventoryGrid").Filter("td[title]")
+        @Html.Kendo().Tooltip().Callout(true).Animation(true).AutoHide(true).For("#ClientInventoryDetailGrid").Filter("td[title]")
+
+        @(
+         Html.Kendo().ContextMenu()
+            .Name("#ClientInventoryGridContextMenu")
+            .Target("#ClientInventoryGrid")
+                .Events(events => events.Select("onClientInventoryGridContextMenuSelect"))
+        .Items(items =>
+        {
+            items.Add().Text("Delete Inventory");
+            items.Add().Text("Edit Marker");            
+            items.Add().Separator(true);
+            items.Add().Text("AutoFit Columns");
+            items.Add().Text("Unsort").Enabled(true);
+            items.Add().Text("Reset Filter").Enabled(true);
+            items.Add().Text("Reset Grid").Enabled(true);
+            items.Add().Separator(true);
+            items.Add().Text("Select All").Enabled(true);
+            items.Add().Text("Export Inventory To Excel").Enabled(true);
+            items.Add().Text("Export To Excel").Enabled(true);
+        }))
+
+        @(
+         Html.Kendo().ContextMenu()
+            .Name("#ClientInventoryDetailGridContextMenu")
+            .Target("#ClientInventoryDetailGrid")
+                .Events(events => events.Select("onClientInventoryDetailGridContextMenuSelect"))
+        .Items(items =>
+        {
+            items.Add().Text("AutoFit Columns");
+            items.Add().Text("Unsort").Enabled(true);
+            items.Add().Text("Reset Filter").Enabled(true);
+            items.Add().Text("Reset Grid").Enabled(true);
+            items.Add().Separator(true);
+            items.Add().Text("Select All").Enabled(true);
+            items.Add().Text("Export To Excel").Enabled(true);
+        }))

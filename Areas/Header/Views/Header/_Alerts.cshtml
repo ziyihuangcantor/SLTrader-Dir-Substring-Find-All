@@ -1,0 +1,25 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using BondFire.Entities.Projections
+
+@model int
+
+<script>
+    function showActivityDetails(e) {
+        HelperHeaderPartialWindow(
+            null,
+            'Alerts & Activity',
+            0,
+            0,
+            '/DomesticTrading/Activity/GetActivityPartial');
+    }
+</script>
+
+
+<div id="noti_Container">
+        <a href='javascript:void(0)' title="Alerts(@Model)"  onclick="showActivityDetails(this)"><i class='fa fa-flag fa-2x'></i></a>
+    <div class="noti_bubble">@Model</div>
+</div>

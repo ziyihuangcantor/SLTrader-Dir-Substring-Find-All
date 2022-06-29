@@ -1,0 +1,44 @@
+﻿@model string
+<style scoped>
+    #Error {
+        width: 99%;
+        height:100%; 
+        resize:vertical;
+    }
+
+    #ErrorMessage {
+        border-collapse: collapse;
+        border:double 5px solid red;
+        margin: 0;
+        padding: 0;
+        width:100px;
+        height:100px;
+    }
+
+
+        #ErrorMessage th,
+        #ErrorMessage td {
+            width: 100%;
+            min-height: 50px;
+        }
+</style>
+
+<script>
+    function onErrorWindowButton() {
+        $("#ErrorWindowButton").closest(".k-window-content").data("kendoWindow").close();
+    }
+</script>
+ 
+<div style="width:100%;height:100%;align-content:center;">
+    <table id="ErrorMessage">
+        <tr>
+            <td style="font-size:small;"> <i style="color:red;" class="fa fa-times-circle fa-2x"></i> &nbsp; System Error, Exception shown below:</td>
+        </tr>
+        <tr>
+            <td>@Html.TextArea( "Error", Model, new { @readonly = "readonly" } )</td>
+        </tr> 
+        <tr>
+            <td align="right">@Html.Kendo().Button().Name("ErrorWindowButton").Content("Close").Events(ev => ev.Click("onErrorWindowButton"))</td>
+        </tr> 
+    </table>
+</div>

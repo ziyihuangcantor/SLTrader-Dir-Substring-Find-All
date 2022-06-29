@@ -1,0 +1,526 @@
+﻿@using System.ComponentModel
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Enums
+@using SLTrader.Tools
+@using SLTrader.Models
+@using SLTrader.Models.ContractRelatedModels
+
+@model IEnumerable<RecallTypeCalculationModel>
+
+<style scoped>
+    #BoxCalculationRecallGrid {
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+    #RecallSingleChangeDiv td .k-checkbox-label {        
+        vertical-align: middle;
+        
+        top: -10px;
+    }
+
+    #RecallSingleChangeDiv td,
+    #RecallSingleChangeDiv th {
+                min-height:50px;
+        padding: 5px 0px 0px 5px;
+    }
+
+    #ProgressSingleLabel {
+        max-width: 300px;
+        width: 300px;
+        font-style: normal;
+        white-space: pre-wrap;
+        border: 1px solid #ccc;
+        height: 50px;
+    }
+</style>
+
+
+
+<script type="text/javascript">
+    function onSharedRecallEdit(e) {
+        var input = e.container.find("input");
+        setTimeout(function () { input.select(); });
+    }
+
+
+
+    function getFormData($form) {
+        var unindexed_array = $form.serializeArray();
+        var indexed_array = {};
+
+        $.map(unindexed_array, function (n, i) {
+                indexed_array[n['name']] = n['value'];
+        });
+
+        indexed_array['Enabled'] = "true";
+        indexed_array['IsPendingRecall'] = $("#IsPendingRecallCheckBox").is(':checked');
+
+        return indexed_array;
+    }
+
+    $(function() {
+        $('#BoxCalculationRecallGrid').on('click', '.chkbx', function() {
+            var checked = $(this).is(':checked');
+            var grid = $('#BoxCalculationRecallGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+            grid.select($(this).closest('tr'));
+
+            var entityGrid = $("#BoxCalculationRecallGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            if (selectedItem.SubmissionType != '@Convert.ToInt32(StatusDetail.Approved)') {
+                dataItem['Enabled'] = checked;
+            }
+
+            var data = grid.dataSource.data();
+
+            $("#RecallAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                    $("#RecallAllButton").data("kendoButton").enable(true);
+                }
+            });
+        });
+
+        $('#BoxCalculationRecallGrid').on('click', '.IsPendingRecallCheckBox', function () {
+            var checked = $(this).is(':checked');
+            var grid = $('#BoxCalculationRecallGrid').data().kendoGrid;
+            var dataItem = grid.dataItem($(this).closest('tr'));
+            grid.select($(this).closest('tr'));
+
+            var entityGrid = $("#BoxCalculationRecallGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            if (selectedItem.SubmissionType != '@Convert.ToInt32(StatusDetail.Approved)') {
+                dataItem['IsPendingRecall'] = checked;
+            }
+
+            var data = grid.dataSource.data();
+
+            $("#RecallAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                    $("#RecallAllButton").data("kendoButton").enable(true);
+                }
+            });
+        });
+    });
+
+
+    $(document).bind('keydown', 'alt+s', function (e) {
+        if (e.altkey && (e.which == 83)) {
+
+            e.preventDefault();
+            onProcessRecall();
+            return false;
+        }
+    });
+
+    $(document).bind('keydown', 'alt+e', function (e) {
+        if (e.altkey && (e.which == 69)) {
+            e.preventDefault();
+            onSelectAll();
+            return false;
+        }
+    });
+
+    function onSelectAllRecall() {
+        var grid = $('#BoxCalculationRecallGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 0;
+
+        $("#RecallAllButton").data("kendoButton").enable(false);
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {
+            if (grid.dataSource.data()[index].RecallPortionQuantity > 0) {
+                grid.dataSource.data()[index].Enabled = true;
+
+                processedRowCount = processedRowCount + 1;
+            }
+        }
+        grid.dataSource.sync();
+
+        $("#RecallAllButton").data("kendoButton").enable(true);
+
+        $('#ProgressLabel').html('Selected ' + processedRowCount + ' items.');
+    }
+
+
+    function onPendAllRecall() {
+        var grid = $('#BoxCalculationRecallGrid').data('kendoGrid');
+        var rows = grid.dataSource.data();
+        var processedRowCount = 0;
+
+        $("#RecallAllButton").data("kendoButton").enable(false);
+        $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing items...');
+
+        for (var index = 0; index < rows.length; index++) {
+            grid.dataSource.data()[index].IsPendingRecall = true;
+            grid.dataSource.data()[index].Enabled = true;
+
+            processedRowCount = processedRowCount + 1;
+        }
+
+        grid.dataSource.sync();
+
+        $("#RecallAllButton").data("kendoButton").enable(true);
+
+        $('#ProgressLabel').html('Pended ' + processedRowCount + ' items.');
+    }
+
+    function onProcessRecall() {
+            var grid = $('#BoxCalculationRecallGrid').data('kendoGrid');
+            var rows = grid.dataSource.data();
+
+            var rowCount = 0;
+            var processedRowCount = 0;
+
+            $("#RecallAllButton").data("kendoButton").enable(false);
+
+            $.each(rows, function (i, row) {
+                if (row.Enabled) {
+                    rowCount++;
+                }
+            });
+
+            $('#ProgressLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing ' + rowCount + ' items.');
+
+        $.ajax({
+            url: "@Url.Action("ProcessRecalls", "ContractRelated", new { area = "DomesticTrading" })",
+            type: 'POST',
+            contentType: 'application/json;',
+            data: JSON.stringify(rows),
+            success: function(valid) {
+                $.each(valid, function(i, obj) {
+                    var recallDate = kendo.parseDate(obj['RecallDate']);
+                    var buyInDate = kendo.parseDate(obj['BuyInDate']);
+
+                    obj['RecallDate'] = recallDate;
+                    obj['BuyInDate'] = buyInDate;
+                });
+
+                grid.dataSource.data(valid);
+                grid.refresh();
+
+                var _grid = $("#BoxCalculationRecallGrid").data("kendoGrid");
+                var _data = _grid.dataSource.data();
+
+                $("#RecallAllButton").data("kendoButton").enable(false);
+
+
+                $.each(_data, function (i, row) {
+                    if (row.Enabled) {
+                        $("#RecallAllButton").data("kendoButton").enable(true);
+
+                        processedRowCount++;
+                    }
+                });
+
+                $('#ProgressLabel').html('Processed ' + processedRowCount + ' out of ' + rowCount + ' items.');
+
+                if (processedRowCount == rowCount)
+                {
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                }
+            },
+            error: function(valid) {
+                LogError(valid);
+                $('#ProgressLabel').html('<i class="fa fa-times"></i> Error Processing!');
+                $("#RecallAllButton").data("kendoButton").enable(true);
+            }
+        });
+    }
+
+    function onContractRecallDataBound(e) {
+        try {
+            var grid = $("#BoxCalculationRecallGrid").data("kendoGrid");
+            var data = grid.dataSource.data();
+
+            $("#RecallAllButton").data("kendoButton").enable(false);
+
+            $.each(data, function (i, row) {
+                if (row.Enabled) {
+                    $("#RecallAllButton").data("kendoButton").enable(true);
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+
+    $('#RecallQuantityTextBox').on('focus', function () {
+        var input = $(this);
+        setTimeout(function () { input.select(); });
+    });
+
+    $('#RecallQuantityTextBox').on('change', function () {
+        QtyChange();
+    });
+
+    function QtyChange() {
+        var price = $("#RecallPriceTextBox").data("kendoNumericTextBox").value();
+        var quantity = $("#RecallQuantityTextBox").data("kendoNumericTextBox").value();
+
+        var amount = quantity * price;
+
+        $("#RecallAmountTextBox").data("kendoNumericTextBox").value(amount);
+    }
+
+    function onProcessSingleRecall() {
+        var price = $("#RecallPriceTextBox").data("kendoNumericTextBox").value();
+        var quantity = $("#RecallQuantityTextBox").data("kendoNumericTextBox").value();
+
+        $("#RecallSingleButton").data("kendoButton").enable(false);
+
+        var amount = quantity * price;
+
+        $("#RecallAmountTextBox").data("kendoNumericTextBox").value(amount);
+
+        var quantityOriginal = $("#RecallOriginalQuantityTextBox").data("kendoNumericTextBox").value();
+        var quantityNew = $("#RecallQuantityTextBox").data("kendoNumericTextBox").value();
+
+
+        var form = $("#my-form");
+        var formJSON = getFormData(form);
+
+        $('#ProgressSingleLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing 1 item.');
+
+        if (quantityNew > quantityOriginal) {
+            $('#ProgressSingleLabel').html('Quantity error, new recall qty is greater than contract qty.');
+        }
+        else {
+            $.ajax({
+                url: "@Url.Action("ProcessRecalls", "ContractRelated", new { area = "DomesticTrading" })",
+                type: 'POST',
+                contentType: 'application/json;',
+                data: '[' + JSON.stringify(formJSON) + ']',
+                success: function (valid) {
+                    $("#RecallSingleButton").data("kendoButton").enable(true);
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                },
+                error: function (valid) {
+                    $("#RecallSingleButton").data("kendoButton").enable(true);
+                }
+            });
+        }
+    }
+
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            if (@Model.Count() > 1) {
+                resizeGridColumns("#BoxCalculationRecallGrid");
+            }
+             
+            $('#LocalDetailWindow').data("kendoWindow").center();
+        }, 5);
+    });
+</script>
+
+@if (!Model.Any())
+{
+   <div style="padding:20px;font-size:small;">
+       <h2>No Data Selected / Processed</h2>
+   </div>
+}
+else if (Model.Count() == 1)
+{
+    using (Html.BeginForm("Action", "ControllerName", FormMethod.Post, new { id = "my-form" }))
+    {
+        <table id="RecallSingleChangeDiv">
+            <tr>
+                <td>@LabelHelper.Label("ClearingId")</td>
+                <td>@Html.Kendo().TextBoxFor(x => x.First().ClearingId).HtmlAttributes(new { @readonly = "readonly", style = "width:75px;", @class = "k-widget k-textbox" })</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("ContraEntity")</td>
+                <td>@Html.Kendo().TextBoxFor(x => x.First().ContraEntity).HtmlAttributes(new { @readonly = "readonly", style= "width:75px;", @class="k-widget k-textbox" })</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("SecurityNumber")</td>
+                <td>@Html.Kendo().TextBoxFor(x => x.First().SecurityNumber).HtmlAttributes(new { @readonly = "readonly", style= "width:75px;", @class = "k-widget k-textbox" }) @Html.Kendo().TextBoxFor(x => x.First().Ticker).HtmlAttributes(new { @readonly = "readonly", style = "width:60px;" })</td>
+            </tr>            
+            <tr>
+                <td>@LabelHelper.Label("Price")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(x => x.First().Price).HtmlAttributes(new { @readonly = "readonly", ID = "RecallPriceTextBox", style = "width:75px;" }).Spinners(false)</td>                           
+            </tr>
+            <tr>                
+                <td>@LabelHelper.Label("IsPendingRecall")</td>
+                <td>@Html.Kendo().CheckBoxFor(x => x.First().IsPendingRecall).HtmlAttributes(new { ID = "IsPendingRecallCheckBox" }).Label(" ")</td>                
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("Quantity")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(x => x.First().Quantity).Format("n0").HtmlAttributes(new { @readonly = "readonly", ID = "RecallOriginalQuantityTextBox", style = "width:75px;" }).Spinners(false)</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("RecallQuantity")</td>
+                <td>@Html.Kendo().NumericTextBoxFor(x => x.First().RecallPortionQuantity).Format("n0").HtmlAttributes(new { ID = "RecallQuantityTextBox", style = "width:75px;" }).Max(Model.First().Quantity).Events(ev => ev.Change("QtyChange")).Spinners(false) @Html.Kendo().NumericTextBoxFor(x => x.First().RecallPortionAmount).HtmlAttributes(new { ID = "RecallAmountTextBox", style = "width:75px;" }).Format("c2").Spinners(false)</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("RecallReason")</td>
+                <td>@(Html.Kendo().DropDownListFor(x => x.First().Reason)
+                        .DataValueField("Value")
+                        .DataTextField("Text")
+                        .HtmlAttributes(new {style = "width:75px;" })
+                        .Template("<span class=\"k-state-default\" style=\"width:25px\">#:data.Text# </span><span class=\"k-state-default\"> #:data.Description# </span>")
+                        .DataSource(x => x.Read("Read_SLRecallReasonEnum", "Enum", new { area = "DomesticTrading" })))</td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("RecallIndicator")</td>
+                <td>@(Html.Kendo().DropDownListFor(x => x.First().Flag)
+                        .DataValueField("Value")
+                        .DataTextField("Text")
+                        .HtmlAttributes(new {style = "width:75px;" })
+                        .Template("<span class=\"k-state-default\" style=\"width:25px\">#:data.Text# </span><span class=\"k-state-default\"> #:data.Description# </span>")
+                        .DataSource(x => x.Read("Read_SLRecallIndicatorEnum", "Enum", new { area = "DomesticTrading" })))   </td>
+            </tr>
+            <tr>
+                <td>@LabelHelper.Label("RecallDate")</td>
+                <td>@Html.Kendo().DatePickerFor(x => x.First().RecallDate).HtmlAttributes(new { style = "width:85px;" })</td>
+            </tr><tr>    
+                <td>@LabelHelper.Label("BuyInDate")</td>
+                <td>@Html.Kendo().DatePickerFor(x => x.First().BuyInDate).HtmlAttributes(new { style = "width:85px;" })</td>
+            </tr>            
+            <tr>
+                <td colspan="3" align="left">
+                    <label id='ProgressSingleLabel'></label>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3" align="right">
+                    @Html.Kendo().Button().Name( "RecallSingleButton" ).Content(LabelHelper.Text("SendSingleRecall")).Events( e => e.Click("onProcessSingleRecall"))
+                </td>
+            </tr>
+        </table>
+
+        @Html.HiddenFor(x => x.First().ModelId)
+        @Html.HiddenFor(x => x.First().EntityType)
+        @Html.HiddenFor(x => x.First().Entity)
+        @Html.HiddenFor(x => x.First().ContractNumber)
+        @Html.HiddenFor(x => x.First().TradeType)
+        @Html.HiddenFor(x => x.First().IssueId)
+        @Html.HiddenFor(x => x.First().SecurityNumber)
+        @Html.HiddenFor(x => x.First().Ticker)
+        @Html.HiddenFor(x => x.First().Price)
+        @Html.HiddenFor(x => x.First().Quantity)
+        @Html.HiddenFor(x => x.First().Rate)
+        @Html.HiddenFor(x => x.First().SettlementDate)
+        @Html.HiddenFor(x => x.First().PortionType)
+        @Html.HiddenFor(x => x.First().SubmissionType)
+        @Html.HiddenFor(x => x.First().MemoInfo)
+        @Html.HiddenFor(x => x.First().GroupTitle)
+    }
+}
+else
+{
+
+ @(
+    Html.Kendo().ToolBar()
+    .Name("SharedRecallToolBar")
+    .Items(items =>
+    {
+        items.Add().Template(Html.Kendo().Button().Name("SelectAllButton").Content("Select All").Events(e => e.Click("onSelectAllRecall")).ToHtmlString());
+        items.Add().Template( Html.Kendo().Button().Name( "PendAllButton" ).Content( "Mark As Pending" ).Events( e => e.Click( "onPendAllRecall" ) ).ToHtmlString() );
+        items.Add().Template(Html.Kendo().Button().Name("RecallAllButton").Content("Send Recalls").Events(e => e.Click("onProcessRecall")).Enable(false).ToHtmlString());
+        items.Add().Template("<label id='ProgressLabel'></label>");
+    })
+
+)
+
+<hr class="hr-white">
+
+<div id="RecallAddDiv" class="grid-div">
+@(Html.Kendo().Grid(Model)
+    .Name("BoxCalculationRecallGrid")
+    .HtmlAttributes(new { @style = "height:85%;" })
+    .Scrollable()
+    .Selectable()
+    .NoRecords()
+    .Filterable()
+    .Resizable(cols => cols.Columns(bool.Parse(DataSystemValues.LoadSystemValue("ResizeableGrid", "true"))))
+     .Events(edit => edit.Edit("onSharedRecallEdit").DataBound("onContractRecallDataBound"))
+    .Editable(edit => edit.Mode(GridEditMode.InCell).DisplayDeleteConfirmation(false).Enabled(true))
+    .Columns(columns =>
+    {
+        columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "# if (SubmissionType == " + Convert.ToInt32(StatusDetail.Approved).ToString() + ") { #" +
+"<div style='text-align:center;' class='k-widget k-notification k-notification-success'><i class='fa  fa-check'></i></div>" +
+"# } else if (SubmissionType == " + Convert.ToInt32(StatusDetail.Rejected).ToString() + "){ #" +
+"<div style='text-align:center;' class='k-widget k-notification k-notification-error'><i class='fa fa-times' ></i></div>" +
+"# } else if (SubmissionType == " + Convert.ToInt32(StatusDetail.HeldLocal).ToString() + "){ #" +
+"<div style='text-align:center;' class='k-widget k-notification k-notification-warning'><i class='fa fa-pencil'></i></div>" +
+"# }#", "");
+        columns.Bound(x => x.Enabled).GetColumnFormat(ColumnTypeEnum.String, false, "<input type='checkbox'  class='chkbx' #= (Enabled) ? checked ='checked' : '' #/>", "");
+        columns.Bound(x => x.EntityType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Entity).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.GroupTitle).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.ClearingId).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ContraEntity).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.ContractNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.TradeType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.IssueId).GetColumnFormat(ColumnTypeEnum.String, false, "", "").Hidden(true);
+        columns.Bound(x => x.SecurityNumber).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Ticker).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.Price).GetColumnFormat(ColumnTypeEnum.Money, false, "#=GetMoneyDirection(Price)#", "");
+        columns.Bound(x => x.Quantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(Quantity)#", "").ClientGroupFooterTemplate("#=sum#");
+        columns.Bound(x => x.Rate).GetColumnFormat(ColumnTypeEnum.Rate, false, "#=GetRateDirection(Rate)#", "");
+        columns.Bound(x => x.Flag).GetColumnFormat(ColumnTypeEnum.String, false, "", "_RecallFlagDropdown");
+        columns.Bound(x => x.Reason).GetColumnFormat(ColumnTypeEnum.String, false, "", "_RecallReasonCodeDropdown");
+        columns.Bound(x => x.RecallDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "Date");
+        columns.Bound(x => x.BuyInDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "Date");
+        columns.Bound( x => x.IsPendingRecall ).GetColumnFormat( ColumnTypeEnum.String, false, "<input type='checkbox'  class='IsPendingRecallCheckBox' #= (IsPendingRecall) ? checked ='checked' : '' #/>", "" );
+        columns.Bound(x => x.PortionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.RecallPortionQuantity).GetColumnFormat(ColumnTypeEnum.Position, true, "#=GetPositionDirection(RecallPortionQuantity)#", "QuantityDecimalNumber").ClientGroupFooterTemplate("#=sum#");
+        columns.Bound(x => x.RecallPortionAmount).GetColumnFormat(ColumnTypeEnum.Money, true, "#=GetMoneyDirection(RecallPortionAmount)#", "").ClientGroupFooterTemplate("#=sum#");
+        columns.Bound(x => x.SubmissionType).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+        columns.Bound(x => x.MemoInfo).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+    })
+    .DataSource(read => read.Ajax()
+        .Aggregates(agg =>
+        {
+            agg.Add(x => x.Quantity).Sum();
+            agg.Add(x => x.RecallPortionQuantity).Sum();
+            agg.Add(x => x.RecallPortionAmount).Sum();
+        })
+        .ServerOperation(false)
+        .AutoSync(true)
+        .Update(update => update.Action("RecallModel_Update", "ContractRelated", new { area = "DomesticTrading" }))
+              .Group(groups =>
+              {
+                  groups.Add(x => x.GroupTitle);
+              })
+        .Model(model =>
+        {
+            model.Id(x => x.ModelId);
+            model.Field(x => x.Enabled).Editable(false);
+            model.Field(x => x.IsPendingRecall).Editable(false);
+            model.Field(x => x.Entity).Editable(false);
+            model.Field(x => x.ClearingId).Editable(false);
+            model.Field(x => x.EntityType).Editable(false);
+            model.Field(x => x.ContraEntity).Editable(false);
+            model.Field(x => x.ContractNumber).Editable(false);
+            model.Field(x => x.TradeType).Editable(false);
+            model.Field(x => x.IssueId).Editable(false);
+            model.Field(x => x.SecurityNumber).Editable(false);
+            model.Field(x => x.Ticker).Editable(false);
+            model.Field(x => x.Price).Editable(false);
+            model.Field(x => x.Quantity).Editable(false);
+            model.Field(x => x.Reason).Editable(true);
+            model.Field(x => x.Flag).Editable(true);
+            model.Field(x => x.Rate).Editable(false);
+            model.Field(x => x.RecallDate).Editable(false);
+            model.Field(x => x.BuyInDate).Editable(true);
+            model.Field(x => x.PortionType).Editable(false);
+            model.Field(x => x.RecallPortionQuantity).Editable(true);
+            model.Field(x => x.RecallPortionAmount).Editable(false);
+            model.Field(x => x.SubmissionType).Editable(false);
+            model.Field(x => x.MemoInfo).Editable(false);
+        }))
+)
+</div>
+}

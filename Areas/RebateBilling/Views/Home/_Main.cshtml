@@ -1,0 +1,87 @@
+﻿<div id="TopBar">@{ Html.RenderPartial("~/Areas/Header/Views/Header/_Header.cshtml", SL_Application.RebateBilling); }</div>
+<div id="NavBar">@{ Html.RenderPartial("~/Areas/RebateBilling/Views/Menu/Index.cshtml");}</div>
+
+<script>
+    $(document).ready(function () {
+        UpdateRealTimeControl("NotAvail", "lightgray");
+    });
+</script>
+
+@(Html.Kendo().Splitter()
+      .Name("RebateBillingwMainSplitterVertical")
+      .Orientation(SplitterOrientation.Horizontal)
+      .HtmlAttributes(new { @class = "splitter" })
+      .Panes(verticalPanes =>
+      {
+          verticalPanes.Add()
+          .HtmlAttributes(new { id = "SecurityMasterSplitterPanel" })
+          .Size("280px")
+            .Collapsible(true)
+            .Resizable(true)
+            .Scrollable(false)
+          .Content(@<text>
+                @Html.Partial("~/Areas/DomesticTrading/Views/Shared/_SecurityMaster.cshtml")
+        </text>);
+
+          verticalPanes.Add()
+                      .HtmlAttributes(new { id = "top-pane" })
+                      .Scrollable(false)
+                      .Collapsible(false)
+                      .Content(
+                        Html.Kendo().Splitter()
+                            .Name("MainSplitterChild")
+                            .HtmlAttributes(new { @class="height100p" })
+                            .Orientation(SplitterOrientation.Vertical)
+                            .Events(e => e.Collapse("ResizeLayout").Resize("ResizeLayout").Expand("ResizeLayout"))
+                            .Panes(horizontalPanes =>
+                            {
+                                horizontalPanes.Add()
+                                    .HtmlAttributes(new { id = "left-pane" })
+                                    .Collapsible(true)
+                                    .Resizable(true)
+                                    .Scrollable(false)
+                                    .Content(@<text>
+                                        @Html.Partial("~/Areas/RebateBilling/Views/Tab/Index.cshtml")
+                                    </text>);
+
+                                horizontalPanes.Add()
+                                    .HtmlAttributes(new { id = "SharedDetailSplit" })
+                                    .Collapsible(true)
+                                    .Resizable(true)
+                                    .Collapsed(true)
+                                    .Size("30%")
+                                    .Scrollable(false)
+                                    .Content(@<text>
+                                        @Html.Partial("~/Areas/DomesticTrading/Views/Shared/Templates/_SharedDetail.cshtml")
+                                    </text>);
+                            }).ToHtmlString()
+                        );
+      }))
+
+
+@(Html.Kendo().Window()
+        .Name( "LocalDetailWindow" )
+        .Modal( true )
+        .AutoFocus( true )
+        .Actions( actions => actions.Close() )
+        .Visible( false )
+        .Draggable( true )
+        .Resizable( resize => resize.Enabled( false ) )
+        .Animation( amin =>
+            {
+                amin.Enable( true );
+                amin.Open( effect => effect.Zoom( ZoomDirection.In ) );
+                amin.Close( close => close.Zoom( ZoomDirection.Out ) );
+            } )
+        .Iframe( false )
+        .Events( events => events.Refresh( "onLocalWindowResize" ) )
+        .Scrollable( false )
+        .Title( "Details" ))
+
+
+<style scoped>
+    #LocalRebateBillingWindow {
+        width:auto;
+        height:auto;
+    }
+</style>

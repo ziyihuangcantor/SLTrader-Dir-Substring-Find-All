@@ -1,0 +1,93 @@
+﻿@using SLTrader.Tools
+@model BondFire.Entities.Projections.SL_RecallExtendedProjection
+
+<div style="padding:10px;">
+<table>
+    <tr>
+        <td>
+            @LabelHelper.Text("RecallNumber")
+        </td>
+        <td colspan="3" style="width:100%">
+            @Html.TextBoxFor(model => model.RecallNumber, new  {@class="k-textbox", @readonly = "readonly"})
+        </td>
+    </tr>
+      <tr>
+        <td>
+            @LabelHelper.Text("Entity")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.EntityId, new  {@class="k-textbox", @readonly = "readonly"})
+        </td>
+        <td>
+            @LabelHelper.Text("ContraEntity")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.ContraEntity, new  {@class="k-textbox", @readonly = "readonly"})
+        </td>
+    </tr>
+       <tr>
+        <td>
+            @LabelHelper.Text("QuantityRecalled")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.QuantityRecalled, new  {@class="k-textbox", @readonly = "readonly"})
+        </td>
+        <td>
+            @LabelHelper.Text("RecallAmount")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.RecallAmount, new  {@class="k-textbox", @readonly = "readonly"})
+        </td>
+    </tr>
+       <tr>
+        <td>
+            @LabelHelper.Text("BuyInDate")
+        </td>
+        <td>
+            @Html.Kendo().DatePickerFor(model => model.BuyInDate).Enable(true)
+        </td>
+        <td>
+            @LabelHelper.Text("Comment")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.Comment, new  {@class="k-textbox"})
+        </td>
+    </tr>
+
+    @if (Model.TradeType == TradeType.StockBorrow)
+    {
+        <tr>
+          <td>
+            @LabelHelper.Text("QuantityRecalled")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.QuantityRecalled, new { @class = "k-textbox" })
+        </td>
+          <td>
+            @LabelHelper.Text("Recallnumber")
+        </td>
+        <td>
+            @Html.TextBoxFor(model => model.RecallNumber, new  {@class="k-textbox"})
+        </td>
+            </tr>
+        <tr>
+          <td>
+            @LabelHelper.Text("RecallDate")
+        </td>
+        <td>
+              @Html.Kendo().DatePickerFor(model => model.RecallDate).Enable(true)
+        </td>
+         <td>
+            @LabelHelper.Text("RecallReason")
+        </td>
+        <td>
+            @(Html.Kendo().DropDownListFor(model => model.RecallReason)
+                .BindTo(new SelectList(Enum.GetNames(typeof(SL_RecallReason))))
+                .Enable(true)
+                .Value(Model.RecallReason.ToString()))
+        </td>
+       </tr>
+    }
+
+</table>
+</div>

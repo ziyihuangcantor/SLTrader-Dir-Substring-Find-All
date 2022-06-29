@@ -1,0 +1,269 @@
+﻿@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<script type="text/javascript">
+    var _originalUserGrid = null;
+    var _originalUserToolBar = null;
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            _originalUserGrid = $("#UserGrid").data('kendoGrid').getOptions();
+            _originalUserToolBar = $("#UserGrid .k-grid-toolbar").html();
+
+            LoadGridLayout("#UserGrid");
+
+            $("#UserGrid .k-grid-toolbar").html(_originalUserToolBar);
+            $("#UserGrid .k-grid-toolbar").addClass("k-grid-top");
+        }, 5);
+    });
+
+    function onUserLayoutChange(e) {
+        e.preventDefault();
+
+        setTimeout(function () {
+            UpdateGridLayout("#UserGrid");
+        }, 5);
+    }
+
+    function onUserRefresh() {
+        $('#UserGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onUserCheckData() {
+        CheckGridData('#UserGrid');
+    }
+
+    function onUserParentCompanyChange() {
+        $('#UserGrid').data('kendoGrid').dataSource.read();
+    }
+
+    function onAdditionalUserChange() {
+        var companyId = $("#ParentCompanyDropdown").data("kendoDropDownList").value();
+
+        return {
+            companyId: companyId,
+        }
+    }
+
+    function onUserRemove(e) {
+
+        e.preventDefault();
+
+    }
+
+    function onUserEdit(e) {
+        e.preventDefault();
+
+
+    }
+
+    function onUserRoleEdit(e) {
+
+        e.preventDefault();
+
+    }
+
+    function onUserAdd() {
+        var companyId = $("#ParentCompanyDropdown").data("kendoDropDownList").value();
+
+        HelperPartialAdminWindow(
+            JSON.stringify({ companyId: companyId }),
+            "New User",
+            525,
+            325,
+            "/Admin/Admin/LoadUserByNewUser");
+    }
+
+    function onUserPwdReset(e) {
+        e.preventDefault();
+
+
+    }
+
+    function onUserPreferenceEdit(e) {
+
+    }
+
+
+    $(function () {
+        $('#UserGrid').on('click', '.UserEdit', function (e) {
+            e.preventDefault();
+
+            var entityGrid = $("#UserGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var userId = selectedItem["UserId"];
+
+            HelperPartialAdminWindow(
+                JSON.stringify({ userId: userId }),
+                "Edit User",
+                525,
+                325,
+                "/Admin/Admin/LoadUserByUserId");
+        });
+
+        $('#UserGrid').on('click', '.UserEditPreference', function (e) {
+            e.preventDefault();
+
+            var entityGrid = $("#UserGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var userId = selectedItem["UserId"];
+            var userName = selectedItem["UserName"];
+
+            HelperHeaderPartialWindow(
+                JSON.stringify({ userId: userId }),
+                'User Preference For ' + userName,
+                0,
+                0,
+                '/Admin/Admin/LoadUserPreference');
+        });
+
+        $('#UserGrid').on('click', '.UserRemove', function (e) {
+            e.preventDefault();
+
+
+            var entityGrid = $("#UserGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var userId = selectedItem["UserId"];
+
+            $.ajax({
+                url: '/Admin/Admin/RemoveUser',
+                data: JSON.stringify({ userId: userId }),
+                contentType: 'application/json;',
+                type: "POST",
+                success: function () {
+                    $('#UserGrid').data('kendoGrid').dataSource.read();
+                },
+                error: function () {
+                    $('#UserGrid').data('kendoGrid').dataSource.read();
+                }
+            });
+        });
+
+        $('#UserGrid').on('click', '.UserRole', function (e) {
+            e.preventDefault();
+
+            var entityGrid = $("#UserGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var userId = selectedItem["UserId"];
+
+            HelperPartialAdminWindow(
+                JSON.stringify({ userId: userId }),
+                "Edit User Role(s)",
+                525,
+                325,
+                "/Admin/Admin/LoadUserRoleTypeByUserId");
+        });
+
+        $('#UserGrid').on('click', '.UserPwdReset', function (e) {
+            e.preventDefault();
+
+            var entityGrid = $("#UserGrid").data("kendoGrid");
+            var selectedItem = entityGrid.dataItem(entityGrid.select());
+
+            var userId = selectedItem["UserId"];
+
+            HelperPartialAdminWindow(
+                JSON.stringify({ userId: userId }),
+                "Change password",
+                525,
+                325,
+                "/Admin/Admin/UpdateUserPasswordByUserId");
+        });
+    });
+</script>
+
+@(
+ Html.Kendo().ToolBar()
+    .Name("UserToolBar")
+    .Resizable(true)
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("ParentComany").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                .Name("ParentCompanyDropdown")
+                .HtmlAttributes(new { @class="width100p" })
+                .DataTextField("Name")
+                .DataValueField("CompanyId")
+                .OptionLabel("Empty List")
+                .AutoBind(true)
+                .Events(events => events.Change("onUserParentCompanyChange"))
+                .DataSource(dataSource => dataSource
+                .Read(read => read
+                .Action("LoadParentCompanyDropdown", "Admin", new { area = "Admin" })))
+                .SelectedIndex(0).ToHtmlString());
+        
+        items.Add().Template(Html.Kendo().Button().Name("AddUserCommand").Content("Add User").Events(events => events.Click("onUserAdd")).ToHtmlString());
+        items.Add().Template(Html.Kendo().Button().Name("refreshUserCommand").Content("Refresh").Events(events => events.Click("onUserRefresh")).ToHtmlString());
+    }))
+
+
+<hr class="hr-white">
+
+<div id="UsersContent" class="grid-div">
+    @(Html.Kendo().Grid<User>()
+        .Name("UserGrid")
+        .HtmlAttributes(new { @class = "grid" })
+        .Scrollable()
+        .NoRecords()
+        .Selectable(select => select.Mode(GridSelectionMode.Single).Enabled(true))
+        .AutoBind(false)
+        .Reorderable(reorder => reorder.Columns(true))
+        .ColumnMenu(menu =>
+        {
+            menu.Columns(true);
+            menu.Filterable(true);
+            menu.Sortable(true);
+        })
+        .Selectable(seclect => seclect.Mode(GridSelectionMode.Multiple))
+        .Events(events =>
+        {
+            events.DataBound("onUserCheckData");
+            events.ColumnHide("onUserLayoutChange");
+            events.ColumnShow("onUserLayoutChange");
+            events.ColumnResize("onUserLayoutChange");
+            events.ColumnReorder("onUserLayoutChange");
+        })
+        .Resizable(resize => resize.Columns(true))
+       .Columns(columns =>
+       {
+           columns.Bound(x => x.UserId).Hidden(true);           
+           columns.Bound(x => x.UserName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.FirstName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.LastName).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.PhoneNum).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.FAXNum).GetColumnFormat(ColumnTypeEnum.String, false, "", "");
+           columns.Bound(x => x.PasswordNoExpire).GetColumnFormat(ColumnTypeEnum.String, false, "<input disabled='disabled' onclick='checkboxClicked(this)' type='checkbox' value='#= IsActive #' " + "# if (IsActive) { #" + "checked='checked'" + "# } #" + "/>", "");
+           columns.Bound(x => x.PasswordExpDate).GetColumnFormat(ColumnTypeEnum.Date, false, "", "");
+           columns.Bound(x => x.IsActive).GetColumnFormat(ColumnTypeEnum.String, false, "<input disabled='disabled' onclick='checkboxClicked(this)' type='checkbox' value='#= IsActive #' " + "# if (IsActive) { #" + "checked='checked'" + "# } #" + "/>", "");
+           columns.Command(x =>
+           {
+               if (SessionSecurityService.IsEditable(ManagerTask.AddUser))
+               {
+                   x.Custom("Edit").Text(LabelHelper.Text("Edit")).HtmlAttributes(new { @class = "UserEdit" });
+                   x.Custom("EditPreference").Text(LabelHelper.Text("EditPreference")).HtmlAttributes(new { @class = "UserEditPreference" });
+               }
+
+               if (SessionSecurityService.IsEditable(ManagerTask.DeleteUser))
+               {
+                   x.Custom("Remove").Text(LabelHelper.Text("Remove")).HtmlAttributes(new { @class = "UserRemove" });
+               }
+
+               if (SessionSecurityService.IsEditable(ManagerTask.AddUserRole))
+               {
+                   x.Custom("Role").Text(LabelHelper.Text("Role")).HtmlAttributes(new { @class = "UserRole" });
+               }
+
+               if (SessionSecurityService.IsEditable(ManagerTask.AdminChangePassword))
+               {
+                   x.Custom("PwdReset").Text(LabelHelper.Text("PwdReset")).HtmlAttributes(new { @class = "UserPwdReset" });
+               }
+           });
+       })
+        .DataSource(dataSource => dataSource.Ajax()
+       .Read(read => read.Action("LoadUsersByCompanyId", "Admin", new { area = "Admin" }).Data("onAdditionalUserChange"))))
+</div>

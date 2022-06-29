@@ -1,0 +1,50 @@
+﻿@using System.ComponentModel
+@using BondFire.Entities
+@using SLTrader.Enums
+@using SLTrader.Helpers.SessionHelper
+@using SLTrader.Tools
+
+<!DOCTYPE html>
+<html>
+<head>  
+
+<title>SL Trader - Locates</title>	
+
+</head>
+   <body id="ContentArea">
+    @{
+        if (SessionService.UserPreference.SLSecurityLayoutTypeId == SL_SecurityLayoutType.SIDE)
+        {
+            Html.RenderPartial("~/Areas/Locates/Views/Home/_Main.cshtml");
+        }
+        else
+        {
+            Html.RenderPartial("~/Areas/Locates/Views/Home/_MainTop.cshtml");
+        }
+
+        RenderBody();
+    }
+   </body> 
+</html>
+
+@(Html.Kendo().Window()
+                .Name("ErrorWindow")
+                .Visible(false)
+                .Title("System Error")
+                .Content(@<text>
+                        <table>
+                        <tr>
+                        <td style="width:100%;">
+                        <label id="message"></label>
+                        </td>
+                        </tr>
+                        <tr>
+                        <td style="text-align:right;">
+                        <button class="k-button" onclick="closeWindow()">OK</button>
+                        </td>
+                        </tr>
+                        </table>
+                        </text>))
+
+
+

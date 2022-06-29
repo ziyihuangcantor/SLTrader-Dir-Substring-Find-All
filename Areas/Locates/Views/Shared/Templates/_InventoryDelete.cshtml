@@ -1,0 +1,98 @@
+﻿@using SLTrader.Tools
+
+
+@model DeleteInventoryModel
+
+
+@*<style scoped>
+
+    #LocateInventoryDeleteTable {
+        border-collapse: collapse;
+        width: 200px;
+    }
+
+        #LocateInventoryDeleteTable th,
+        #LocateInventoryDeleteTable td {
+            min-height: 50px;
+            padding: 5px 0px 0px 5px;
+        }
+
+    #InventoryDeleteMessageLabel {
+        max-width: 250px;
+        width: 250px;
+        font-style: normal;
+        white-space: pre-wrap;       
+        height: 50px;
+    }
+
+    #InventoryDeleteStatusLabel {
+        max-width: 250px;
+        width: 250px;
+        font-style: normal;
+        white-space: pre-wrap;
+        border: 1px solid #ccc;
+        height: 50px;
+    }
+
+
+</style>*@
+
+<script  type="text/javascript">
+    function onInventoryDeleteListSubmit() {
+        try {
+
+            $('#InventoryDeleteListButton').data("kendoButton").enable(false);
+                $('#InventoryDeleteStatusLabel').html('<i class="fa fa-spinner fa-spin"></i> Processing...');
+
+            $.ajax({
+                url: '/Locates/Inventory/Delete_InventorySource',
+                type: 'POST',
+                data: JSON.stringify({
+                    entityId: '@Model.EntityId',
+                    source: '@Model.Source', 
+                    SLCLientEmailActionId : '@Model.SLCLientEmailActionId'
+                }),
+                contentType: 'application/json;',
+                success: function (valid) {                 
+                    $('#InventoryDeleteStatusLabel').html('');
+                    $('#ClientInventoryGrid').data("kendoGrid").dataSource.read();
+
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                },
+                error: function (valid) {
+                    $('#InventoryDeleteStatusLabel').html('');
+                    $('#InventoryDeleteListButton').data("kendoButton").enable(true);
+                }
+            })
+        }
+        catch (e) { }
+    }
+</script>
+<div width="250px;">
+            <table id="LocateInventoryDeleteTable">
+            <tr>
+            </tr>
+                <tr>
+                    <td>
+                        <label id="InventoryDeleteMessageLabel">@Model.Message</label>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label id="InventoryDeleteStatusLabel"></label>
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td align="right">
+                        @Html.Kendo().Button().Name("InventoryDeleteListButton").Content(LabelHelper.Text("InventoryListSubmit")).Events(e => e.Click("onInventoryDeleteListSubmit"))
+                    </td>
+                </tr>
+        </table>
+</div>

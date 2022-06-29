@@ -1,0 +1,180 @@
+﻿@using SLTrader.Tools
+@model User
+
+
+
+<script  type="text/javascript">
+    function onUserEditSubmit(e) {       
+        e.preventDefault();
+
+        var form = $("#UserForm");
+
+        $("#PostUserButton").data("kendoButton").enable(false);   
+
+        console.log(Validate());
+
+        if (Validate() == 0) {
+            $.ajax({
+                url: '/Admin/Admin/UpdateUser',
+                data: form.serializeArray(),
+                type: "POST",
+                success: function () {
+                    $("#UserStatusLabel").text("User settings updated.");
+
+                    $('#LocalDetailWindow').data("kendoWindow").close();
+                },
+                error: function (valid) {
+                    $("#UserStatusLabel").text(DisplayControllerErrorByString(valid));
+                }
+            });
+        }
+        else {
+            $("#UserStatusLabel").text("Values missing highlighted in red.");
+
+            $("#PostUserButton").data("kendoButton").enable(true);            
+        }
+    }
+
+    function Validate() {
+
+        var firstName = $("#FirstNameTextBox");
+        var lastName = $("#LastNameTextBox");
+        var emailAddress = $("#EmailTextBox");
+        var userName = $("#UserIdTextBox");
+
+        var itemsWrong = 0;
+
+         if ((userName.val() == null) || (userName.val() == '')) {
+            userName.addClass("addErrorBorder");
+
+            itemsWrong++;
+        }
+        else {
+             userName.addClass("addSuccessBorder");
+        }
+
+
+        if ((firstName.val() == null) || (firstName.val() == '')) {
+            firstName.addClass("addErrorBorder");
+
+            itemsWrong++;
+        }
+        else {
+            firstName.addClass("addSuccessBorder");
+        }
+
+
+        if ((lastName.val() == null) || (lastName.val() == '')) {
+            lastName.addClass("addErrorBorder");
+
+            itemsWrong++;
+        }
+        else {
+            lastName.addClass("addSuccessBorder");
+        }
+
+
+        if ((emailAddress.val() == null) || (emailAddress.val() == '')) {
+            emailAddress.addClass("addErrorBorder");
+
+            itemsWrong++;
+        }
+        else {
+            emailAddress.addClass("addSuccessBorder");
+        }
+
+        return itemsWrong;
+    }
+</script>
+
+<style>
+    #UserWrapper th,
+    #UserWrapper td {
+        min-height: 50px;
+        padding: 5px 0px 0px 5px;
+    }
+
+    .addErrorBorder {
+        border-color:red;
+    }
+
+    .addSuccessBorder {
+        border-color:limegreen;
+    }
+</style>
+<div>
+@using (Html.BeginForm("", "", FormMethod.Post, new { id = "UserForm" }))
+{
+    <table id="UserWrapper" style="width:100%;">
+        <tr>
+            <td>@LabelHelper.Label("UserName")</td>
+            @if (!Model.UserName.IsEmpty())
+            {
+                <td>@Html.Kendo().TextBoxFor(x => x.UserName).HtmlAttributes(new { @readonly = "readonly", ID = "UserIdTextBox" })</td>
+            }
+            else
+            {
+                <td>@Html.Kendo().TextBoxFor(x => x.UserName).HtmlAttributes(new { ID = "UserIdTextBox" })</td>
+            }
+            <td>@LabelHelper.Label("CompanyId")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.CompanyId).HtmlAttributes(new {@readonly = "readonly" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("FirstName")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.FirstName).HtmlAttributes(new { ID = "FirstNameTextBox" })</td>
+            <td>@LabelHelper.Label("LastName")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.LastName).HtmlAttributes(new { ID = "LastNameTextBox" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("PhoneNum")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.PhoneNum).HtmlAttributes( new { type = "tel" })</td>
+            <td>@LabelHelper.Label("FAXNum")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.FAXNum).HtmlAttributes( new { type = "tel" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("EMail")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.EMail).HtmlAttributes( new { type = "email", ID = "EmailTextBox" })</td>
+            <td>@LabelHelper.Label("EMailCC")</td>
+            <td>@Html.Kendo().TextBoxFor(x => x.EMailCC).HtmlAttributes( new {type = "email", ID = "EmailCCTextBox" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("PasswordExpDate")</td>
+            <td>@Html.Kendo().DatePickerFor(x => x.PasswordExpDate).Name("PasswordExpDate")</td>
+
+            @if (Model.UserName.IsEmpty())
+            {
+                <td>@LabelHelper.Label("Password")</td>
+            }
+            else
+            {
+                <td>@LabelHelper.Label("PasswordHash")</td>
+            }
+
+            <td>@Html.Kendo().MaskedTextBoxFor(x => x.PasswordHash).HtmlAttributes(new { type = "password" })</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("PasswordNoExpire")</td>
+            <td>@Html.CheckBoxFor(x => x.PasswordNoExpire)</td>
+            <td>@LabelHelper.Label("LoginFailCount")</td>
+            <td>@Html.Kendo().NumericTextBoxFor(x => x.LoginFailCount).Name("LoginFailNumericTextBox").Format("#,##0")</td>
+        </tr>
+        <tr>
+            <td>@LabelHelper.Label("IsActive")</td>
+            <td>@Html.CheckBoxFor(x => x.IsActive)</td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                <label id="UserStatusLabel"></label>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" align="right">
+                @Html.Kendo().Button().Name("PostUserButton").Content(LabelHelper.Text("PostUserChange")).Events(e => e.Click("onUserEditSubmit"))
+            </td>
+        </tr>
+    </table>
+@Html.HiddenFor(x => x.UserId)
+}
+</div>

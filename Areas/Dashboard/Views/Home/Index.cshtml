@@ -1,0 +1,6 @@
+﻿@{
+    Html.RenderPartial("~/Views/Home/_Login.cshtml");
+}
+
+
+@Html.Kendo().Window().Name("LocalLoginWindow").Modal(true).Resizable().Draggable().Visible(false).Title("Details").Height(300).Width(700)

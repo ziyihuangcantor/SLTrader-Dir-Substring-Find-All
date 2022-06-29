@@ -1,0 +1,74 @@
+﻿@using SLTrader.Tools
+
+
+<script type="text/javascript">
+
+    function additionalData() {
+
+        var datepicker = $("#PenaltyCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        return {
+            effectiveDate: value
+        };
+    }
+
+    function onError(e) {
+        alert(e.message);
+    }
+
+    function onChange() {
+        $("#ListPenaltyGrid").data("kendoGrid").dataSource.read();
+    }
+
+</script>
+
+<div class="toolbar">
+<table class="toolbar">
+<tr>
+<td>                       
+@LabelHelper.Label("EffectiveDate")
+                                   
+</td>
+<td>
+@(Html.Kendo().DatePicker()
+.Name("PenaltyCalander")                
+.Format("yyyy-MM-dd")
+.Value(DateTime.Now)
+.HtmlAttributes(new { @class="Toolbar-Cell" })
+.Events(events => events.Change("onChange")))
+</td>                                      
+</tr>
+</table>               
+</div> 
+
+<hr class="hr-white">
+
+    @{   Html.Kendo().Grid<BondFire.Entities.Projections.SL_ListPenaltyProjection>()
+            .Name("ListPenaltyGrid")
+            .Sortable()
+            .HtmlAttributes(new {@class="Workspace"})
+            .Scrollable()
+            .Filterable()
+            .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+            .Navigatable()
+            .Columns(columns =>
+                {                  
+                    columns.Bound(p => p.DateTimeId).Format("{0:yyyy-MM-dd}").DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });                  
+                    columns.Bound(p => p.SecurityNumber).DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });
+                    columns.Bound(p => p.Ticker).DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });
+                    columns.Bound(p => p.StartDate).Format("{0:yyyy-MM-dd}").DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });
+                    columns.Bound(p => p.EndDate).Format("{0:yyyy-MM-dd}").DisplayNameTitle().HeaderHtmlAttributes(new { @class = "GridColumn-Text-Header" }).HtmlAttributes(new { @class = "GridColumn-Text" });                    
+                })
+                .Resizable(resize => resize.Columns(true))
+                .DataSource(dataSource => dataSource
+                .Ajax()
+                .Read(read => read
+                    .Action("Read_ListPenalty", "List")
+                    .Data("additionalData")
+                    )
+                    .Events(events => events
+                    .Error("onError"))                    
+                )).Render();
+               }
+

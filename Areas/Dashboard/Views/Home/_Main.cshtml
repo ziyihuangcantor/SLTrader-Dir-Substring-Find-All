@@ -1,0 +1,136 @@
+﻿@using SLTrader.Tools
+@using SLTrader.Models.DashboardRelatedModels;
+
+<div id="TopBar">@{ Html.RenderPartial("~/Areas/Header/Views/Header/_Header.cshtml", SL_Application.Dashboard); }</div>
+
+<script>   
+    function onDashboardEntityDefaultLoad(e) {
+        try {
+            var userPreference;
+
+            $.ajax({
+                url: '/Header/Header/GetUserPreference',
+                type: 'POST',
+                contentType: 'application/json;',
+                success: function (valid) {
+                    userPreference = valid;
+
+                    var dropdownList = $('#DashboardDropdownList').data("kendoDropDownList");
+
+                    dropdownList.select(function (dataItem) {
+                        return dataItem.CompanyId == userPreference.DefaultFirm;
+                    });
+
+                    $('#BoxChart').data("kendoChart").dataSource.read();
+                },
+                error: function (valid) {
+                    userPreference = null;
+                }
+            });
+        }
+        catch (e) {
+            console.log(e.message);
+        }
+    }
+
+    function onDashboardChange(e) {
+        $('#BoxChart').data("kendoChart").dataSource.read();
+    }
+
+
+    function onAdditionalData(e) {
+        var datepicker = $("#DashboardCalander").data("kendoDatePicker");
+        var value = kendo.toString(datepicker.value(), 'yyyy-MM-dd');
+
+        var entity = $("#DashboardDropdownList").data("kendoDropDownList").value();
+
+        return {
+            effectiveDate: value,
+            entityId: entity,
+            issueId : null
+        }
+    }
+</script>
+<div id="DashboardContentArea">
+    @(
+ Html.Kendo().ToolBar()
+        .Name("DashboardToolBar")
+    .Resizable(true)
+    .HtmlAttributes(new { @class = "tBar" })
+    .Items(items =>
+    {
+        items.Add().Template(LabelHelper.Label("EffectiveDate").ToHtmlString());
+
+        items.Add().Template(Html.Kendo().DatePicker()
+                    .Name("DashboardCalander")
+                    .Format("yyyy-MM-dd")
+                    .Value(DateTime.Now)
+                    .Events(events => events.Change("onDashboardChange")).ToHtmlString());
+
+        items.Add().Template(LabelHelper.Label("Entity").ToHtmlString());
+        items.Add().Template(Html.Kendo().DropDownList()
+                    .Name("DashboardDropdownList")
+                    .HtmlAttributes(new { @class = "Toolbar-Cell" })
+                    .Animation(true)
+                    .DataTextField("Custodian")
+                    .DataValueField("CompanyId")
+                    .OptionLabel(LabelHelper.Text("OptionLabel"))
+                    .AutoBind(true)
+                    .Template("#if(data.Custodian == \"" + LabelHelper.Text("OptionLabel") + "\")" +
+                                       "{#<span class=\"k-state-default\">#:data.Custodian#</span>#}" +
+                                       "else {# <span class=\"k-state-default\">#:data.Custodian# #:data.Name#</span> #}#")
+                    .Events(e => e.DataBound("onDashboardEntityDefaultLoad").Open("onContraEntityAutoCompleteResize"))
+                    .DataSource(dataSource => dataSource
+                    .Read(read => read
+                    .Action("Read_EntityDropdown", "ContraEntity", new { area = "DomesticTrading" })))
+                    .SelectedIndex(0).ToHtmlString());
+    }))
+    
+    <div id="DhasboardChartLoadingArea">
+        @(
+    Html.Kendo().Chart<BoxBreakDownByCategoryModel>()
+    .Name("BoxChart")
+    .Title(LabelHelper.Text("BoxChart"))
+    .HtmlAttributes(new {@class="grid" })
+    .AutoBind(true)
+    .Legend(legend => legend.Position(ChartLegendPosition.Right))
+    .Zoomable(true)
+    .Series(series=>
+    {
+        series.Column(x => x.FirmLongSettledAmt);
+        series.Column(x => x.RetailLongSettledAmt);
+        series.Column(x => x.PledgeSettledAmt);
+        series.Column(x => x.StockBorrowSettledAmt);
+        series.Column(x => x.StockLoanSettledAmt);
+        series.Column(x => x.SuggestedBorrowAmt);
+        series.Column(x => x.FailToDeliverSettledAmt);
+        series.Column(x => x.FailToRecieveSettledAmt);
+    })
+    .DataSource(ds => ds.Read(read => read.Action("GetBoxBreakdown", "Credit", new { area = "Dashboard" }).Data("onAdditionalData")))
+    .Tooltip(tooltip => tooltip
+            .Visible(true)
+            .Format("{0:N0}")
+        )
+        )
+    </div>
+</div>
+
+<style>
+    #DashboardContentArea {
+        padding-top:30px;
+        height:90%;
+        width:80%;
+        align-content:center;
+        margin-left:auto;
+        margin-right:auto;
+    }
+
+    #DhasboardChartLoadingArea {
+        padding-top:30px;
+        height:90%;
+        width:100%;
+        align-content:center;
+        margin-left:auto;
+        margin-right:auto;
+    }
+</style>
