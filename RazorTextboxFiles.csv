@@ -1,0 +1,36 @@
+Razor Textbox Screen,Razor Textbox File,Razor Textbox lines
+Admin/Companies/Company: Add Parent Company Btn,~Areas/Admin/Views/Shared/Templates/_Company.cshtml,"['34', '38', '45', '49', '54', '56', '60', '62', '66', '68', '72', '74', '78', '80', '84', '86', '90', '92', '102', '108', '110']"
+Admin/User Settings/Roles: Add Role Type Btn,~Areas/Admin/Views/Shared/Templates/_UserRoleType.cshtml,['32']
+Dashboard: NOT FOUND,~Areas/Dashboard/Views/Research/_ResearchByIssue.cshtml,['59']
+,~Areas/DomesticTrading/Views/AutoAction/_AutoBorrow.cshtml,"['557', '575', '584', '593']"
+,~Areas/DomesticTrading/Views/AutoAction/_AutoBorrowDefaultOptions.cshtml,"['150', '158', '164', '174', '176', '180']"
+DomesticTrading/AutoAction/AutoBorrow: Default Options Btn,~Areas/DomesticTrading/Views/AutoBorrow/_AutoBorrowDefaultOptions.cshtml,"['161', '169', '175', '185', '187', '191']"
+DomesticTrading/AutoAction/AutoBorrow: NOT FOUND,~Areas/DomesticTrading/Views/AutoBorrow/_AutoBorrowHelper.cshtml,['461']
+DomesticTrading/AutoAction/AutoBorrow: Scrachpad Btn,~Areas/DomesticTrading/Views/AutoBorrow/_AutoBorrowScratchpad.cshtml,"['446', '508']"
+DomesticTrading/AutoAction/AutoBorrow: NOT FOUND,~Areas/DomesticTrading/Views/AutoBorrow/_UpdateAutoBorrows.cshtml,"['271', '309', '323', '329', '335']"
+DomesticTrading/AutoAction/AutoLoan: NOT FOUND,~Areas/DomesticTrading/Views/AutoLoan/_AutoLoanBulkRateChange.cshtml,['68']
+DomesticTrading/AutoAction/AutoLoan: Default Options Btn,~Areas/DomesticTrading/Views/AutoLoan/_AutoLoanDefaultOptions.cshtml,"['111', '113', '117', '119', '125']"
+DomesticTrading/Import&Export/Client Needs: NOT FOUND,~Areas/DomesticTrading/Views/ClientNeed/_AddClientNeed.cshtml,"['115', '121', '126']"
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Contract/_ContractResearch.cshtml,['140']
+DomesticTrading/FP Lending/Account Config: Default Options Btn,~Areas/DomesticTrading/Views/FPLending/_FPLendingDefaultOptions.cshtml,"['60', '62', '66', '68']"
+DomesticTrading/Trading/Security Browser: Securty Textbox,~Areas/DomesticTrading/Views/Issue/_IssueInformation.cshtml,['329']
+DomesticTrading/Risk&Reporting/Issue Snapshot: Securty Textbox,~Areas/DomesticTrading/Views/Issue/_IssueSnashotLookup.cshtml,['213']
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/_RecallUpdate.cshtml,"['8', '12', '16', '20', '24', '28', '32', '36', '40', '52', '56']"
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Editor Templates/String.cshtml,['3']
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_BoxCalculationBulkRateChanges.cshtml,"['684', '779', '806', '826']"
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_BoxCalculationBulkReturn.cshtml,"['835', '936', '970']"
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_BoxCalculationTrade.cshtml,"['1444', '1842']"
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_ContraEntityDetail.cshtml,"['119', '125', '131', '155', '159', '170', '174', '187', '291', '295', '302', '306', '315', '319', '326', '330']"
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_ContraEntityParentDetail.cshtml,['56']
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_ErrorMessage.cshtml,['38']
+DomesticTrading: NOT FOUND,~Areas/DomesticTrading/Views/Shared/Templates/_RecallUpdate.cshtml,"['11', '19', '25', '33', '39', '53', '64', '70']"
+DomesticTrading/Trade/Scratch pad: NOT FOUND,~Areas/DomesticTrading/Views/Trade/_Scratchpad.cshtml,['1846']
+DomesticTrading/Trade: NOT FOUND,~Areas/DomesticTrading/Views/Trade/_UpdateTradesBreakOut.cshtml,['323']
+Locates/Inventory: NOT FOUND,~Areas/Locates/Views/Inventory/Index.cshtml,['109']
+Locates: + Add Inventory Btn,~Areas/Locates/Views/Locates/_InventoryList.cshtml,['111']
+Locates/Research/History: Criteria,~Areas/Locates/Views/Research/_LocateHistory.cshtml,['286']
+Locates/Config/Clients: Assign user -> Add new record Btn,~Areas/Locates/Views/Shared/Templates/_LocateClient.cshtml,"['54', '58', '65', '69']"
+,~Areas/Login/Views/Login_backup/_Login.cshtml,['9']
+Monitor: Security Search,~Areas/Monitor/Views/Shared/_SecurityMaster.cshtml,['58']
+RebateBilling/Maintenance/Issue Override: AddRebateBillingIssueOverride Btn,~Areas/RebateBilling/Views/Groups/_AddIssueOverride.cshtml,"['141', '149', '157']"
+RebateBilling/Maintenance/Account: Default Options Btn,~Areas/RebateBilling/Views/RebateBilling/_RebateBillingDefaultOptions.cshtml,['100']
